@@ -13,3 +13,4 @@ app/.flutter-plugins
 app/.flutter-plugins-dependencies
 backend/.venv/
 reference/.venv/
+vendor/muse-android/
