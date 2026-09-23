@@ -7,6 +7,17 @@ Uint8List encodeBatches(List<EegBatch> batches) => Uint8List.fromList(
   utf8.encode(jsonEncode([for (final batch in batches) batch.toJson()])),
 );
 
+Uint8List encodeSessionRaw(List<EegBatch> eeg, List<OpticsBatch> optics) {
+  return Uint8List.fromList(
+    utf8.encode(
+      jsonEncode({
+        'eeg': [for (final batch in eeg) batch.toJson()],
+        'optics': [for (final batch in optics) batch.toJson()],
+      }),
+    ),
+  );
+}
+
 List<EegBatch> decodeBatches(List<int> bytes) {
   final decoded = jsonDecode(utf8.decode(bytes)) as List<dynamic>;
   return [

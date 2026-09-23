@@ -6,5 +6,6 @@ export 'src/dsp/pipeline.dart';
 export 'src/dsp/welch.dart';
 export 'src/engine.dart';
 export 'src/models.dart';
+export 'src/optics.dart';
 export 'src/recording.dart';
 export 'src/sources.dart';

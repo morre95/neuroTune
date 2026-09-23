@@ -6,8 +6,8 @@ import 'package:crypto/crypto.dart';
 /// Embedded copy of `contracts/default_experiment.json`.
 const String defaultExperimentJson = '''
 {
-  "version": "2026.1",
-  "quality_version": "2026.1-sim",
+  "version": "2026.2",
+  "quality_version": "2026.2-unverified",
   "hardware_approved": false,
   "notch_hz": 50.0,
   "notch_q": 30.0,
@@ -45,7 +45,9 @@ const String defaultExperimentJson = '''
   "jump_uv": 150.0,
   "motion_accel_g": 0.3,
   "motion_gyro_dps": 40.0,
-  "gap_samples": 2
+  "gap_samples": 2,
+  "optics_flatline_std_ua": 0.0001,
+  "outer_nir_channels": ["OPTICS3", "OPTICS4"]
 }
 ''';
 
@@ -129,6 +131,8 @@ class ExperimentConfig {
     required this.motionAccelG,
     required this.motionGyroDps,
     required this.gapSamples,
+    required this.opticsFlatlineStdUa,
+    required this.outerNirChannels,
   });
 
   factory ExperimentConfig.defaults() => ExperimentConfig.fromJson(
@@ -180,6 +184,10 @@ class ExperimentConfig {
       motionAccelG: (json['motion_accel_g'] as num).toDouble(),
       motionGyroDps: (json['motion_gyro_dps'] as num).toDouble(),
       gapSamples: json['gap_samples'] as int,
+      opticsFlatlineStdUa: (json['optics_flatline_std_ua'] as num).toDouble(),
+      outerNirChannels: (json['outer_nir_channels'] as List<dynamic>)
+          .map((item) => '$item')
+          .toList(),
     );
   }
 
@@ -223,6 +231,12 @@ class ExperimentConfig {
   final double motionAccelG;
   final double motionGyroDps;
   final int gapSamples;
+
+  /// Standard deviation below which an outer-NIR hop is flat, in microamps.
+  final double opticsFlatlineStdUa;
+
+  /// LibMuse 8.0.9 names for 850 nm left and right outer optics.
+  final List<String> outerNirChannels;
 
   int samplesFor(double seconds, double sampleRateHz) =>
       (seconds * sampleRateHz).round();
@@ -268,6 +282,8 @@ class ExperimentConfig {
     'motion_accel_g': motionAccelG,
     'motion_gyro_dps': motionGyroDps,
     'gap_samples': gapSamples,
+    'optics_flatline_std_ua': opticsFlatlineStdUa,
+    'outer_nir_channels': outerNirChannels,
   };
 
   ExperimentConfig withProtocol({
@@ -284,8 +300,9 @@ class ExperimentConfig {
     if (blockCount != null) json['block_count'] = blockCount;
     if (soundSeconds != null) json['sound_seconds'] = soundSeconds;
     if (pauseSeconds != null) json['pause_seconds'] = pauseSeconds;
-    if (rewardTailSeconds != null)
+    if (rewardTailSeconds != null) {
       json['reward_tail_seconds'] = rewardTailSeconds;
+    }
     if (notchHz != null) json['notch_hz'] = notchHz;
     if (hardwareApproved != null) json['hardware_approved'] = hardwareApproved;
     return ExperimentConfig.fromJson(json);
@@ -355,6 +372,76 @@ class EegBatch {
   }
 }
 
+/// Raw optics. LibMuse 8.0.9 reports these values in microamps.
+class OpticsBatch {
+  OpticsBatch({
+    required this.channelNames,
+    required this.unit,
+    required this.sampleRateHz,
+    required this.timeSeconds,
+    required this.values,
+  });
+
+  final List<String> channelNames;
+  final String unit;
+  final double sampleRateHz;
+  final double timeSeconds;
+
+  /// Shaped `[channel][sample]`.
+  final List<List<double>> values;
+
+  int get sampleCount => values.isEmpty ? 0 : values.first.length;
+
+  Map<String, dynamic> toJson() => {
+    'channel_names': channelNames,
+    'unit': unit,
+    'sample_rate_hz': sampleRateHz,
+    'time_seconds': timeSeconds,
+    'values': values,
+  };
+
+  factory OpticsBatch.fromJson(Map<String, dynamic> json) {
+    return OpticsBatch(
+      channelNames: (json['channel_names'] as List<dynamic>)
+          .map((item) => '$item')
+          .toList(),
+      unit: json['unit'] as String,
+      sampleRateHz: (json['sample_rate_hz'] as num).toDouble(),
+      timeSeconds: (json['time_seconds'] as num).toDouble(),
+      values: _matrix(json['values']),
+    );
+  }
+}
+
+/// One-second mean of one optics channel.
+class OpticsFeature {
+  OpticsFeature({
+    required this.name,
+    required this.valid,
+    required this.intensity,
+    required this.reasons,
+  });
+
+  final String name;
+  final bool valid;
+  final double intensity;
+  final List<String> reasons;
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'valid': valid,
+    'intensity': intensity,
+    'reasons': reasons,
+  };
+
+  factory OpticsFeature.fromJson(Map<String, dynamic> json) => OpticsFeature(
+    name: json['name'] as String,
+    valid: json['valid'] as bool,
+    intensity: (json['intensity'] as num).toDouble(),
+    reasons: (json['reasons'] as List<dynamic>).map((item) => '$item').toList(),
+  );
+}
+
 class ChannelFeature {
   ChannelFeature({
     required this.name,
@@ -418,6 +505,7 @@ class FeatureFrame {
     required this.channels,
     required this.rejected,
     required this.reasons,
+    this.optics = const [],
   });
 
   final double timeSeconds;
@@ -425,6 +513,7 @@ class FeatureFrame {
   final List<ChannelFeature> channels;
   final bool rejected;
   final List<String> reasons;
+  final List<OpticsFeature> optics;
 
   bool channelValid(String name) {
     if (rejected) return false;
@@ -433,12 +522,30 @@ class FeatureFrame {
     return channel.first.valid;
   }
 
+  bool opticsValid(String name) {
+    final channel = optics.where((item) => item.name == name);
+    if (channel.isEmpty) return false;
+    return channel.first.valid;
+  }
+
+  FeatureFrame withOptics(List<OpticsFeature> optics) {
+    return FeatureFrame(
+      timeSeconds: timeSeconds,
+      sampleRateHz: sampleRateHz,
+      channels: channels,
+      rejected: rejected,
+      reasons: reasons,
+      optics: optics,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'time_seconds': timeSeconds,
     'sample_rate_hz': sampleRateHz,
     'channels': channels.map((channel) => channel.toJson()).toList(),
     'rejected': rejected,
     'reasons': reasons,
+    'optics': optics.map((channel) => channel.toJson()).toList(),
   };
 
   factory FeatureFrame.fromJson(Map<String, dynamic> json) => FeatureFrame(
@@ -450,6 +557,10 @@ class FeatureFrame {
     ],
     rejected: json['rejected'] as bool,
     reasons: (json['reasons'] as List<dynamic>).map((e) => '$e').toList(),
+    optics: [
+      for (final channel in json['optics'] as List<dynamic>? ?? const [])
+        OpticsFeature.fromJson(channel as Map<String, dynamic>),
+    ],
   );
 }
 
@@ -462,6 +573,7 @@ class DecisionEvent {
     required this.selectionProbability,
     required this.reward,
     required this.meanAbsoluteTheta,
+    this.meanOuterNir,
     required this.validFraction,
     required this.updatedBandit,
     required this.experimentVersion,
@@ -480,6 +592,9 @@ class DecisionEvent {
   final double selectionProbability;
   final double? reward;
   final double? meanAbsoluteTheta;
+
+  /// Mean raw outer-NIR intensity, in microamps, over the reward window.
+  final double? meanOuterNir;
   final double validFraction;
   final bool updatedBandit;
   final String experimentVersion;
@@ -498,6 +613,7 @@ class DecisionEvent {
     'selection_probability': selectionProbability,
     'reward': reward,
     'mean_absolute_theta': meanAbsoluteTheta,
+    'mean_outer_nir': meanOuterNir,
     'valid_fraction': validFraction,
     'updated_bandit': updatedBandit,
     'experiment_version': experimentVersion,
@@ -517,6 +633,7 @@ class DecisionEvent {
     selectionProbability: (json['selection_probability'] as num).toDouble(),
     reward: (json['reward'] as num?)?.toDouble(),
     meanAbsoluteTheta: (json['mean_absolute_theta'] as num?)?.toDouble(),
+    meanOuterNir: (json['mean_outer_nir'] as num?)?.toDouble(),
     validFraction: (json['valid_fraction'] as num).toDouble(),
     updatedBandit: json['updated_bandit'] as bool,
     experimentVersion: json['experiment_version'] as String,

@@ -123,6 +123,7 @@ SessionEngine _engine({SessionMode mode = SessionMode.personal}) {
 
 FeatureFrame _frame(double time, {bool valid = true, double? theta}) {
   final value = theta ?? (0.25 + 0.01 * sin(time));
+  final config = ExperimentConfig.defaults();
   return FeatureFrame(
     timeSeconds: time,
     sampleRateHz: 256,
@@ -141,6 +142,15 @@ FeatureFrame _frame(double time, {bool valid = true, double? theta}) {
           relativeAlpha: 0.2,
           relativeBeta: 0.1,
           totalPower: 30,
+          reasons: valid ? const [] : const ['saturation'],
+        ),
+    ],
+    optics: [
+      for (final name in config.outerNirChannels)
+        OpticsFeature(
+          name: name,
+          valid: valid,
+          intensity: value,
           reasons: valid ? const [] : const ['saturation'],
         ),
     ],

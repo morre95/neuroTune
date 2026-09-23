@@ -15,6 +15,14 @@
         "actions": {"type": "array", "items": {"type": "string"}}
       }
     },
+    "opticsBatch": {
+      "type": "object",
+      "required": ["channel_names", "unit", "sample_rate_hz", "time_seconds", "values"],
+      "properties": {
+        "unit": {"const": "uA"},
+        "sample_rate_hz": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
     "eegBatch": {
       "type": "object",
       "required": ["channel_names", "unit", "sample_rate_hz", "time_seconds", "eeg", "accel", "gyro", "contact"],

@@ -70,6 +70,8 @@ void main() {
             theta: '0.420',
             alpha: '0.210',
             beta: '0.080',
+            outerNir: '20.000',
+            nirZ: '0.500',
             quality: '4/4 kanaler',
             canContinue: false,
           ),
@@ -82,9 +84,11 @@ void main() {
     expect(find.text('Theta 0.420'), findsOneWidget);
     expect(find.text('Alpha 0.210'), findsOneWidget);
     expect(find.text('Beta 0.080'), findsOneWidget);
+    expect(find.text('Yttre NIR 20.000 µA'), findsOneWidget);
+    expect(find.text('NIR-z 0.500'), findsOneWidget);
     expect(find.text('Signalkvalitet 4/4 kanaler'), findsOneWidget);
     expect(find.text('Åtgärd: Binauralt 10 Hz'), findsOneWidget);
-    expect(find.textContaining('Inte ett mått på avslappning'), findsOneWidget);
+    expect(find.textContaining('Inte syresättning'), findsOneWidget);
   });
 
   testWidgets('playback steps to the next second', (tester) async {

@@ -9,6 +9,8 @@ class SessionView {
     required this.theta,
     required this.alpha,
     required this.beta,
+    required this.outerNir,
+    required this.nirZ,
     required this.quality,
     required this.canContinue,
   });
@@ -20,6 +22,8 @@ class SessionView {
   final String theta;
   final String alpha;
   final String beta;
+  final String outerNir;
+  final String nirZ;
   final String quality;
   final bool canContinue;
 }
@@ -55,10 +59,15 @@ class SessionPage extends StatelessWidget {
           Text('Theta ${view.theta}'),
           Text('Alpha ${view.alpha}'),
           Text('Beta ${view.beta}'),
+          Text('Yttre NIR ${view.outerNir} µA'),
+          Text('NIR-z ${view.nirZ}'),
           Text('Signalkvalitet ${view.quality}'),
           const SizedBox(height: 16),
           const Text(
-            'Spektrala mått. Inte ett mått på avslappning, fokus eller behandling.',
+            'Belöningen är z-score av rå yttre NIR, 850 nm. Inte syresättning, avslappning, fokus eller behandling.',
+          ),
+          const Text(
+            'Theta, alpha och beta visas som spektrala mått och uppdaterar inte banditen.',
           ),
           const SizedBox(height: 24),
           if (view.canContinue)

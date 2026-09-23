@@ -1,6 +1,6 @@
 {
-  "version": "2026.1",
-  "quality_version": "2026.1-sim",
+  "version": "2026.2",
+  "quality_version": "2026.2-unverified",
   "hardware_approved": false,
   "notch_hz": 50.0,
   "notch_q": 30.0,
@@ -38,5 +38,7 @@
   "jump_uv": 150.0,
   "motion_accel_g": 0.3,
   "motion_gyro_dps": 40.0,
-  "gap_samples": 2
+  "gap_samples": 2,
+  "optics_flatline_std_ua": 0.0001,
+  "outer_nir_channels": ["OPTICS3", "OPTICS4"]
 }

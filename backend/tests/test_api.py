@@ -38,7 +38,7 @@ def upload(token: str, session_id: str, raw: bytes = b"eeg-bytes", reward: float
     body = {
         "manifest": {
             "session_id": session_id,
-            "experiment_version": "2026.1",
+            "experiment_version": "2026.2",
             "policy_version": "0",
             "data_origin": "simulator",
             "timeline": "monotonic_session_seconds",
@@ -64,7 +64,7 @@ def post_session(token: str, session_id: str, raw: bytes = b"eeg-bytes", reward:
     body = {
         "manifest": {
             "session_id": session_id,
-            "experiment_version": "2026.1",
+            "experiment_version": "2026.2",
             "policy_version": "0",
             "data_origin": "simulator",
             "timeline": "monotonic_session_seconds",
@@ -89,7 +89,7 @@ def test_register_login_refresh_logout():
     tokens = register("person@example.com")
     me = client.get("/v1/experiments/active", headers=auth(tokens["access_token"]))
     assert me.status_code == 200
-    assert me.json()["version"] == "2026.1"
+    assert me.json()["version"] == "2026.2"
     refreshed = client.post("/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert refreshed.status_code == 200
     old = client.post("/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
@@ -133,7 +133,7 @@ def test_training_builds_a_personal_policy_once():
     post_session(tokens["access_token"], "session-train", reward=1.0)
     job = client.post(
         "/v1/training/jobs",
-        json={"origin": "simulator", "experiment_version": "2026.1"},
+        json={"origin": "simulator", "experiment_version": "2026.2"},
         headers=auth(tokens["access_token"]),
     )
     assert job.status_code == 200
@@ -146,7 +146,7 @@ def test_training_builds_a_personal_policy_once():
     assert done.json()["status"] == "done"
     policy = client.get(
         "/v1/bandit/latest",
-        params={"origin": "simulator", "experiment_version": "2026.1"},
+        params={"origin": "simulator", "experiment_version": "2026.2"},
         headers=auth(tokens["access_token"]),
     )
     body = policy.json()
@@ -154,7 +154,7 @@ def test_training_builds_a_personal_policy_once():
     assert body["actions"]["binaural_10"]["n"] == 1
     other = client.get(
         "/v1/bandit/latest",
-        params={"origin": "simulator", "experiment_version": "2026.1"},
+        params={"origin": "simulator", "experiment_version": "2026.2"},
         headers=auth(register("other@example.com")["access_token"]),
     )
     assert other.json()["policy_version"] == "0"

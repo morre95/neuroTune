@@ -4,6 +4,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val museSdk = rootProject.projectDir.resolve("../../vendor/muse-android/libmuse_android_8.0.9")
+
 android {
     namespace = "dev.neurotune.neurotune"
     compileSdk = flutter.compileSdkVersion
@@ -25,6 +27,10 @@ android {
         versionName = flutter.versionName
     }
 
+    sourceSets.getByName("main") {
+        jniLibs.srcDir(museSdk.resolve("libs"))
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
@@ -42,4 +48,8 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation(files(museSdk.resolve("libs/libmuse_android.jar")))
 }

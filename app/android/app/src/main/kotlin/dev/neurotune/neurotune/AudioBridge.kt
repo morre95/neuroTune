@@ -120,23 +120,3 @@ class AudioBridge(private val activity: FlutterActivity) : EventChannel.StreamHa
     }
 }
 
-class MuseBridge {
-    fun register(messenger: BinaryMessenger) {
-        val message = "Hårdvaruläget är inte verifierat. Fysisk Muse S Athena och SDK krävs."
-        MethodChannel(messenger, "dev.neurotune/muse").setMethodCallHandler { call, result ->
-            when (call.method) {
-                "start", "stop", "setNotch" -> result.error("HARDWARE_NOT_VERIFIED", message, null)
-                else -> result.notImplemented()
-            }
-        }
-        EventChannel(messenger, "dev.neurotune/muse_batches").setStreamHandler(
-            object : EventChannel.StreamHandler {
-                override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
-                    events.error("HARDWARE_NOT_VERIFIED", message, null)
-                }
-
-                override fun onCancel(arguments: Any?) = Unit
-            },
-        )
-    }
-}

@@ -72,10 +72,15 @@ void main() {
       sampleRateHz: 256,
       channelNames: simulatorChannels,
     );
+    final optics = OpticsAccumulator();
     var steps = 0;
     while (!engine.terminal && source.clock < 40 && steps < 100000) {
       source.action = engine.currentAction;
-      for (final frame in pipeline.addBatch(source.pull())) {
+      for (final frame in pullFrames(
+        source: source,
+        pipeline: pipeline,
+        optics: optics,
+      )) {
         engine.onFrame(frame);
       }
       steps += 1;
@@ -129,10 +134,15 @@ void main() {
         sampleRateHz: 256,
         channelNames: simulatorChannels,
       );
+      final optics = OpticsAccumulator();
       var steps = 0;
       while (!engine.terminal && source.clock < 120 && steps < 200000) {
         source.action = engine.currentAction;
-        for (final frame in pipeline.addBatch(source.pull())) {
+        for (final frame in pullFrames(
+          source: source,
+          pipeline: pipeline,
+          optics: optics,
+        )) {
           engine.onFrame(frame);
         }
         steps += 1;
@@ -175,6 +185,42 @@ void main() {
     final emitted = playback.batches.take(2).toList();
     await playback.start();
     expect(await emitted, hasLength(2));
+  });
+
+  test('a gappy or saturated outer-NIR hop is not a reward sample', () {
+    final config = ExperimentConfig.defaults();
+    final gap = OpticsAccumulator();
+    gap.addBatch(
+      OpticsBatch(
+        channelNames: config.outerNirChannels,
+        unit: 'uA',
+        sampleRateHz: 64,
+        timeSeconds: 0,
+        values: [
+          for (final _ in config.outerNirChannels) List<double>.filled(8, 20),
+        ],
+      ),
+    );
+    final gappy = gap.consumeUntil(1, config, motion: false);
+    expect(gappy.every((feature) => !feature.valid), isTrue);
+    expect(gappy.first.reasons, contains('gap'));
+
+    final saturated = OpticsAccumulator();
+    saturated.addBatch(
+      OpticsBatch(
+        channelNames: config.outerNirChannels,
+        unit: 'uA',
+        sampleRateHz: 64,
+        timeSeconds: 0,
+        values: [
+          for (final _ in config.outerNirChannels)
+            List<double>.filled(64, double.infinity),
+        ],
+      ),
+    );
+    final full = saturated.consumeUntil(1, config, motion: false);
+    expect(full.every((feature) => !feature.valid), isTrue);
+    expect(full.first.reasons, contains('saturation'));
   });
 
   test('Muse stays unavailable until hardware is approved', () async {

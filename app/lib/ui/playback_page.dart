@@ -40,6 +40,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
           Text('Theta ${_mean(frame, (channel) => channel.relativeTheta)}'),
           Text('Alpha ${_mean(frame, (channel) => channel.relativeAlpha)}'),
           Text('Beta ${_mean(frame, (channel) => channel.relativeBeta)}'),
+          Text('Yttre NIR ${_outerNir(frame)} µA'),
           Text('Signalkvalitet $valid/$total kanaler'),
           if (decision?.reward != null)
             Text('Belöning ${decision!.reward!.toStringAsFixed(2)}'),
@@ -62,6 +63,15 @@ class _PlaybackPageState extends State<PlaybackPage> {
       if (decision.startedAtSeconds <= time) current = decision;
     }
     return current;
+  }
+
+  String _outerNir(FeatureFrame? frame) {
+    final valid = frame?.optics.where((item) => item.valid).toList() ?? [];
+    if (valid.isEmpty) return '-';
+    final value =
+        valid.map((item) => item.intensity).reduce((a, b) => a + b) /
+        valid.length;
+    return value.toStringAsFixed(3);
   }
 
   String _mean(

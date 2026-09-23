@@ -42,9 +42,14 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   double? latencyMs;
 
   final List<EegBatch> _raw = [];
+  final List<OpticsBatch> _opticsRaw = [];
+  final OpticsAccumulator _optics = OpticsAccumulator();
   SimulatorSource? _source;
+  MuseChannel? _muse;
   DspHost? _dsp;
   StreamSubscription<EegBatch>? _batches;
+  StreamSubscription<OpticsBatch>? _opticsSub;
+  StreamSubscription<void>? _lost;
   StreamSubscription<FeatureFrame>? _frames;
   StreamSubscription<bool>? _audioStatus;
   Timer? _audioTimer;
@@ -52,7 +57,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   var _finishing = false;
   var _closed = false;
 
-  Future<bool> start() async {
+  Future<bool> start({MuseChannel? muse}) async {
     if (!await audio.hasStereoOutput()) {
       error = 'Sessionen kräver stereohörlurar.';
       notifyListeners();
@@ -60,11 +65,18 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     }
     WidgetsBinding.instance.addObserver(this);
     final seed = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
-    _source = SimulatorSource(
-      config: config,
-      sampleRateHz: sampleRateHz,
-      seed: seed,
-    );
+    final channelNames = muse == null
+        ? simulatorChannels
+        : const ['EEG1', 'EEG2', 'EEG3', 'EEG4'];
+    if (muse == null) {
+      _source = SimulatorSource(
+        config: config,
+        sampleRateHz: sampleRateHz,
+        seed: seed,
+      );
+    } else {
+      _muse = muse;
+    }
     engine = SessionEngine(
       config: config,
       snapshot: snapshot,
@@ -73,20 +85,39 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
       mode: mode,
       eyeState: eyeState,
       sampleRateHz: sampleRateHz,
-      channelNames: _source!.channels,
+      channelNames: channelNames,
       seed: seed,
       startedAt: DateTime.now().toUtc(),
     );
     _dsp = await DspHost.start(
       config: config,
       sampleRateHz: sampleRateHz,
-      channelNames: _source!.channels,
+      channelNames: channelNames,
     );
     _frames = _dsp!.frames.listen(_onFrame);
-    _batches = _source!.batches.listen((batch) {
-      _raw.add(batch);
-      _dsp?.addBatch(batch);
-    });
+    if (_source != null) {
+      _batches = _source!.batches.listen((batch) {
+        _raw.add(batch);
+        final optics = _source!.lastOptics;
+        if (optics != null) {
+          _opticsRaw.add(optics);
+          _optics.addBatch(optics);
+        }
+        _dsp?.addBatch(batch);
+      });
+    } else {
+      _batches = _muse!.eeg.listen((batch) {
+        _raw.add(batch);
+        _dsp?.addBatch(batch);
+      });
+      _opticsSub = _muse!.optics.listen((batch) {
+        _opticsRaw.add(batch);
+        _optics.addBatch(batch);
+      });
+      _lost = _muse!.disconnected.listen((_) {
+        interrupt(StopReason.sourceDisconnected);
+      });
+    }
     _synth = BinauralSynth(
       sampleRateHz: config.audioSampleRateHz.toDouble(),
       carrierHz: config.carrierHz,
@@ -101,7 +132,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     _audioStatus = audio.stereoConnected.listen((connected) {
       if (!connected) interrupt(StopReason.audioLost);
     });
-    _source!.start();
+    _source?.start();
     notifyListeners();
     return true;
   }
@@ -110,13 +141,15 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     final current = engine;
     final frame = latest;
     final selected = current?.selectedChannels ?? const <String>[];
-    final channels = [
-      for (final channel in frame?.channels ?? const <ChannelFeature>[])
-        if (selected.isEmpty || selected.contains(channel.name)) channel,
-    ];
+    final channels = frame?.channels ?? const <ChannelFeature>[];
     final valid = channels
         .where((channel) => channel.valid && frame?.rejected != true)
         .length;
+    final names = selected.isEmpty ? config.outerNirChannels : selected;
+    final nir = _outerNir(frame, names);
+    final nirZ = nir == null || current == null || current.baselineStd == 0
+        ? null
+        : (nir - current.baselineMean) / current.baselineStd;
     return SessionView(
       message: error ?? current?.message ?? 'Startar session.',
       phase: current?.phase.name ?? 'start',
@@ -125,6 +158,8 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
       theta: _mean(channels, (channel) => channel.relativeTheta),
       alpha: _mean(channels, (channel) => channel.relativeAlpha),
       beta: _mean(channels, (channel) => channel.relativeBeta),
+      outerNir: nir == null ? '-' : nir.toStringAsFixed(3),
+      nirZ: nirZ == null ? '-' : nirZ.toStringAsFixed(3),
       quality: frame == null ? '-' : '$valid/${channels.length} kanaler',
       canContinue: waitingForUser,
     );
@@ -162,6 +197,17 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  double? _outerNir(FeatureFrame? frame, List<String> selected) {
+    if (frame == null || selected.isEmpty) return null;
+    final values = <double>[];
+    for (final name in selected) {
+      final reading = frame.optics.where((channel) => channel.name == name);
+      if (reading.isEmpty || !reading.first.valid) return null;
+      values.add(reading.first.intensity);
+    }
+    return values.reduce((a, b) => a + b) / values.length;
+  }
+
   Future<void> finish() async {
     if (_finishing || _closed) return;
     _finishing = true;
@@ -171,6 +217,8 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     }
     _pauseOutputs();
     if (current != null) await _persist(current);
+    await _muse?.stop();
+    _muse = null;
     saved = true;
     if (!_closed) notifyListeners();
   }
@@ -192,6 +240,9 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     _pauseOutputs();
     _frames?.cancel();
     _batches?.cancel();
+    _opticsSub?.cancel();
+    _lost?.cancel();
+    _muse?.stop();
     _audioStatus?.cancel();
     _dsp?.close();
     super.dispose();
@@ -200,9 +251,16 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   void _onFrame(FeatureFrame frame) {
     final current = engine;
     if (current == null || _closed || _finishing) return;
-    current.onFrame(frame);
+    final scored = frame.withOptics(
+      _optics.consumeUntil(
+        frame.timeSeconds,
+        config,
+        motion: frame.reasons.contains('motion'),
+      ),
+    );
+    current.onFrame(scored);
     _synth?.setAction(current.currentAction);
-    latest = frame;
+    latest = scored;
     if (current.terminal) {
       finish();
     } else if (!_closed) {
@@ -226,7 +284,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _persist(SessionEngine current) async {
-    final raw = encodeBatches(_raw);
+    final raw = encodeSessionRaw(_raw, _opticsRaw);
     final checksum = sha256Hex(raw);
     final manifest = current.manifest(
       audioLatencyMs: latencyMs,

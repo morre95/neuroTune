@@ -158,11 +158,12 @@ class SessionEngine {
 
   void _finishBaseline() {
     final selected = <String>[];
-    for (final name in channelNames) {
+    for (final name in config.outerNirChannels) {
       if (_baseline.isEmpty) continue;
-      final valid = _baseline.where((frame) => frame.channelValid(name)).length;
-      if (valid / _baseline.length >= config.minBaselineValidFraction)
+      final valid = _baseline.where((frame) => frame.opticsValid(name)).length;
+      if (valid / _baseline.length >= config.minBaselineValidFraction) {
         selected.add(name);
+      }
     }
     if (selected.length < config.minChannels) {
       _stop(
@@ -259,6 +260,7 @@ class SessionEngine {
     final fraction = validFrames.length / expected;
     double? reward;
     double? absolute;
+    double? outerNir;
     var updated = false;
     if (!aborted && fraction >= config.minValidFraction) {
       final scores = [
@@ -268,9 +270,14 @@ class SessionEngine {
       reward = meanOf(
         scores,
       ).clamp(-config.rewardClip, config.rewardClip).toDouble();
-      absolute = meanOf([
-        for (final frame in validFrames) _absoluteTheta(frame)!,
+      outerNir = meanOf([
+        for (final frame in validFrames) _aggregate(frame, selectedChannels)!,
       ]);
+      final theta = [
+        for (final frame in validFrames)
+          if (_absoluteTheta(frame) != null) _absoluteTheta(frame)!,
+      ];
+      absolute = theta.isEmpty ? null : meanOf(theta);
       if (mode == SessionMode.personal) {
         policy.observe(_pendingChoice!.action, reward);
         updated = true;
@@ -288,6 +295,7 @@ class SessionEngine {
         selectionProbability: _pendingChoice!.probability,
         reward: reward,
         meanAbsoluteTheta: absolute,
+        meanOuterNir: outerNir,
         validFraction: fraction,
         updatedBandit: updated,
         experimentVersion: config.version,
@@ -325,12 +333,9 @@ class SessionEngine {
     if (channels.isEmpty) return null;
     final values = <double>[];
     for (final name in channels) {
-      if (!frame.channelValid(name)) return null;
-      values.add(
-        frame.channels
-            .firstWhere((channel) => channel.name == name)
-            .relativeTheta,
-      );
+      final reading = frame.optics.where((channel) => channel.name == name);
+      if (reading.isEmpty || !reading.first.valid) return null;
+      values.add(reading.first.intensity);
     }
     return meanOf(values);
   }

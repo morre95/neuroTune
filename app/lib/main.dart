@@ -67,6 +67,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   EegBatch? _contactBatch;
   SimulatorSource? _preview;
   StreamSubscription<EegBatch>? _previewSub;
+  StreamSubscription<EegBatch>? _musePreview;
+  var _usingMuse = false;
   SessionController? _session;
   List<SavedSession> _history = [];
   SavedSession? _playback;
@@ -156,6 +158,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   void _openContact() {
+    _usingMuse = false;
     _preview?.stop();
     _previewSub?.cancel();
     _preview = SimulatorSource(config: _config, sampleRateHz: 256, seed: 1);
@@ -167,8 +170,13 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _startSession() async {
-    await _preview?.stop();
-    await _previewSub?.cancel();
+    if (_usingMuse) {
+      await _musePreview?.cancel();
+      _musePreview = null;
+    } else {
+      await _preview?.stop();
+      await _previewSub?.cancel();
+    }
     await _refreshRemote();
     final controller = SessionController(
       repository: _repository,
@@ -178,10 +186,13 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       snapshot: _snapshot!,
       mode: _mode,
       eyeState: _eyes,
-      origin: DataOrigin.simulator,
+      origin: _usingMuse ? DataOrigin.muse : DataOrigin.simulator,
     );
-    final started = await controller.start();
+    final started = await controller.start(
+      muse: _usingMuse ? widget.muse : null,
+    );
     if (!started) {
+      if (_usingMuse) _listenToMuse();
       setState(() => _error = controller.error);
       controller.dispose();
       return;
@@ -196,12 +207,32 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     });
   }
 
+  void _listenToMuse() {
+    _musePreview = widget.muse.eeg.listen((batch) {
+      if (mounted) setState(() => _contactBatch = batch);
+    });
+  }
+
   Future<void> _muse() async {
+    _usingMuse = true;
+    await _preview?.stop();
+    await _previewSub?.cancel();
+    setState(() => _error = 'Söker efter Muse S Athena.');
     try {
+      await _musePreview?.cancel();
+      _listenToMuse();
       await widget.muse.start();
+      if (!mounted) return;
+      setState(() {
+        _error = null;
+        _contactBatch = null;
+        _screen = _Screen.contact;
+      });
     } on PlatformException catch (error) {
+      _usingMuse = false;
       setState(() => _error = error.message ?? 'Muse är inte tillgänglig.');
     } catch (error) {
+      _usingMuse = false;
       setState(() => _error = '$error');
     }
   }
@@ -254,10 +285,23 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       ),
       _Screen.contact => ContactPage(
         batch: _contactBatch,
+        note: _usingMuse
+            ? 'Kvalitetsgränserna är inte verifierade mot en inspelning från Athena.'
+            : null,
+        error: _error,
         onStart: _startSession,
         onBack: () {
-          _preview?.stop();
-          setState(() => _screen = _Screen.home);
+          if (_usingMuse) {
+            _musePreview?.cancel();
+            widget.muse.stop();
+            _usingMuse = false;
+          } else {
+            _preview?.stop();
+          }
+          setState(() {
+            _error = null;
+            _screen = _Screen.home;
+          });
         },
       ),
       _Screen.session => SessionPage(

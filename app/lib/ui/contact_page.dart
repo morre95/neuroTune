@@ -7,11 +7,15 @@ class ContactPage extends StatelessWidget {
     required this.batch,
     required this.onStart,
     required this.onBack,
+    this.note,
+    this.error,
   });
 
   final EegBatch? batch;
   final VoidCallback onStart;
   final VoidCallback onBack;
+  final String? note;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +28,14 @@ class ContactPage extends StatelessWidget {
           const Text(
             'Kontrollera att signalen är stabil innan baslinjen. Samma ögonläge gäller hela sessionen.',
           ),
+          if (note != null) ...[
+            const SizedBox(height: 12),
+            Text(note!),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 12),
+            Text(error!),
+          ],
           const SizedBox(height: 16),
           for (var index = 0; index < names.length; index++)
             ListTile(

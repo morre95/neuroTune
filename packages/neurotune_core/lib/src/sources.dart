@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'dsp/pipeline.dart';
 import 'models.dart';
+import 'optics.dart';
 
 enum SimulatorScenario {
   clean,
@@ -25,6 +27,7 @@ class SimulatorSource {
     this.channels = simulatorChannels,
     this.chunkSamples = 128,
     this.corruptAfterSeconds,
+    this.opticsSampleRateHz = 64,
   }) : random = Random(seed);
 
   final ExperimentConfig config;
@@ -34,7 +37,11 @@ class SimulatorSource {
   final List<String> channels;
   final int chunkSamples;
   final double? corruptAfterSeconds;
+
+  /// LibMuse preset 1034 optics rate. The EEG rate stays on [sampleRateHz].
+  final double opticsSampleRateHz;
   final Random random;
+  OpticsBatch? lastOptics;
 
   StimulusAction? action;
   double clock = 0;
@@ -66,9 +73,46 @@ class SimulatorSource {
       clock += 0.5;
       _gapInserted = true;
     }
+    final start = clock;
     final batch = _synthesize(count);
-    clock += count / sampleRateHz;
+    final duration = count / sampleRateHz;
+    lastOptics = _optics(start, duration);
+    clock += duration;
     return batch;
+  }
+
+  OpticsBatch _optics(double start, double duration) {
+    final count = max(1, (duration * opticsSampleRateHz).round());
+    final names = config.outerNirChannels;
+    final values = [
+      for (final _ in names) List<double>.filled(count, 0),
+    ];
+    for (var sample = 0; sample < count; sample++) {
+      final time = start + sample / opticsSampleRateHz;
+      final level = _opticsLevel(time);
+      for (var channel = 0; channel < names.length; channel++) {
+        values[channel][sample] = level;
+      }
+    }
+    return OpticsBatch(
+      channelNames: names,
+      unit: 'uA',
+      sampleRateHz: opticsSampleRateHz,
+      timeSeconds: start,
+      values: values,
+    );
+  }
+
+  double _opticsLevel(double time) {
+    if (corruptAfterSeconds != null && time >= corruptAfterSeconds!) {
+      return double.infinity;
+    }
+    var level = 20 + 0.2 * sin(2 * pi * 0.1 * time);
+    if (scenario == SimulatorScenario.response &&
+        action == StimulusAction.binaural10) {
+      level += 8;
+    }
+    return level;
   }
 
   EegBatch _synthesize(int count) {
@@ -106,8 +150,9 @@ class SimulatorSource {
   }
 
   double _sample(int channel, double time) {
-    if (corruptAfterSeconds != null && time >= corruptAfterSeconds!)
+    if (corruptAfterSeconds != null && time >= corruptAfterSeconds!) {
       return 2000;
+    }
     switch (scenario) {
       case SimulatorScenario.tones:
         const tones = [6.0, 10.0, 20.0, 16.0];
@@ -135,6 +180,26 @@ class SimulatorSource {
     final u2 = random.nextDouble();
     return sqrt(-2 * log(u1)) * cos(2 * pi * u2);
   }
+}
+
+List<FeatureFrame> pullFrames({
+  required SimulatorSource source,
+  required DspPipeline pipeline,
+  required OpticsAccumulator optics,
+}) {
+  final batch = source.pull();
+  final opticsBatch = source.lastOptics;
+  if (opticsBatch != null) optics.addBatch(opticsBatch);
+  return [
+    for (final frame in pipeline.addBatch(batch))
+      frame.withOptics(
+        optics.consumeUntil(
+          frame.timeSeconds,
+          source.config,
+          motion: frame.reasons.contains('motion'),
+        ),
+      ),
+  ];
 }
 
 class PlaybackSource {
