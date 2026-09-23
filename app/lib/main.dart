@@ -129,10 +129,18 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         _error = null;
         _screen = _Screen.home;
       });
+    } on ApiException catch (error) {
+      final message = switch (error.status) {
+        401 => 'Fel e-post eller lösenord. Registrera kontot först.',
+        409 => 'E-postadressen är redan registrerad. Logga in i stället.',
+        422 => 'Lösenordet måste vara minst 8 tecken.',
+        _ => 'Servern svarade inte som väntat (${error.status}).',
+      };
+      setState(() => _error = message);
     } catch (_) {
       setState(
         () => _error =
-            'Inloggningen misslyckades. Kontrollera kontot och att servern är igång.',
+            'Servern nås inte. API:t ska köra på http://10.0.2.2:8000 från emulatorn.',
       );
     }
   }
