@@ -39,6 +39,15 @@ flutter run --dart-define=API_BASE=http://192.168.1.10:8000
 
 Byt `192.168.1.10` mot datorns LAN-adress. Skapa konto i appen, välj ögonläge och starta antingen simulatorn eller Muse. Simulatorn räcker för att köra hela flödet utan headset.
 
+Om `flutter run` bygger APK:n men installationen avbryts med `INSTALL_FAILED_INSUFFICIENT_STORAGE` är emulatorns datapartition nästan full. Android håller ungefär 500 MB i reserv och vägrar då installationen även när APK:n får plats i det som återstår. Sänk reserven på den körande emulatorn och kör `flutter run` igen:
+
+```bash
+adb shell settings put global sys_storage_threshold_percentage 1
+adb shell settings put global sys_storage_threshold_max_bytes 52428800
+```
+
+Inställningen ligger kvar tills emulatorns data återställs. Pixel 7 Pro-avd:n i det här projektet har `disk.dataPartition.size=6G`. När ledigt utrymme tar slut igen, förstora partitionen eller avinstallera appar du inte använder.
+
 Installera en APK:
 
 ```bash
