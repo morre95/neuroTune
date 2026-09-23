@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurotune.dev/contracts/models.schema.json",
+  "title": "neuroTune contracts",
+  "description": "Shared contracts. Band edges are half-open: low <= f < high. Session time is monotonic seconds from session start. audio_latency_ms is the AudioTrack buffer delay, not measured ear latency.",
+  "$defs": {
+    "experimentConfig": {
+      "type": "object",
+      "required": ["version", "quality_version", "hardware_approved", "epsilon", "actions", "baseline_seconds", "block_count"],
+      "properties": {
+        "version": {"type": "string"},
+        "quality_version": {"type": "string"},
+        "hardware_approved": {"type": "boolean"},
+        "epsilon": {"type": "number"},
+        "actions": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "eegBatch": {
+      "type": "object",
+      "required": ["channel_names", "unit", "sample_rate_hz", "time_seconds", "eeg", "accel", "gyro", "contact"],
+      "properties": {
+        "unit": {"const": "uV"},
+        "sample_rate_hz": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "featureFrame": {
+      "type": "object",
+      "required": ["time_seconds", "sample_rate_hz", "channels", "rejected", "reasons"]
+    },
+    "decisionEvent": {
+      "type": "object",
+      "required": ["session_id", "action", "selection_probability", "updated_bandit", "experiment_version", "policy_version", "aborted"]
+    },
+    "sessionManifest": {
+      "type": "object",
+      "required": ["session_id", "experiment_version", "policy_version", "data_origin", "timeline", "sample_rate_hz"],
+      "properties": {
+        "timeline": {"const": "monotonic_session_seconds"},
+        "audio_latency_source": {"const": "audiotrack_buffer_frames"}
+      }
+    },
+    "banditSnapshot": {
+      "type": "object",
+      "required": ["policy_version", "experiment_version", "data_origin", "epsilon", "actions", "included_session_ids"]
+    }
+  }
+}

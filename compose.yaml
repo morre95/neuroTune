@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: neurotune
+      POSTGRES_PASSWORD: neurotune
+      POSTGRES_DB: neurotune
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neurotune"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://neurotune:neurotune@db:5432/neurotune
+      JWT_SECRET: dev-only-change-me
+      RAW_DATA_DIR: /data/raw
+      CONTRACTS_PATH: /srv/contracts/default_experiment.json
+    ports:
+      - "8000:8000"
+    volumes:
+      - raw:/data/raw
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["sh", "-c", "python -m app.wait_for_db && python -m app.worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://neurotune:neurotune@db:5432/neurotune
+      JWT_SECRET: dev-only-change-me
+      RAW_DATA_DIR: /data/raw
+      CONTRACTS_PATH: /srv/contracts/default_experiment.json
+    volumes:
+      - raw:/data/raw
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  raw:

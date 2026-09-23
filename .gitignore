@@ -1,0 +1,15 @@
+.dart_tool/
+.packages
+build/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+*.db
+.idea/
+*.iml
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+backend/.venv/
+reference/.venv/

@@ -1,0 +1,13 @@
+fastapi>=0.116
+uvicorn[standard]>=0.35
+sqlalchemy>=2.0
+psycopg[binary]>=3.2
+alembic>=1.16
+pwdlib[argon2]>=0.3
+pyjwt>=2.10
+pydantic-settings>=2.10
+email-validator>=2.2
+
+[dev]
+pytest>=8.4
+httpx>=0.28
