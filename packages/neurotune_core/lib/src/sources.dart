@@ -3,7 +3,15 @@ import 'dart:math';
 
 import 'models.dart';
 
-enum SimulatorScenario { clean, tones, gaps, saturation, motion, flatline, response }
+enum SimulatorScenario {
+  clean,
+  tones,
+  gaps,
+  saturation,
+  motion,
+  flatline,
+  response,
+}
 
 /// Names used by the simulator. A Muse source must report the names from the SDK instead.
 const simulatorChannels = ['TP9', 'AF7', 'AF8', 'TP10'];
@@ -38,7 +46,9 @@ class SimulatorSource {
 
   void start({Duration? interval}) {
     _timer?.cancel();
-    final period = interval ?? Duration(milliseconds: (chunkSamples / sampleRateHz * 1000).round());
+    final period =
+        interval ??
+        Duration(milliseconds: (chunkSamples / sampleRateHz * 1000).round());
     _timer = Timer.periodic(period, (_) {
       if (_batches.isClosed) return;
       _batches.add(pull());
@@ -65,7 +75,10 @@ class SimulatorSource {
     final eeg = [for (final _ in channels) List<double>.filled(count, 0)];
     final accel = List.generate(count, (_) => [0.0, 0.0, 1.0]);
     final gyro = List.generate(count, (_) => [0.0, 0.0, 0.0]);
-    final contact = List.generate(count, (_) => List<int>.filled(channels.length, 1));
+    final contact = List.generate(
+      count,
+      (_) => List<int>.filled(channels.length, 1),
+    );
     for (var sample = 0; sample < count; sample++) {
       final time = clock + sample / sampleRateHz;
       for (var channel = 0; channel < channels.length; channel++) {
@@ -93,7 +106,8 @@ class SimulatorSource {
   }
 
   double _sample(int channel, double time) {
-    if (corruptAfterSeconds != null && time >= corruptAfterSeconds!) return 2000;
+    if (corruptAfterSeconds != null && time >= corruptAfterSeconds!)
+      return 2000;
     switch (scenario) {
       case SimulatorScenario.tones:
         const tones = [6.0, 10.0, 20.0, 16.0];

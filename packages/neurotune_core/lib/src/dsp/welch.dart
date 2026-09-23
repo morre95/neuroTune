@@ -41,7 +41,8 @@ Spectrum welchPsd({
     }
     final transformed = rfft(real);
     for (var bin = 0; bin < bins; bin++) {
-      var power = transformed.real[bin] * transformed.real[bin] +
+      var power =
+          transformed.real[bin] * transformed.real[bin] +
           transformed.imag[bin] * transformed.imag[bin];
       power *= scale;
       final edge = bin == 0 || bin == bins - 1;

@@ -18,11 +18,11 @@ class SessionEngine {
     required this.startedAt,
     Random? random,
   }) : policy = EpsilonPolicy(
-          epsilon: snapshot.epsilon,
-          random: random ?? Random(seed),
-          stats: snapshot.actions,
-        ),
-        policyVersion = snapshot.policyVersion {
+         epsilon: snapshot.epsilon,
+         random: random ?? Random(seed),
+         stats: snapshot.actions,
+       ),
+       policyVersion = snapshot.policyVersion {
     if (mode == SessionMode.personal) {
       _warmup = [...StimulusAction.values]..shuffle(policy.random);
     }
@@ -64,7 +64,8 @@ class SessionEngine {
   double _lastTime = 0;
   bool _blockAborted = false;
 
-  bool get terminal => phase == SessionPhase.completed || phase == SessionPhase.stopped;
+  bool get terminal =>
+      phase == SessionPhase.completed || phase == SessionPhase.stopped;
 
   void onFrame(FeatureFrame frame) {
     if (terminal) return;
@@ -117,16 +118,16 @@ class SessionEngine {
   }
 
   LocalSessionRewards get localRewards => LocalSessionRewards(
-        sessionId: sessionId,
-        origin: origin,
-        experimentVersion: config.version,
-        personal: mode == SessionMode.personal,
-        rewards: [
-          for (final decision in decisions)
-            if (decision.updatedBandit && decision.reward != null)
-              LocalReward(StimulusAction.byId(decision.action), decision.reward!),
-        ],
-      );
+    sessionId: sessionId,
+    origin: origin,
+    experimentVersion: config.version,
+    personal: mode == SessionMode.personal,
+    rewards: [
+      for (final decision in decisions)
+        if (decision.updatedBandit && decision.reward != null)
+          LocalReward(StimulusAction.byId(decision.action), decision.reward!),
+    ],
+  );
 
   void _step(FeatureFrame frame) {
     switch (phase) {
@@ -160,10 +161,14 @@ class SessionEngine {
     for (final name in channelNames) {
       if (_baseline.isEmpty) continue;
       final valid = _baseline.where((frame) => frame.channelValid(name)).length;
-      if (valid / _baseline.length >= config.minBaselineValidFraction) selected.add(name);
+      if (valid / _baseline.length >= config.minBaselineValidFraction)
+        selected.add(name);
     }
     if (selected.length < config.minChannels) {
-      _stop(StopReason.baselineFailed, 'För få godkända kanaler. Gör om baslinjen.');
+      _stop(
+        StopReason.baselineFailed,
+        'För få godkända kanaler. Gör om baslinjen.',
+      );
       return;
     }
     final values = <double>[];
@@ -171,13 +176,17 @@ class SessionEngine {
       final sample = _aggregate(frame, selected);
       if (sample != null) values.add(sample);
     }
-    if (values.length < 2 || values.length / _baseline.length < config.minBaselineValidFraction) {
+    if (values.length < 2 ||
+        values.length / _baseline.length < config.minBaselineValidFraction) {
       _stop(StopReason.baselineFailed, 'Baslinjen har för lite giltig data.');
       return;
     }
     final std = populationStd(values);
     if (std < config.minBaselineStd) {
-      _stop(StopReason.baselineFailed, 'Baslinjen varierar nästan inte. Gör om baslinjen.');
+      _stop(
+        StopReason.baselineFailed,
+        'Baslinjen varierar nästan inte. Gör om baslinjen.',
+      );
       return;
     }
     selectedChannels = selected;
@@ -194,7 +203,10 @@ class SessionEngine {
       return;
     }
     if (_attempts >= config.blockCount + config.maxExtraAttempts) {
-      _stop(StopReason.attemptLimit, 'Sessionen stoppades efter för många avbrutna block.');
+      _stop(
+        StopReason.attemptLimit,
+        'Sessionen stoppades efter för många avbrutna block.',
+      );
       return;
     }
     final choice = _nextChoice();
@@ -217,7 +229,10 @@ class SessionEngine {
       if (_comparisonCycle.isEmpty) {
         _comparisonCycle = [...StimulusAction.values]..shuffle(policy.random);
       }
-      return ActionChoice(_comparisonCycle.removeAt(0), 1 / StimulusAction.values.length);
+      return ActionChoice(
+        _comparisonCycle.removeAt(0),
+        1 / StimulusAction.values.length,
+      );
     }
     if (_warmup.isNotEmpty) {
       final probability = 1 / _warmup.length;
@@ -233,7 +248,10 @@ class SessionEngine {
 
   void _closeBlock({required bool aborted, StopReason? reason}) {
     if (_pendingChoice == null || _blockAborted) return;
-    final expected = max(1, (config.rewardTailSeconds / config.welchHopSeconds).round());
+    final expected = max(
+      1,
+      (config.rewardTailSeconds / config.welchHopSeconds).round(),
+    );
     final validFrames = [
       for (final frame in _reward)
         if (_aggregate(frame, selectedChannels) != null) frame,
@@ -247,7 +265,9 @@ class SessionEngine {
         for (final frame in validFrames)
           (_aggregate(frame, selectedChannels)! - baselineMean) / baselineStd,
       ];
-      reward = meanOf(scores).clamp(-config.rewardClip, config.rewardClip).toDouble();
+      reward = meanOf(
+        scores,
+      ).clamp(-config.rewardClip, config.rewardClip).toDouble();
       absolute = meanOf([
         for (final frame in validFrames) _absoluteTheta(frame)!,
       ]);
@@ -306,7 +326,11 @@ class SessionEngine {
     final values = <double>[];
     for (final name in channels) {
       if (!frame.channelValid(name)) return null;
-      values.add(frame.channels.firstWhere((channel) => channel.name == name).relativeTheta);
+      values.add(
+        frame.channels
+            .firstWhere((channel) => channel.name == name)
+            .relativeTheta,
+      );
     }
     return meanOf(values);
   }
@@ -315,7 +339,11 @@ class SessionEngine {
     final values = <double>[];
     for (final name in selectedChannels) {
       if (!frame.channelValid(name)) continue;
-      values.add(frame.channels.firstWhere((channel) => channel.name == name).absoluteTheta);
+      values.add(
+        frame.channels
+            .firstWhere((channel) => channel.name == name)
+            .absoluteTheta,
+      );
     }
     if (values.isEmpty) return null;
     return meanOf(values);

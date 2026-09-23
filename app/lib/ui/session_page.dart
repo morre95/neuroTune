@@ -25,7 +25,13 @@ class SessionView {
 }
 
 class SessionPage extends StatelessWidget {
-  const SessionPage({super.key, required this.view, required this.onStop, required this.onContinue, required this.onFinish});
+  const SessionPage({
+    super.key,
+    required this.view,
+    required this.onStop,
+    required this.onContinue,
+    required this.onFinish,
+  });
 
   final SessionView view;
   final VoidCallback onStop;
@@ -51,9 +57,12 @@ class SessionPage extends StatelessWidget {
           Text('Beta ${view.beta}'),
           Text('Signalkvalitet ${view.quality}'),
           const SizedBox(height: 16),
-          const Text('Spektrala mått. Inte ett mått på avslappning, fokus eller behandling.'),
+          const Text(
+            'Spektrala mått. Inte ett mått på avslappning, fokus eller behandling.',
+          ),
           const SizedBox(height: 24),
-          if (view.canContinue) FilledButton(onPressed: onContinue, child: const Text('Fortsätt')),
+          if (view.canContinue)
+            FilledButton(onPressed: onContinue, child: const Text('Fortsätt')),
           OutlinedButton(onPressed: onStop, child: const Text('Stoppa')),
           TextButton(onPressed: onFinish, child: const Text('Avsluta session')),
         ],

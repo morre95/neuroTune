@@ -49,7 +49,10 @@ class BinauralSynth {
       _beginFade(amplitude);
       return;
     }
-    if (tones.$1 == _freqLeft && tones.$2 == _freqRight && _fadeTo == amplitude && !_switchAfterFade) {
+    if (tones.$1 == _freqLeft &&
+        tones.$2 == _freqRight &&
+        _fadeTo == amplitude &&
+        !_switchAfterFade) {
       return;
     }
     _pendingLeft = tones.$1;
@@ -96,7 +99,11 @@ class BinauralSynth {
 }
 
 /// Peak frequency of one channel in an interleaved stereo buffer.
-double peakHz(Float64List interleaved, {required bool left, required double sampleRateHz}) {
+double peakHz(
+  Float64List interleaved, {
+  required bool left,
+  required double sampleRateHz,
+}) {
   final frames = interleaved.length ~/ 2;
   final n = 1 << (log(frames) / ln2).floor();
   final channel = Float64List(n);
@@ -111,7 +118,9 @@ double peakHz(Float64List interleaved, {required bool left, required double samp
   for (var k = 1; k < transformed.real.length; k++) {
     final frequency = k * step;
     if (frequency < 150 || frequency > 300) continue;
-    final power = transformed.real[k] * transformed.real[k] + transformed.imag[k] * transformed.imag[k];
+    final power =
+        transformed.real[k] * transformed.real[k] +
+        transformed.imag[k] * transformed.imag[k];
     if (power > best) {
       best = power;
       bestHz = frequency;

@@ -16,6 +16,7 @@ class HomePage extends StatelessWidget {
     required this.onMuse,
     required this.onHistory,
     required this.onLogout,
+    this.message,
   });
 
   final String experimentVersion;
@@ -30,18 +31,26 @@ class HomePage extends StatelessWidget {
   final VoidCallback onMuse;
   final VoidCallback onHistory;
   final VoidCallback onLogout;
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('neuroTune'),
-        actions: [TextButton(onPressed: onLogout, child: const Text('Logga ut'))],
+        actions: [
+          TextButton(onPressed: onLogout, child: const Text('Logga ut')),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text(offline ? 'Offline. Cachad konfiguration och policy används.' : 'Ansluten till servern.'),
+          Text(
+            offline
+                ? 'Offline. Cachad konfiguration och policy används.'
+                : 'Ansluten till servern.',
+          ),
+          if (message != null) Text(message!),
           Text('Experiment $experimentVersion'),
           Text('Policy $policyVersion'),
           const SizedBox(height: 16),
@@ -49,7 +58,10 @@ class HomePage extends StatelessWidget {
           SegmentedButton<EyeState>(
             segments: const [
               ButtonSegment(value: EyeState.open, label: Text('Ögon öppna')),
-              ButtonSegment(value: EyeState.closed, label: Text('Ögon stängda')),
+              ButtonSegment(
+                value: EyeState.closed,
+                label: Text('Ögon stängda'),
+              ),
             ],
             selected: {eyeState},
             onSelectionChanged: (value) => onEyeState(value.single),
@@ -58,23 +70,37 @@ class HomePage extends StatelessWidget {
           const Text('Läge'),
           SegmentedButton<SessionMode>(
             segments: const [
-              ButtonSegment(value: SessionMode.personal, label: Text('Personlig')),
-              ButtonSegment(value: SessionMode.comparison, label: Text('Jämförelse')),
+              ButtonSegment(
+                value: SessionMode.personal,
+                label: Text('Personlig'),
+              ),
+              ButtonSegment(
+                value: SessionMode.comparison,
+                label: Text('Jämförelse'),
+              ),
             ],
             selected: {mode},
             onSelectionChanged: (value) => onMode(value.single),
           ),
           const SizedBox(height: 24),
-          FilledButton(onPressed: onStartSimulator, child: const Text('Simulator')),
+          FilledButton(
+            onPressed: onStartSimulator,
+            child: const Text('Simulator'),
+          ),
           const SizedBox(height: 8),
           OutlinedButton(onPressed: onMuse, child: const Text('Muse')),
           if (!hardwareApproved)
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Hårdvaruläget är inte verifierat. Fysisk Muse S Athena och SDK krävs.'),
+              child: Text(
+                'Hårdvaruläget är inte verifierat. Fysisk Muse S Athena och SDK krävs.',
+              ),
             ),
           const SizedBox(height: 16),
-          TextButton(onPressed: onHistory, child: const Text('Sessionshistorik')),
+          TextButton(
+            onPressed: onHistory,
+            child: const Text('Sessionshistorik'),
+          ),
         ],
       ),
     );

@@ -76,14 +76,7 @@ enum SessionMode { personal, comparison }
 
 enum EyeState { open, closed }
 
-enum SessionPhase {
-  baseline,
-  sound,
-  pause,
-  waitingStable,
-  completed,
-  stopped,
-}
+enum SessionPhase { baseline, sound, pause, waitingStable, completed, stopped }
 
 enum StopReason {
   manual,
@@ -138,8 +131,9 @@ class ExperimentConfig {
     required this.gapSamples,
   });
 
-  factory ExperimentConfig.defaults() =>
-      ExperimentConfig.fromJson(jsonDecode(defaultExperimentJson) as Map<String, dynamic>);
+  factory ExperimentConfig.defaults() => ExperimentConfig.fromJson(
+    jsonDecode(defaultExperimentJson) as Map<String, dynamic>,
+  );
 
   factory ExperimentConfig.fromJson(Map<String, dynamic> json) {
     return ExperimentConfig(
@@ -169,10 +163,13 @@ class ExperimentConfig {
       maxExtraAttempts: json['max_extra_attempts'] as int,
       stableFramesRequired: json['stable_frames_required'] as int,
       minChannels: json['min_channels'] as int,
-      minBaselineValidFraction: (json['min_baseline_valid_fraction'] as num).toDouble(),
+      minBaselineValidFraction: (json['min_baseline_valid_fraction'] as num)
+          .toDouble(),
       minBaselineStd: (json['min_baseline_std'] as num).toDouble(),
       epsilon: (json['epsilon'] as num).toDouble(),
-      actions: (json['actions'] as List<dynamic>).map((item) => '$item').toList(),
+      actions: (json['actions'] as List<dynamic>)
+          .map((item) => '$item')
+          .toList(),
       carrierHz: (json['carrier_hz'] as num).toDouble(),
       amplitude: (json['amplitude'] as num).toDouble(),
       fadeMs: (json['fade_ms'] as num).toDouble(),
@@ -227,50 +224,51 @@ class ExperimentConfig {
   final double motionGyroDps;
   final int gapSamples;
 
-  int samplesFor(double seconds, double sampleRateHz) => (seconds * sampleRateHz).round();
+  int samplesFor(double seconds, double sampleRateHz) =>
+      (seconds * sampleRateHz).round();
 
   Map<String, dynamic> toJson() => {
-        'version': version,
-        'quality_version': qualityVersion,
-        'hardware_approved': hardwareApproved,
-        'notch_hz': notchHz,
-        'notch_q': notchQ,
-        'bandpass_low_hz': bandpassLowHz,
-        'bandpass_high_hz': bandpassHighHz,
-        'filter_order': filterOrder,
-        'theta_hz': [thetaHz.$1, thetaHz.$2],
-        'alpha_hz': [alphaHz.$1, alphaHz.$2],
-        'beta_hz': [betaHz.$1, betaHz.$2],
-        'total_hz': [totalHz.$1, totalHz.$2],
-        'welch_window_seconds': welchWindowSeconds,
-        'welch_segment_seconds': welchSegmentSeconds,
-        'welch_overlap': welchOverlap,
-        'welch_hop_seconds': welchHopSeconds,
-        'baseline_seconds': baselineSeconds,
-        'block_count': blockCount,
-        'sound_seconds': soundSeconds,
-        'pause_seconds': pauseSeconds,
-        'reward_tail_seconds': rewardTailSeconds,
-        'min_valid_fraction': minValidFraction,
-        'reward_clip': rewardClip,
-        'max_extra_attempts': maxExtraAttempts,
-        'stable_frames_required': stableFramesRequired,
-        'min_channels': minChannels,
-        'min_baseline_valid_fraction': minBaselineValidFraction,
-        'min_baseline_std': minBaselineStd,
-        'epsilon': epsilon,
-        'actions': actions,
-        'carrier_hz': carrierHz,
-        'amplitude': amplitude,
-        'fade_ms': fadeMs,
-        'audio_sample_rate_hz': audioSampleRateHz,
-        'saturation_uv': saturationUv,
-        'flatline_std_uv': flatlineStdUv,
-        'jump_uv': jumpUv,
-        'motion_accel_g': motionAccelG,
-        'motion_gyro_dps': motionGyroDps,
-        'gap_samples': gapSamples,
-      };
+    'version': version,
+    'quality_version': qualityVersion,
+    'hardware_approved': hardwareApproved,
+    'notch_hz': notchHz,
+    'notch_q': notchQ,
+    'bandpass_low_hz': bandpassLowHz,
+    'bandpass_high_hz': bandpassHighHz,
+    'filter_order': filterOrder,
+    'theta_hz': [thetaHz.$1, thetaHz.$2],
+    'alpha_hz': [alphaHz.$1, alphaHz.$2],
+    'beta_hz': [betaHz.$1, betaHz.$2],
+    'total_hz': [totalHz.$1, totalHz.$2],
+    'welch_window_seconds': welchWindowSeconds,
+    'welch_segment_seconds': welchSegmentSeconds,
+    'welch_overlap': welchOverlap,
+    'welch_hop_seconds': welchHopSeconds,
+    'baseline_seconds': baselineSeconds,
+    'block_count': blockCount,
+    'sound_seconds': soundSeconds,
+    'pause_seconds': pauseSeconds,
+    'reward_tail_seconds': rewardTailSeconds,
+    'min_valid_fraction': minValidFraction,
+    'reward_clip': rewardClip,
+    'max_extra_attempts': maxExtraAttempts,
+    'stable_frames_required': stableFramesRequired,
+    'min_channels': minChannels,
+    'min_baseline_valid_fraction': minBaselineValidFraction,
+    'min_baseline_std': minBaselineStd,
+    'epsilon': epsilon,
+    'actions': actions,
+    'carrier_hz': carrierHz,
+    'amplitude': amplitude,
+    'fade_ms': fadeMs,
+    'audio_sample_rate_hz': audioSampleRateHz,
+    'saturation_uv': saturationUv,
+    'flatline_std_uv': flatlineStdUv,
+    'jump_uv': jumpUv,
+    'motion_accel_g': motionAccelG,
+    'motion_gyro_dps': motionGyroDps,
+    'gap_samples': gapSamples,
+  };
 
   ExperimentConfig withProtocol({
     double? baselineSeconds,
@@ -286,7 +284,8 @@ class ExperimentConfig {
     if (blockCount != null) json['block_count'] = blockCount;
     if (soundSeconds != null) json['sound_seconds'] = soundSeconds;
     if (pauseSeconds != null) json['pause_seconds'] = pauseSeconds;
-    if (rewardTailSeconds != null) json['reward_tail_seconds'] = rewardTailSeconds;
+    if (rewardTailSeconds != null)
+      json['reward_tail_seconds'] = rewardTailSeconds;
     if (notchHz != null) json['notch_hz'] = notchHz;
     if (hardwareApproved != null) json['hardware_approved'] = hardwareApproved;
     return ExperimentConfig.fromJson(json);
@@ -327,19 +326,21 @@ class EegBatch {
   int get sampleCount => eeg.isEmpty ? 0 : eeg.first.length;
 
   Map<String, dynamic> toJson() => {
-        'channel_names': channelNames,
-        'unit': unit,
-        'sample_rate_hz': sampleRateHz,
-        'time_seconds': timeSeconds,
-        'eeg': eeg,
-        'accel': accel,
-        'gyro': gyro,
-        'contact': contact,
-      };
+    'channel_names': channelNames,
+    'unit': unit,
+    'sample_rate_hz': sampleRateHz,
+    'time_seconds': timeSeconds,
+    'eeg': eeg,
+    'accel': accel,
+    'gyro': gyro,
+    'contact': contact,
+  };
 
   factory EegBatch.fromJson(Map<String, dynamic> json) {
     return EegBatch(
-      channelNames: (json['channel_names'] as List<dynamic>).map((e) => '$e').toList(),
+      channelNames: (json['channel_names'] as List<dynamic>)
+          .map((e) => '$e')
+          .toList(),
       unit: json['unit'] as String,
       sampleRateHz: (json['sample_rate_hz'] as num).toDouble(),
       timeSeconds: (json['time_seconds'] as num).toDouble(),
@@ -382,32 +383,32 @@ class ChannelFeature {
   final List<String> reasons;
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'valid': valid,
-        'contact': contact,
-        'absolute_theta': absoluteTheta,
-        'absolute_alpha': absoluteAlpha,
-        'absolute_beta': absoluteBeta,
-        'relative_theta': relativeTheta,
-        'relative_alpha': relativeAlpha,
-        'relative_beta': relativeBeta,
-        'total_power': totalPower,
-        'reasons': reasons,
-      };
+    'name': name,
+    'valid': valid,
+    'contact': contact,
+    'absolute_theta': absoluteTheta,
+    'absolute_alpha': absoluteAlpha,
+    'absolute_beta': absoluteBeta,
+    'relative_theta': relativeTheta,
+    'relative_alpha': relativeAlpha,
+    'relative_beta': relativeBeta,
+    'total_power': totalPower,
+    'reasons': reasons,
+  };
 
   factory ChannelFeature.fromJson(Map<String, dynamic> json) => ChannelFeature(
-        name: json['name'] as String,
-        valid: json['valid'] as bool,
-        contact: json['contact'] as int,
-        absoluteTheta: (json['absolute_theta'] as num).toDouble(),
-        absoluteAlpha: (json['absolute_alpha'] as num).toDouble(),
-        absoluteBeta: (json['absolute_beta'] as num).toDouble(),
-        relativeTheta: (json['relative_theta'] as num).toDouble(),
-        relativeAlpha: (json['relative_alpha'] as num).toDouble(),
-        relativeBeta: (json['relative_beta'] as num).toDouble(),
-        totalPower: (json['total_power'] as num).toDouble(),
-        reasons: (json['reasons'] as List<dynamic>).map((e) => '$e').toList(),
-      );
+    name: json['name'] as String,
+    valid: json['valid'] as bool,
+    contact: json['contact'] as int,
+    absoluteTheta: (json['absolute_theta'] as num).toDouble(),
+    absoluteAlpha: (json['absolute_alpha'] as num).toDouble(),
+    absoluteBeta: (json['absolute_beta'] as num).toDouble(),
+    relativeTheta: (json['relative_theta'] as num).toDouble(),
+    relativeAlpha: (json['relative_alpha'] as num).toDouble(),
+    relativeBeta: (json['relative_beta'] as num).toDouble(),
+    totalPower: (json['total_power'] as num).toDouble(),
+    reasons: (json['reasons'] as List<dynamic>).map((e) => '$e').toList(),
+  );
 }
 
 class FeatureFrame {
@@ -433,23 +434,23 @@ class FeatureFrame {
   }
 
   Map<String, dynamic> toJson() => {
-        'time_seconds': timeSeconds,
-        'sample_rate_hz': sampleRateHz,
-        'channels': channels.map((channel) => channel.toJson()).toList(),
-        'rejected': rejected,
-        'reasons': reasons,
-      };
+    'time_seconds': timeSeconds,
+    'sample_rate_hz': sampleRateHz,
+    'channels': channels.map((channel) => channel.toJson()).toList(),
+    'rejected': rejected,
+    'reasons': reasons,
+  };
 
   factory FeatureFrame.fromJson(Map<String, dynamic> json) => FeatureFrame(
-        timeSeconds: (json['time_seconds'] as num).toDouble(),
-        sampleRateHz: (json['sample_rate_hz'] as num).toDouble(),
-        channels: [
-          for (final channel in json['channels'] as List<dynamic>)
-            ChannelFeature.fromJson(channel as Map<String, dynamic>),
-        ],
-        rejected: json['rejected'] as bool,
-        reasons: (json['reasons'] as List<dynamic>).map((e) => '$e').toList(),
-      );
+    timeSeconds: (json['time_seconds'] as num).toDouble(),
+    sampleRateHz: (json['sample_rate_hz'] as num).toDouble(),
+    channels: [
+      for (final channel in json['channels'] as List<dynamic>)
+        ChannelFeature.fromJson(channel as Map<String, dynamic>),
+    ],
+    rejected: json['rejected'] as bool,
+    reasons: (json['reasons'] as List<dynamic>).map((e) => '$e').toList(),
+  );
 }
 
 class DecisionEvent {
@@ -490,42 +491,42 @@ class DecisionEvent {
   final String? abortReason;
 
   Map<String, dynamic> toJson() => {
-        'session_id': sessionId,
-        'block_index': blockIndex,
-        'attempt_index': attemptIndex,
-        'action': action,
-        'selection_probability': selectionProbability,
-        'reward': reward,
-        'mean_absolute_theta': meanAbsoluteTheta,
-        'valid_fraction': validFraction,
-        'updated_bandit': updatedBandit,
-        'experiment_version': experimentVersion,
-        'policy_version': policyVersion,
-        'quality_version': qualityVersion,
-        'started_at_seconds': startedAtSeconds,
-        'ended_at_seconds': endedAtSeconds,
-        'aborted': aborted,
-        'abort_reason': abortReason,
-      };
+    'session_id': sessionId,
+    'block_index': blockIndex,
+    'attempt_index': attemptIndex,
+    'action': action,
+    'selection_probability': selectionProbability,
+    'reward': reward,
+    'mean_absolute_theta': meanAbsoluteTheta,
+    'valid_fraction': validFraction,
+    'updated_bandit': updatedBandit,
+    'experiment_version': experimentVersion,
+    'policy_version': policyVersion,
+    'quality_version': qualityVersion,
+    'started_at_seconds': startedAtSeconds,
+    'ended_at_seconds': endedAtSeconds,
+    'aborted': aborted,
+    'abort_reason': abortReason,
+  };
 
   factory DecisionEvent.fromJson(Map<String, dynamic> json) => DecisionEvent(
-        sessionId: json['session_id'] as String,
-        blockIndex: json['block_index'] as int,
-        attemptIndex: json['attempt_index'] as int,
-        action: json['action'] as String,
-        selectionProbability: (json['selection_probability'] as num).toDouble(),
-        reward: (json['reward'] as num?)?.toDouble(),
-        meanAbsoluteTheta: (json['mean_absolute_theta'] as num?)?.toDouble(),
-        validFraction: (json['valid_fraction'] as num).toDouble(),
-        updatedBandit: json['updated_bandit'] as bool,
-        experimentVersion: json['experiment_version'] as String,
-        policyVersion: json['policy_version'] as String,
-        qualityVersion: json['quality_version'] as String,
-        startedAtSeconds: (json['started_at_seconds'] as num).toDouble(),
-        endedAtSeconds: (json['ended_at_seconds'] as num).toDouble(),
-        aborted: json['aborted'] as bool,
-        abortReason: json['abort_reason'] as String?,
-      );
+    sessionId: json['session_id'] as String,
+    blockIndex: json['block_index'] as int,
+    attemptIndex: json['attempt_index'] as int,
+    action: json['action'] as String,
+    selectionProbability: (json['selection_probability'] as num).toDouble(),
+    reward: (json['reward'] as num?)?.toDouble(),
+    meanAbsoluteTheta: (json['mean_absolute_theta'] as num?)?.toDouble(),
+    validFraction: (json['valid_fraction'] as num).toDouble(),
+    updatedBandit: json['updated_bandit'] as bool,
+    experimentVersion: json['experiment_version'] as String,
+    policyVersion: json['policy_version'] as String,
+    qualityVersion: json['quality_version'] as String,
+    startedAtSeconds: (json['started_at_seconds'] as num).toDouble(),
+    endedAtSeconds: (json['ended_at_seconds'] as num).toDouble(),
+    aborted: json['aborted'] as bool,
+    abortReason: json['abort_reason'] as String?,
+  );
 }
 
 class SessionManifest {
@@ -572,26 +573,27 @@ class SessionManifest {
   final String checksumSha256;
 
   Map<String, dynamic> toJson() => {
-        'session_id': sessionId,
-        'user_id': userId,
-        'experiment_version': experimentVersion,
-        'policy_version': policyVersion,
-        'data_origin': dataOrigin,
-        'mode': mode,
-        'eye_state': eyeState,
-        'sample_rate_hz': sampleRateHz,
-        'channel_names': channelNames,
-        'selected_channels': selectedChannels,
-        'started_at_iso': startedAtIso,
-        'duration_seconds': durationSeconds,
-        'audio_latency_ms': audioLatencyMs,
-        'audio_latency_source': audioLatencySource,
-        'timeline': timeline,
-        'seed': seed,
-        'checksum_sha256': checksumSha256,
-      };
+    'session_id': sessionId,
+    'user_id': userId,
+    'experiment_version': experimentVersion,
+    'policy_version': policyVersion,
+    'data_origin': dataOrigin,
+    'mode': mode,
+    'eye_state': eyeState,
+    'sample_rate_hz': sampleRateHz,
+    'channel_names': channelNames,
+    'selected_channels': selectedChannels,
+    'started_at_iso': startedAtIso,
+    'duration_seconds': durationSeconds,
+    'audio_latency_ms': audioLatencyMs,
+    'audio_latency_source': audioLatencySource,
+    'timeline': timeline,
+    'seed': seed,
+    'checksum_sha256': checksumSha256,
+  };
 
-  factory SessionManifest.fromJson(Map<String, dynamic> json) => SessionManifest(
+  factory SessionManifest.fromJson(Map<String, dynamic> json) =>
+      SessionManifest(
         sessionId: json['session_id'] as String,
         userId: json['user_id'] as String?,
         experimentVersion: json['experiment_version'] as String,
@@ -600,8 +602,12 @@ class SessionManifest {
         mode: json['mode'] as String,
         eyeState: json['eye_state'] as String,
         sampleRateHz: (json['sample_rate_hz'] as num).toDouble(),
-        channelNames: (json['channel_names'] as List<dynamic>).map((e) => '$e').toList(),
-        selectedChannels: (json['selected_channels'] as List<dynamic>).map((e) => '$e').toList(),
+        channelNames: (json['channel_names'] as List<dynamic>)
+            .map((e) => '$e')
+            .toList(),
+        selectedChannels: (json['selected_channels'] as List<dynamic>)
+            .map((e) => '$e')
+            .toList(),
         startedAtIso: json['started_at_iso'] as String,
         durationSeconds: (json['duration_seconds'] as num).toDouble(),
         audioLatencyMs: (json['audio_latency_ms'] as num?)?.toDouble(),
@@ -657,7 +663,10 @@ class BanditSnapshot {
       experimentVersion: experimentVersion,
       dataOrigin: origin.name,
       epsilon: epsilon,
-      actions: {for (final action in StimulusAction.values) action: const ActionStat(0, 0)},
+      actions: {
+        for (final action in StimulusAction.values)
+          action: const ActionStat(0, 0),
+      },
       includedSessionIds: const [],
       createdAtIso: DateTime.now().toUtc().toIso8601String(),
     );
@@ -680,14 +689,16 @@ class BanditSnapshot {
   }
 
   Map<String, dynamic> toJson() => {
-        'policy_version': policyVersion,
-        'experiment_version': experimentVersion,
-        'data_origin': dataOrigin,
-        'epsilon': epsilon,
-        'actions': {for (final entry in actions.entries) entry.key.id: entry.value.toJson()},
-        'included_session_ids': includedSessionIds,
-        'created_at_iso': createdAtIso,
-      };
+    'policy_version': policyVersion,
+    'experiment_version': experimentVersion,
+    'data_origin': dataOrigin,
+    'epsilon': epsilon,
+    'actions': {
+      for (final entry in actions.entries) entry.key.id: entry.value.toJson(),
+    },
+    'included_session_ids': includedSessionIds,
+    'created_at_iso': createdAtIso,
+  };
 
   factory BanditSnapshot.fromJson(Map<String, dynamic> json) {
     final raw = json['actions'] as Map<String, dynamic>;
@@ -698,10 +709,13 @@ class BanditSnapshot {
       epsilon: (json['epsilon'] as num).toDouble(),
       actions: {
         for (final entry in raw.entries)
-          StimulusAction.byId(entry.key): ActionStat.fromJson(entry.value as Map<String, dynamic>),
+          StimulusAction.byId(entry.key): ActionStat.fromJson(
+            entry.value as Map<String, dynamic>,
+          ),
       },
-      includedSessionIds:
-          (json['included_session_ids'] as List<dynamic>).map((e) => '$e').toList(),
+      includedSessionIds: (json['included_session_ids'] as List<dynamic>)
+          .map((e) => '$e')
+          .toList(),
       createdAtIso: json['created_at_iso'] as String,
     );
   }
@@ -779,7 +793,8 @@ class UploadQueue {
     if (existing.isEmpty) jobs.add(job);
   }
 
-  List<UploadJob> get pending => jobs.where((job) => job.state != 'done').toList();
+  List<UploadJob> get pending =>
+      jobs.where((job) => job.state != 'done').toList();
 
   Future<void> flush(Future<int> Function(UploadJob job) send) async {
     for (final job in jobs) {
@@ -823,6 +838,6 @@ String newSessionId(Random random) {
 }
 
 List<List<double>> _matrix(Object? value) => [
-      for (final row in value as List<dynamic>)
-        [for (final item in row as List<dynamic>) (item as num).toDouble()],
-    ];
+  for (final row in value as List<dynamic>)
+    [for (final item in row as List<dynamic>) (item as num).toDouble()],
+];

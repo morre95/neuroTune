@@ -13,35 +13,42 @@ class ApiException implements Exception {
 }
 
 class AuthTokens {
-  AuthTokens({required this.accessToken, required this.refreshToken, required this.email});
+  AuthTokens({
+    required this.accessToken,
+    required this.refreshToken,
+    required this.email,
+  });
   final String accessToken;
   final String refreshToken;
   final String email;
 
   Map<String, dynamic> toJson() => {
-        'access_token': accessToken,
-        'refresh_token': refreshToken,
-        'email': email,
-      };
+    'access_token': accessToken,
+    'refresh_token': refreshToken,
+    'email': email,
+  };
 
   factory AuthTokens.fromJson(Map<String, dynamic> json) => AuthTokens(
-        accessToken: json['access_token'] as String,
-        refreshToken: json['refresh_token'] as String,
-        email: json['email'] as String,
-      );
+    accessToken: json['access_token'] as String,
+    refreshToken: json['refresh_token'] as String,
+    email: json['email'] as String,
+  );
 }
 
 class ApiClient {
-  ApiClient({required this.baseUrl, http.Client? httpClient}) : _http = httpClient ?? http.Client();
+  ApiClient({required this.baseUrl, http.Client? httpClient})
+    : _http = httpClient ?? http.Client();
 
   final String baseUrl;
   final http.Client _http;
   String? accessToken;
   String? refreshToken;
 
-  Future<AuthTokens> register(String email, String password) => _tokens('/v1/auth/register', email, password);
+  Future<AuthTokens> register(String email, String password) =>
+      _tokens('/v1/auth/register', email, password);
 
-  Future<AuthTokens> login(String email, String password) => _tokens('/v1/auth/login', email, password);
+  Future<AuthTokens> login(String email, String password) =>
+      _tokens('/v1/auth/login', email, password);
 
   Future<AuthTokens> _tokens(String path, String email, String password) async {
     final response = await _http.post(
@@ -53,7 +60,11 @@ class ApiClient {
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     accessToken = json['access_token'] as String;
     refreshToken = json['refresh_token'] as String;
-    return AuthTokens(accessToken: accessToken!, refreshToken: refreshToken!, email: email);
+    return AuthTokens(
+      accessToken: accessToken!,
+      refreshToken: refreshToken!,
+      email: email,
+    );
   }
 
   Future<void> refresh() async {
@@ -69,7 +80,9 @@ class ApiClient {
   }
 
   Future<void> logout() async {
-    final response = await _send('POST', '/v1/auth/logout', {'refresh_token': refreshToken});
+    final response = await _send('POST', '/v1/auth/logout', {
+      'refresh_token': refreshToken,
+    });
     _expect(response);
     accessToken = null;
     refreshToken = null;
@@ -78,13 +91,23 @@ class ApiClient {
   Future<ExperimentConfig> activeExperiment() async {
     final response = await _send('GET', '/v1/experiments/active');
     _expect(response);
-    return ExperimentConfig.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return ExperimentConfig.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
-  Future<BanditSnapshot> latestBandit({required String origin, required String experimentVersion}) async {
-    final response = await _send('GET', '/v1/bandit/latest?origin=$origin&experiment_version=$experimentVersion');
+  Future<BanditSnapshot> latestBandit({
+    required String origin,
+    required String experimentVersion,
+  }) async {
+    final response = await _send(
+      'GET',
+      '/v1/bandit/latest?origin=$origin&experiment_version=$experimentVersion',
+    );
     _expect(response);
-    return BanditSnapshot.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    return BanditSnapshot.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
   }
 
   Future<int> uploadSession({
@@ -106,7 +129,10 @@ class ApiClient {
     return response.statusCode;
   }
 
-  Future<String> createTrainingJob({required String origin, required String experimentVersion}) async {
+  Future<String> createTrainingJob({
+    required String origin,
+    required String experimentVersion,
+  }) async {
     final response = await _send('POST', '/v1/training/jobs', {
       'origin': origin,
       'experiment_version': experimentVersion,
@@ -115,8 +141,15 @@ class ApiClient {
     return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
   }
 
-  Future<http.Response> _send(String method, String path, [Map<String, dynamic>? body]) {
-    final headers = {'content-type': 'application/json', if (accessToken != null) 'authorization': 'Bearer $accessToken'};
+  Future<http.Response> _send(
+    String method,
+    String path, [
+    Map<String, dynamic>? body,
+  ]) {
+    final headers = {
+      'content-type': 'application/json',
+      if (accessToken != null) 'authorization': 'Bearer $accessToken',
+    };
     final uri = Uri.parse('$baseUrl$path');
     final encoded = body == null ? null : jsonEncode(body);
     return switch (method) {

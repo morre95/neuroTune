@@ -1,122 +1,278 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:neurotune_core/neurotune_core.dart';
+
+import 'data/api_client.dart';
+import 'data/database.dart';
+import 'data/repository.dart';
+import 'platform/channels.dart';
+import 'session/session_controller.dart';
+import 'ui/auth_page.dart';
+import 'ui/contact_page.dart';
+import 'ui/history_page.dart';
+import 'ui/home_page.dart';
+import 'ui/playback_page.dart';
+import 'ui/session_page.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  const baseUrl = String.fromEnvironment(
+    'API_BASE',
+    defaultValue: 'http://10.0.2.2:8000',
+  );
+  runApp(
+    NeuroTuneApp(
+      database: AppDatabase(),
+      api: ApiClient(baseUrl: baseUrl),
+      audio: AndroidPcmOutput(),
+      muse: MuseChannel(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+enum _Screen { auth, home, contact, session, history, playback }
 
-  // This widget is the root of your application.
+class NeuroTuneApp extends StatefulWidget {
+  const NeuroTuneApp({
+    super.key,
+    required this.database,
+    required this.api,
+    required this.audio,
+    required this.muse,
+  });
+
+  final AppDatabase database;
+  final ApiClient api;
+  final PcmOutput audio;
+  final MuseChannel muse;
+
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
+  State<NeuroTuneApp> createState() => _NeuroTuneAppState();
+}
+
+class _NeuroTuneAppState extends State<NeuroTuneApp> {
+  late final SessionRepository _repository = SessionRepository(widget.database);
+  _Screen _screen = _Screen.auth;
+  ExperimentConfig _config = ExperimentConfig.defaults();
+  BanditSnapshot? _snapshot;
+  AuthTokens? _auth;
+  String? _error;
+  var _offline = false;
+  var _ready = false;
+  EyeState _eyes = EyeState.open;
+  SessionMode _mode = SessionMode.personal;
+  EegBatch? _contactBatch;
+  SimulatorSource? _preview;
+  StreamSubscription<EegBatch>? _previewSub;
+  SessionController? _session;
+  List<SavedSession> _history = [];
+  SavedSession? _playback;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  Future<void> _bootstrap() async {
+    _config = await _repository.loadConfig();
+    final saved = await _repository.loadAuth();
+    if (saved != null && saved.contains('access_token')) {
+      _auth = AuthTokens.fromJson(jsonDecode(saved) as Map<String, dynamic>);
+      widget.api.accessToken = _auth!.accessToken;
+      widget.api.refreshToken = _auth!.refreshToken;
+      await _refreshRemote();
+      if (mounted) setState(() => _screen = _Screen.home);
+    }
+    if (mounted) setState(() => _ready = true);
+  }
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+  Future<void> _refreshRemote() async {
+    try {
+      _config = await widget.api.activeExperiment();
+      await _repository.saveConfig(_config);
+      _snapshot = await widget.api.latestBandit(
+        origin: DataOrigin.simulator.name,
+        experimentVersion: _config.version,
+      );
+      await _repository.saveBandit(_snapshot!);
+      _offline = false;
+    } catch (_) {
+      _snapshot =
+          await _repository.loadBandit(DataOrigin.simulator.name) ??
+          BanditSnapshot.empty(
+            experimentVersion: _config.version,
+            origin: DataOrigin.simulator,
+            epsilon: _config.epsilon,
+          );
+      _offline = true;
+    }
+    final local = await _repository.localRewards(
+      DataOrigin.simulator.name,
+      _config.version,
+    );
+    _snapshot = overlayLocalRewards(server: _snapshot!, local: local);
+  }
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
+  Future<void> _submitAuth(String email, String password, bool register) async {
+    try {
+      final tokens = register
+          ? await widget.api.register(email, password)
+          : await widget.api.login(email, password);
+      await _repository.saveAuth(jsonEncode(tokens.toJson()));
+      _auth = tokens;
+      await _refreshRemote();
+      setState(() {
+        _error = null;
+        _screen = _Screen.home;
+      });
+    } catch (_) {
+      setState(
+        () => _error =
+            'Inloggningen misslyckades. Kontrollera kontot och att servern är igång.',
+      );
+    }
+  }
 
-  final String title;
+  Future<void> _logout() async {
+    try {
+      await widget.api.logout();
+    } catch (_) {}
+    await _repository.saveAuth('{}');
+    _auth = null;
+    widget.api.accessToken = null;
+    setState(() => _screen = _Screen.auth);
+  }
 
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
+  void _openContact() {
+    _preview?.stop();
+    _previewSub?.cancel();
+    _preview = SimulatorSource(config: _config, sampleRateHz: 256, seed: 1);
+    _previewSub = _preview!.batches.listen((batch) {
+      if (mounted) setState(() => _contactBatch = batch);
+    });
+    _preview!.start();
+    setState(() => _screen = _Screen.contact);
+  }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
+  Future<void> _startSession() async {
+    await _preview?.stop();
+    await _previewSub?.cancel();
+    await _refreshRemote();
+    final controller = SessionController(
+      repository: _repository,
+      api: widget.api,
+      audio: widget.audio,
+      config: _config,
+      snapshot: _snapshot!,
+      mode: _mode,
+      eyeState: _eyes,
+      origin: DataOrigin.simulator,
+    );
+    final started = await controller.start();
+    if (!started) {
+      setState(() => _error = controller.error);
+      controller.dispose();
+      return;
+    }
+    controller.addListener(() {
+      if (mounted) setState(() {});
+    });
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _session = controller;
+      _error = null;
+      _screen = _Screen.session;
     });
   }
 
+  Future<void> _muse() async {
+    try {
+      await widget.muse.start();
+    } on PlatformException catch (error) {
+      setState(() => _error = error.message ?? 'Muse är inte tillgänglig.');
+    } catch (error) {
+      setState(() => _error = '$error');
+    }
+  }
+
+  Future<void> _openHistory() async {
+    _history = await _repository.listSessions();
+    setState(() => _screen = _Screen.history);
+  }
+
+  @override
+  void dispose() {
+    _previewSub?.cancel();
+    _preview?.stop();
+    _session?.dispose();
+    widget.database.close();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+    return MaterialApp(
+      title: 'neuroTune',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1F6F6A)),
+        useMaterial3: true,
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
+      home: !_ready
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : _page(),
     );
+  }
+
+  Widget _page() {
+    return switch (_screen) {
+      _Screen.auth => AuthPage(onSubmit: _submitAuth, error: _error),
+      _Screen.home => HomePage(
+        experimentVersion: _config.version,
+        policyVersion: _snapshot?.policyVersion ?? '0',
+        hardwareApproved: _config.hardwareApproved,
+        offline: _offline,
+        eyeState: _eyes,
+        mode: _mode,
+        onEyeState: (value) => setState(() => _eyes = value),
+        onMode: (value) => setState(() => _mode = value),
+        onStartSimulator: _openContact,
+        onMuse: _muse,
+        onHistory: _openHistory,
+        onLogout: _logout,
+        message: _error,
+      ),
+      _Screen.contact => ContactPage(
+        batch: _contactBatch,
+        onStart: _startSession,
+        onBack: () {
+          _preview?.stop();
+          setState(() => _screen = _Screen.home);
+        },
+      ),
+      _Screen.session => SessionPage(
+        view: _session!.view,
+        onStop: () => _session?.interrupt(StopReason.manual),
+        onContinue: () => _session?.continueSession(),
+        onFinish: () async {
+          await _session?.finish();
+          if (mounted) setState(() => _screen = _Screen.home);
+        },
+      ),
+      _Screen.history => HistoryPage(
+        sessions: _history,
+        onOpen: (session) => setState(() {
+          _playback = session;
+          _screen = _Screen.playback;
+        }),
+        onBack: () => setState(() => _screen = _Screen.home),
+      ),
+      _Screen.playback => PlaybackPage(
+        session: _playback!,
+        onBack: () => setState(() => _screen = _Screen.history),
+      ),
+    };
   }
 }

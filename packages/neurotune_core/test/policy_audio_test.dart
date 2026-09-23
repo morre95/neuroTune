@@ -16,11 +16,19 @@ void main() {
       fadeSeconds: config.fadeMs / 1000,
     );
     synth.setAction(StimulusAction.binaural6);
-    final rendered = synth.render(config.samplesFor(config.fadeMs / 1000, sampleRate) + 32768);
+    final rendered = synth.render(
+      config.samplesFor(config.fadeMs / 1000, sampleRate) + 32768,
+    );
     expect(rendered.first.abs(), lessThan(0.01));
     expect(_maxStep(rendered), lessThan(0.05));
-    expect(peakHz(rendered, left: true, sampleRateHz: sampleRate), closeTo(217, 2));
-    expect(peakHz(rendered, left: false, sampleRateHz: sampleRate), closeTo(223, 2));
+    expect(
+      peakHz(rendered, left: true, sampleRateHz: sampleRate),
+      closeTo(217, 2),
+    );
+    expect(
+      peakHz(rendered, left: false, sampleRateHz: sampleRate),
+      closeTo(223, 2),
+    );
 
     final control = BinauralSynth(
       sampleRateHz: sampleRate,
@@ -29,16 +37,23 @@ void main() {
       fadeSeconds: config.fadeMs / 1000,
     );
     control.setAction(StimulusAction.control);
-    final both = control.render(config.samplesFor(config.fadeMs / 1000, sampleRate) + 32768);
+    final both = control.render(
+      config.samplesFor(config.fadeMs / 1000, sampleRate) + 32768,
+    );
     expect(peakHz(both, left: true, sampleRateHz: sampleRate), closeTo(220, 2));
-    expect(peakHz(both, left: false, sampleRateHz: sampleRate), closeTo(220, 2));
+    expect(
+      peakHz(both, left: false, sampleRateHz: sampleRate),
+      closeTo(220, 2),
+    );
     final steadyStart = both.length - 2000;
     for (var i = steadyStart; i < both.length; i += 2) {
       expect(both[i], closeTo(both[i + 1], 1e-12));
     }
 
     control.setAction(null);
-    final stopped = control.render(config.samplesFor(config.fadeMs / 1000, sampleRate) + 100);
+    final stopped = control.render(
+      config.samplesFor(config.fadeMs / 1000, sampleRate) + 100,
+    );
     expect(stopped.last.abs(), lessThan(1e-9));
     expect(stopped[stopped.length - 2].abs(), lessThan(1e-9));
   });
@@ -60,46 +75,55 @@ void main() {
     expect(counts.keys, hasLength(greaterThan(1)));
   });
 
-  test('local rewards are applied once and skipped once the server includes them', () {
-    final server = BanditSnapshot.empty(experimentVersion: '2026.1', origin: DataOrigin.simulator);
-    const local = LocalSessionRewards(
-      sessionId: 'a',
-      origin: DataOrigin.simulator,
-      experimentVersion: '2026.1',
-      personal: true,
-      rewards: [LocalReward(StimulusAction.binaural8, 1)],
-    );
-    final first = overlayLocalRewards(server: server, local: const [local]);
-    final second = overlayLocalRewards(server: server, local: const [local]);
-    expect(first.actions[StimulusAction.binaural8]!.n, 1);
-    expect(second.actions[StimulusAction.binaural8]!.n, 1);
+  test(
+    'local rewards are applied once and skipped once the server includes them',
+    () {
+      final server = BanditSnapshot.empty(
+        experimentVersion: '2026.1',
+        origin: DataOrigin.simulator,
+      );
+      const local = LocalSessionRewards(
+        sessionId: 'a',
+        origin: DataOrigin.simulator,
+        experimentVersion: '2026.1',
+        personal: true,
+        rewards: [LocalReward(StimulusAction.binaural8, 1)],
+      );
+      final first = overlayLocalRewards(server: server, local: const [local]);
+      final second = overlayLocalRewards(server: server, local: const [local]);
+      expect(first.actions[StimulusAction.binaural8]!.n, 1);
+      expect(second.actions[StimulusAction.binaural8]!.n, 1);
 
-    final included = server.copyWith(
-      includedSessionIds: const ['a'],
-      actions: {StimulusAction.binaural8: const ActionStat(1, 1)},
-    );
-    final afterUpload = overlayLocalRewards(
-      server: included,
-      local: const [
-        local,
-        LocalSessionRewards(
-          sessionId: 'b',
-          origin: DataOrigin.simulator,
+      final included = server.copyWith(
+        includedSessionIds: const ['a'],
+        actions: {StimulusAction.binaural8: const ActionStat(1, 1)},
+      );
+      final afterUpload = overlayLocalRewards(
+        server: included,
+        local: const [
+          local,
+          LocalSessionRewards(
+            sessionId: 'b',
+            origin: DataOrigin.simulator,
+            experimentVersion: '2026.1',
+            personal: true,
+            rewards: [LocalReward(StimulusAction.binaural8, 1)],
+          ),
+        ],
+      );
+      expect(afterUpload.actions[StimulusAction.binaural8]!.n, 2);
+      expect(afterUpload.actions[StimulusAction.binaural8]!.mean, 1);
+
+      final muse = overlayLocalRewards(
+        server: BanditSnapshot.empty(
           experimentVersion: '2026.1',
-          personal: true,
-          rewards: [LocalReward(StimulusAction.binaural8, 1)],
+          origin: DataOrigin.muse,
         ),
-      ],
-    );
-    expect(afterUpload.actions[StimulusAction.binaural8]!.n, 2);
-    expect(afterUpload.actions[StimulusAction.binaural8]!.mean, 1);
-
-    final muse = overlayLocalRewards(
-      server: BanditSnapshot.empty(experimentVersion: '2026.1', origin: DataOrigin.muse),
-      local: const [local],
-    );
-    expect(muse.actions[StimulusAction.binaural8]!.n, 0);
-  });
+        local: const [local],
+      );
+      expect(muse.actions[StimulusAction.binaural8]!.n, 0);
+    },
+  );
 
   test('upload retries do not send a finished job again', () async {
     final queue = UploadQueue();

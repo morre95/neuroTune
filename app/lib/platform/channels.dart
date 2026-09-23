@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' hide Uint8List;
 
 /// Plays stereo PCM and reports whether a headphone output is connected.
 abstract class PcmOutput {
@@ -30,13 +30,15 @@ class AndroidPcmOutput implements PcmOutput {
   }
 
   @override
-  Future<void> write(Uint8List pcm16) => _methods.invokeMethod<void>('write', pcm16);
+  Future<void> write(Uint8List pcm16) =>
+      _methods.invokeMethod<void>('write', pcm16);
 
   @override
   Future<void> stop() => _methods.invokeMethod<void>('stop');
 
   @override
-  Stream<bool> get stereoConnected => _events.receiveBroadcastStream().map((event) => event == true);
+  Stream<bool> get stereoConnected =>
+      _events.receiveBroadcastStream().map((event) => event == true);
 }
 
 class MuseChannel {

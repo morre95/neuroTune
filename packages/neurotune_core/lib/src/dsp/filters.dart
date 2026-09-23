@@ -7,12 +7,16 @@ class Complex {
   final double real;
   final double imag;
 
-  Complex operator +(Complex other) => Complex(real + other.real, imag + other.imag);
+  Complex operator +(Complex other) =>
+      Complex(real + other.real, imag + other.imag);
 
-  Complex operator -(Complex other) => Complex(real - other.real, imag - other.imag);
+  Complex operator -(Complex other) =>
+      Complex(real - other.real, imag - other.imag);
 
-  Complex operator *(Complex other) =>
-      Complex(real * other.real - imag * other.imag, real * other.imag + imag * other.real);
+  Complex operator *(Complex other) => Complex(
+    real * other.real - imag * other.imag,
+    real * other.imag + imag * other.real,
+  );
 
   Complex scale(double factor) => Complex(real * factor, imag * factor);
 
@@ -36,8 +40,8 @@ class Complex {
 /// Direct-form II transposed SOS. Each section is `[b0, b1, b2, a0, a1, a2]`.
 class SosFilter {
   SosFilter(this.sections)
-      : _z1 = Float64List(sections.length),
-        _z2 = Float64List(sections.length);
+    : _z1 = Float64List(sections.length),
+      _z2 = Float64List(sections.length);
 
   final List<Float64List> sections;
   final Float64List _z1;
@@ -84,8 +88,10 @@ List<Float64List> butterBandpassSos({
 }) {
   final nyquist = sampleRateHz / 2;
   const normalizedFs = 2.0;
-  final warpedLow = 2 * normalizedFs * tan(pi * (lowHz / nyquist) / normalizedFs);
-  final warpedHigh = 2 * normalizedFs * tan(pi * (highHz / nyquist) / normalizedFs);
+  final warpedLow =
+      2 * normalizedFs * tan(pi * (lowHz / nyquist) / normalizedFs);
+  final warpedHigh =
+      2 * normalizedFs * tan(pi * (highHz / nyquist) / normalizedFs);
   final center = sqrt(warpedLow * warpedHigh);
   final bandwidth = warpedHigh - warpedLow;
   final centerSquared = Complex(center * center, 0);
@@ -109,7 +115,8 @@ List<Float64List> butterBandpassSos({
   for (final pole in poles) {
     denominator = denominator * (fs2 - pole);
   }
-  final gain = (numerator / denominator).real * pow(bandwidth, order).toDouble();
+  final gain =
+      (numerator / denominator).real * pow(bandwidth, order).toDouble();
   return _sections(digitalPoles, gain);
 }
 

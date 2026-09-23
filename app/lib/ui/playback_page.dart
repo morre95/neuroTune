@@ -20,9 +20,15 @@ class _PlaybackPageState extends State<PlaybackPage> {
   @override
   Widget build(BuildContext context) {
     final frames = widget.session.frames;
-    final frame = frames.isEmpty ? null : frames[_index.clamp(0, frames.length - 1)];
+    final frame = frames.isEmpty
+        ? null
+        : frames[_index.clamp(0, frames.length - 1)];
     final decision = _decisionAt(frame?.timeSeconds ?? 0);
-    final valid = frame == null ? 0 : frame.channels.where((channel) => channel.valid && !frame.rejected).length;
+    final valid = frame == null
+        ? 0
+        : frame.channels
+              .where((channel) => channel.valid && !frame.rejected)
+              .length;
     final total = frame?.channels.length ?? 0;
     return Scaffold(
       appBar: AppBar(title: const Text('Uppspelning')),
@@ -35,7 +41,8 @@ class _PlaybackPageState extends State<PlaybackPage> {
           Text('Alpha ${_mean(frame, (channel) => channel.relativeAlpha)}'),
           Text('Beta ${_mean(frame, (channel) => channel.relativeBeta)}'),
           Text('Signalkvalitet $valid/$total kanaler'),
-          if (decision?.reward != null) Text('Belöning ${decision!.reward!.toStringAsFixed(2)}'),
+          if (decision?.reward != null)
+            Text('Belöning ${decision!.reward!.toStringAsFixed(2)}'),
           const SizedBox(height: 16),
           FilledButton(
             onPressed: frame == null || _index >= frames.length - 1
@@ -57,9 +64,14 @@ class _PlaybackPageState extends State<PlaybackPage> {
     return current;
   }
 
-  String _mean(FeatureFrame? frame, double Function(ChannelFeature channel) read) {
+  String _mean(
+    FeatureFrame? frame,
+    double Function(ChannelFeature channel) read,
+  ) {
     if (frame == null || frame.channels.isEmpty) return '-';
-    final value = frame.channels.map(read).reduce((a, b) => a + b) / frame.channels.length;
+    final value =
+        frame.channels.map(read).reduce((a, b) => a + b) /
+        frame.channels.length;
     return value.toStringAsFixed(3);
   }
 }

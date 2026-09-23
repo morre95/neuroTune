@@ -14,9 +14,11 @@ class EpsilonPolicy {
     required this.random,
     Map<StimulusAction, ActionStat>? stats,
   }) : stats = {
-          for (final action in StimulusAction.values)
-            action: stats == null ? const ActionStat(0, 0) : (stats[action] ?? const ActionStat(0, 0)),
-        };
+         for (final action in StimulusAction.values)
+           action: stats == null
+               ? const ActionStat(0, 0)
+               : (stats[action] ?? const ActionStat(0, 0)),
+       };
 
   final double epsilon;
   final Random random;
@@ -33,8 +35,11 @@ class EpsilonPolicy {
         if (stats[action]!.mean == bestMean) action,
     ];
     final explore = random.nextDouble() < epsilon;
-    final action = explore ? actions[random.nextInt(actions.length)] : best[random.nextInt(best.length)];
-    final probability = epsilon / actions.length +
+    final action = explore
+        ? actions[random.nextInt(actions.length)]
+        : best[random.nextInt(best.length)];
+    final probability =
+        epsilon / actions.length +
         (best.contains(action) ? (1 - epsilon) / best.length : 0);
     return ActionChoice(action, probability);
   }

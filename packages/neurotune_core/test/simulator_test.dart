@@ -15,14 +15,25 @@ void main() {
         sampleRateHz: 256,
         channelNames: simulatorChannels,
       );
-      final source = SimulatorSource(config: config, sampleRateHz: 256, seed: 1, scenario: scenario);
+      final source = SimulatorSource(
+        config: config,
+        sampleRateHz: 256,
+        seed: 1,
+        scenario: scenario,
+      );
       final frames = <FeatureFrame>[];
       final horizon = scenario == SimulatorScenario.gaps ? 14.0 : 8.0;
       while (source.clock < horizon) {
         frames.addAll(pipeline.addBatch(source.pull()));
       }
-      expect(frames.any((frame) => frame.rejected || frame.channels.any((channel) => !channel.valid)), isTrue,
-          reason: scenario.name);
+      expect(
+        frames.any(
+          (frame) =>
+              frame.rejected || frame.channels.any((channel) => !channel.valid),
+        ),
+        isTrue,
+        reason: scenario.name,
+      );
     }
   });
 
@@ -34,7 +45,10 @@ void main() {
       pauseSeconds: 1,
       rewardTailSeconds: 4,
     );
-    final snapshot = BanditSnapshot.empty(experimentVersion: config.version, origin: DataOrigin.simulator);
+    final snapshot = BanditSnapshot.empty(
+      experimentVersion: config.version,
+      origin: DataOrigin.simulator,
+    );
     final engine = SessionEngine(
       config: config,
       snapshot: snapshot,
@@ -53,7 +67,11 @@ void main() {
       seed: 4,
       corruptAfterSeconds: config.baselineSeconds,
     );
-    final pipeline = DspPipeline(config: config, sampleRateHz: 256, channelNames: simulatorChannels);
+    final pipeline = DspPipeline(
+      config: config,
+      sampleRateHz: 256,
+      channelNames: simulatorChannels,
+    );
     var steps = 0;
     while (!engine.terminal && source.clock < 40 && steps < 100000) {
       source.action = engine.currentAction;
@@ -74,7 +92,10 @@ void main() {
       pauseSeconds: 1,
       rewardTailSeconds: 4,
     );
-    final stats = {for (final action in StimulusAction.values) action: const ActionStat(0, 0)};
+    final stats = {
+      for (final action in StimulusAction.values)
+        action: const ActionStat(0, 0),
+    };
     final chosen = <String>{};
     for (var session = 0; session < 4; session++) {
       final engine = SessionEngine(
@@ -103,7 +124,11 @@ void main() {
         seed: 20 + session,
         scenario: SimulatorScenario.response,
       );
-      final pipeline = DspPipeline(config: config, sampleRateHz: 256, channelNames: simulatorChannels);
+      final pipeline = DspPipeline(
+        config: config,
+        sampleRateHz: 256,
+        channelNames: simulatorChannels,
+      );
       var steps = 0;
       while (!engine.terminal && source.clock < 120 && steps < 200000) {
         source.action = engine.currentAction;
@@ -118,7 +143,9 @@ void main() {
       }
       chosen.addAll(engine.decisions.map((decision) => decision.action));
     }
-    final best = stats.entries.reduce((a, b) => a.value.mean >= b.value.mean ? a : b).key;
+    final best = stats.entries
+        .reduce((a, b) => a.value.mean >= b.value.mean ? a : b)
+        .key;
     expect(best, StimulusAction.binaural10);
     expect(stats[StimulusAction.binaural10]!.n, greaterThan(0));
     expect(chosen, contains('binaural_10'));
@@ -131,11 +158,19 @@ void main() {
 
   test('recordings round-trip and playback emits the same batches', () async {
     final config = ExperimentConfig.defaults();
-    final source = SimulatorSource(config: config, sampleRateHz: 256, seed: 2, scenario: SimulatorScenario.tones);
+    final source = SimulatorSource(
+      config: config,
+      sampleRateHz: 256,
+      seed: 2,
+      scenario: SimulatorScenario.tones,
+    );
     final original = [source.pull(), source.pull()];
     final restored = decodeBatches(encodeBatches(original));
     expect(restored.first.sampleRateHz, original.first.sampleRateHz);
-    expect(restored.first.eeg.first.first, closeTo(original.first.eeg.first.first, 1e-9));
+    expect(
+      restored.first.eeg.first.first,
+      closeTo(original.first.eeg.first.first, 1e-9),
+    );
     final playback = PlaybackSource(restored);
     final emitted = playback.batches.take(2).toList();
     await playback.start();

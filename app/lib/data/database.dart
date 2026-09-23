@@ -41,17 +41,22 @@ class KvStore extends Table {
 
 @DriftDatabase(tables: [StoredSessions, UploadJobs, KvStore])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'neurotune'));
+  AppDatabase([QueryExecutor? executor])
+    : super(executor ?? driftDatabase(name: 'neurotune'));
 
   @override
   int get schemaVersion => 1;
 
   Future<void> putKv(String key, String value) async {
-    await into(kvStore).insertOnConflictUpdate(KvStoreCompanion.insert(key: key, value: value));
+    await into(
+      kvStore,
+    ).insertOnConflictUpdate(KvStoreCompanion.insert(key: key, value: value));
   }
 
   Future<String?> getKv(String key) async {
-    final row = await (select(kvStore)..where((table) => table.key.equals(key))).getSingleOrNull();
+    final row = await (select(
+      kvStore,
+    )..where((table) => table.key.equals(key))).getSingleOrNull();
     return row?.value;
   }
 }

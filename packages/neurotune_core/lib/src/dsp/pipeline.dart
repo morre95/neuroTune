@@ -14,7 +14,11 @@ class DspPipeline {
     _notch = [
       for (var i = 0; i < channelNames.length; i++)
         SosFilter([
-          notchSos(notchHz: config.notchHz, q: config.notchQ, sampleRateHz: sampleRateHz),
+          notchSos(
+            notchHz: config.notchHz,
+            q: config.notchQ,
+            sampleRateHz: sampleRateHz,
+          ),
         ]),
     ];
     final bandpass = butterBandpassSos(
@@ -23,7 +27,9 @@ class DspPipeline {
       highHz: config.bandpassHighHz,
       sampleRateHz: sampleRateHz,
     );
-    _bandpass = [for (var i = 0; i < channelNames.length; i++) SosFilter(bandpass)];
+    _bandpass = [
+      for (var i = 0; i < channelNames.length; i++) SosFilter(bandpass),
+    ];
     _raw = [for (var i = 0; i < channelNames.length; i++) <double>[]];
     _filtered = [for (var i = 0; i < channelNames.length; i++) <double>[]];
     _contact = [for (var i = 0; i < channelNames.length; i++) <int>[]];
@@ -50,13 +56,18 @@ class DspPipeline {
   bool _haveOrigin = false;
   double _gapUntil = -1;
 
-  int get _windowSamples => config.samplesFor(config.welchWindowSeconds, sampleRateHz);
-  int get _hopSamples => config.samplesFor(config.welchHopSeconds, sampleRateHz);
-  int get _segmentSamples => config.samplesFor(config.welchSegmentSeconds, sampleRateHz);
+  int get _windowSamples =>
+      config.samplesFor(config.welchWindowSeconds, sampleRateHz);
+  int get _hopSamples =>
+      config.samplesFor(config.welchHopSeconds, sampleRateHz);
+  int get _segmentSamples =>
+      config.samplesFor(config.welchSegmentSeconds, sampleRateHz);
 
   List<FeatureFrame> addBatch(EegBatch batch) {
     if (batch.sampleRateHz != sampleRateHz) {
-      throw StateError('Batch sample rate ${batch.sampleRateHz} does not match $sampleRateHz');
+      throw StateError(
+        'Batch sample rate ${batch.sampleRateHz} does not match $sampleRateHz',
+      );
     }
     if (batch.channelNames.length != channelNames.length) {
       throw StateError('Batch channels do not match the pipeline');
@@ -80,7 +91,9 @@ class DspPipeline {
       for (var sample = 0; sample < count; sample++) {
         final raw = batch.eeg[channel][sample];
         _raw[channel].add(raw);
-        final filtered = _bandpass[channel].process(_notch[channel].process(raw));
+        final filtered = _bandpass[channel].process(
+          _notch[channel].process(raw),
+        );
         _filtered[channel].add(filtered);
         _contact[channel].add(batch.contact[sample][channel]);
       }
@@ -143,7 +156,12 @@ class DspPipeline {
     );
   }
 
-  ChannelFeature _channelFeature(int channel, int start, int end, bool rejected) {
+  ChannelFeature _channelFeature(
+    int channel,
+    int start,
+    int end,
+    bool rejected,
+  ) {
     final reasons = <String>[];
     final raw = _raw[channel].sublist(_index(start), _index(end));
     final filtered = _filtered[channel].sublist(_index(start), _index(end));
@@ -183,7 +201,12 @@ class DspPipeline {
             betaHz: config.betaHz,
             totalHz: config.totalHz,
           )
-        : BandPowers(absoluteTheta: 0, absoluteAlpha: 0, absoluteBeta: 0, total: 0);
+        : BandPowers(
+            absoluteTheta: 0,
+            absoluteAlpha: 0,
+            absoluteBeta: 0,
+            total: 0,
+          );
     return ChannelFeature(
       name: channelNames[channel],
       valid: valid,
@@ -202,10 +225,14 @@ class DspPipeline {
   bool _motion(int start, int end) {
     for (var i = _index(start); i < _index(end); i++) {
       final accel = _accel[i];
-      final magnitude = sqrt(accel[0] * accel[0] + accel[1] * accel[1] + accel[2] * accel[2]);
+      final magnitude = sqrt(
+        accel[0] * accel[0] + accel[1] * accel[1] + accel[2] * accel[2],
+      );
       if ((magnitude - 1).abs() >= config.motionAccelG) return true;
       final gyro = _gyro[i];
-      final gyroMag = sqrt(gyro[0] * gyro[0] + gyro[1] * gyro[1] + gyro[2] * gyro[2]);
+      final gyroMag = sqrt(
+        gyro[0] * gyro[0] + gyro[1] * gyro[1] + gyro[2] * gyro[2],
+      );
       if (gyroMag >= config.motionGyroDps) return true;
     }
     return false;
@@ -240,7 +267,8 @@ double populationStd(List<double> values) {
   return sqrt(sum / values.length);
 }
 
-double meanOf(List<double> values) => values.reduce((a, b) => a + b) / values.length;
+double meanOf(List<double> values) =>
+    values.reduce((a, b) => a + b) / values.length;
 
 Float64List sine({
   required double hz,

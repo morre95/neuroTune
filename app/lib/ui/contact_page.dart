@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 
 class ContactPage extends StatelessWidget {
-  const ContactPage({super.key, required this.batch, required this.onStart, required this.onBack});
+  const ContactPage({
+    super.key,
+    required this.batch,
+    required this.onStart,
+    required this.onBack,
+  });
 
   final EegBatch? batch;
   final VoidCallback onStart;
@@ -16,7 +21,9 @@ class ContactPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text('Kontrollera att signalen är stabil innan baslinjen. Samma ögonläge gäller hela sessionen.'),
+          const Text(
+            'Kontrollera att signalen är stabil innan baslinjen. Samma ögonläge gäller hela sessionen.',
+          ),
           const SizedBox(height: 16),
           for (var index = 0; index < names.length; index++)
             ListTile(
@@ -24,7 +31,10 @@ class ContactPage extends StatelessWidget {
               subtitle: Text(_contactLabel(batch, index)),
             ),
           const SizedBox(height: 16),
-          FilledButton(onPressed: batch == null ? null : onStart, child: const Text('Starta baslinje')),
+          FilledButton(
+            onPressed: batch == null ? null : onStart,
+            child: const Text('Starta baslinje'),
+          ),
           TextButton(onPressed: onBack, child: const Text('Tillbaka')),
         ],
       ),

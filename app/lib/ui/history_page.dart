@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import '../data/repository.dart';
 
 class HistoryPage extends StatelessWidget {
-  const HistoryPage({super.key, required this.sessions, required this.onOpen, required this.onBack});
+  const HistoryPage({
+    super.key,
+    required this.sessions,
+    required this.onOpen,
+    required this.onBack,
+  });
 
   final List<SavedSession> sessions;
   final ValueChanged<SavedSession> onOpen;
@@ -20,7 +25,9 @@ class HistoryPage extends StatelessWidget {
                 for (final session in sessions)
                   ListTile(
                     title: Text(session.manifest.startedAtIso),
-                    subtitle: Text('${session.origin} · ${session.mode} · ${session.decisions.length} block'),
+                    subtitle: Text(
+                      '${session.origin} · ${session.mode} · ${session.decisions.length} block',
+                    ),
                     onTap: () => onOpen(session),
                   ),
                 TextButton(onPressed: onBack, child: const Text('Tillbaka')),

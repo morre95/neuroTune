@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key, required this.onSubmit, this.error});
 
-  final Future<void> Function(String email, String password, bool register) onSubmit;
+  final Future<void> Function(String email, String password, bool register)
+  onSubmit;
   final String? error;
 
   @override
@@ -38,16 +39,38 @@ class _AuthPageState extends State<AuthPage> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text('Spektrala EEG-mått under binauralt ljud. Inte ett mått på avslappning, fokus eller behandling.'),
+          const Text(
+            'Spektrala EEG-mått under binauralt ljud. Inte ett mått på avslappning, fokus eller behandling.',
+          ),
           const SizedBox(height: 24),
-          TextField(controller: _email, decoration: const InputDecoration(labelText: 'E-post'), keyboardType: TextInputType.emailAddress),
+          TextField(
+            controller: _email,
+            decoration: const InputDecoration(labelText: 'E-post'),
+            keyboardType: TextInputType.emailAddress,
+          ),
           const SizedBox(height: 12),
-          TextField(controller: _password, decoration: const InputDecoration(labelText: 'Lösenord'), obscureText: true),
-          if (widget.error != null) ...[const SizedBox(height: 12), Text(widget.error!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
+          TextField(
+            controller: _password,
+            decoration: const InputDecoration(labelText: 'Lösenord'),
+            obscureText: true,
+          ),
+          if (widget.error != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              widget.error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
           const SizedBox(height: 24),
-          FilledButton(onPressed: _busy ? null : () => _send(false), child: const Text('Logga in')),
+          FilledButton(
+            onPressed: _busy ? null : () => _send(false),
+            child: const Text('Logga in'),
+          ),
           const SizedBox(height: 8),
-          OutlinedButton(onPressed: _busy ? null : () => _send(true), child: const Text('Registrera')),
+          OutlinedButton(
+            onPressed: _busy ? null : () => _send(true),
+            child: const Text('Registrera'),
+          ),
         ],
       ),
     );

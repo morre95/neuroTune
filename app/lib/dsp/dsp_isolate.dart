@@ -49,13 +49,19 @@ void _dspMain(SendPort host) {
     switch (map['cmd']) {
       case 'init':
         pipeline = DspPipeline(
-          config: ExperimentConfig.fromJson(Map<String, dynamic>.from(map['config']! as Map)),
+          config: ExperimentConfig.fromJson(
+            Map<String, dynamic>.from(map['config']! as Map),
+          ),
           sampleRateHz: (map['fs']! as num).toDouble(),
-          channelNames: (map['channels']! as List).map((name) => '$name').toList(),
+          channelNames: (map['channels']! as List)
+              .map((name) => '$name')
+              .toList(),
         );
         out = map['out']! as SendPort;
       case 'batch':
-        final batch = EegBatch.fromJson(Map<String, dynamic>.from(map['batch']! as Map));
+        final batch = EegBatch.fromJson(
+          Map<String, dynamic>.from(map['batch']! as Map),
+        );
         for (final frame in pipeline!.addBatch(batch)) {
           out!.send(frame);
         }

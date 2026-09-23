@@ -11,9 +11,18 @@ void main() {
     }
     expect(engine.phase, SessionPhase.completed);
     expect(engine.completedBlocks, 15);
-    expect(engine.decisions.where((decision) => !decision.aborted), hasLength(15));
-    expect(engine.decisions.take(5).map((decision) => decision.action).toSet(), hasLength(5));
-    expect(engine.decisions.every((decision) => decision.updatedBandit), isTrue);
+    expect(
+      engine.decisions.where((decision) => !decision.aborted),
+      hasLength(15),
+    );
+    expect(
+      engine.decisions.take(5).map((decision) => decision.action).toSet(),
+      hasLength(5),
+    );
+    expect(
+      engine.decisions.every((decision) => decision.updatedBandit),
+      isTrue,
+    );
     expect(engine.manifest().timeline, 'monotonic_session_seconds');
     expect(engine.manifest().durationSeconds, 720);
   });
@@ -26,7 +35,10 @@ void main() {
     }
     expect(engine.phase, SessionPhase.completed);
     expect(engine.policy.stats.values.every((stat) => stat.n == 0), isTrue);
-    expect(engine.decisions.every((decision) => decision.reward == null), isTrue);
+    expect(
+      engine.decisions.every((decision) => decision.reward == null),
+      isTrue,
+    );
   });
 
   test('an aborted block gives no reward and the next block is new', () {
@@ -94,7 +106,10 @@ SessionEngine _engine({SessionMode mode = SessionMode.personal}) {
   final config = ExperimentConfig.defaults();
   return SessionEngine(
     config: config,
-    snapshot: BanditSnapshot.empty(experimentVersion: config.version, origin: DataOrigin.simulator),
+    snapshot: BanditSnapshot.empty(
+      experimentVersion: config.version,
+      origin: DataOrigin.simulator,
+    ),
     sessionId: 'session-1',
     origin: DataOrigin.simulator,
     mode: mode,
