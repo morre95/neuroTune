@@ -24,6 +24,7 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   Future<void> _send(bool register) async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       await widget.onSubmit(_email.text.trim(), _password.text, register);

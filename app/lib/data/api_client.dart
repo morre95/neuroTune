@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -36,11 +37,15 @@ class AuthTokens {
 }
 
 class ApiClient {
-  ApiClient({required this.baseUrl, http.Client? httpClient})
-    : _http = httpClient ?? http.Client();
+  ApiClient({
+    required this.baseUrl,
+    http.Client? httpClient,
+    this.requestTimeout = const Duration(seconds: 15),
+  }) : _http = httpClient ?? http.Client();
 
   final String baseUrl;
   final http.Client _http;
+  final Duration requestTimeout;
   String? accessToken;
   String? refreshToken;
 
@@ -51,11 +56,13 @@ class ApiClient {
       _tokens('/v1/auth/login', email, password);
 
   Future<AuthTokens> _tokens(String path, String email, String password) async {
-    final response = await _http.post(
-      Uri.parse('$baseUrl$path'),
-      headers: {'content-type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
-    );
+    final response = await _http
+        .post(
+          Uri.parse('$baseUrl$path'),
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode({'email': email, 'password': password}),
+        )
+        .timeout(requestTimeout);
     _expect(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     accessToken = json['access_token'] as String;
@@ -68,11 +75,13 @@ class ApiClient {
   }
 
   Future<void> refresh() async {
-    final response = await _http.post(
-      Uri.parse('$baseUrl/v1/auth/refresh'),
-      headers: {'content-type': 'application/json'},
-      body: jsonEncode({'refresh_token': refreshToken}),
-    );
+    final response = await _http
+        .post(
+          Uri.parse('$baseUrl/v1/auth/refresh'),
+          headers: {'content-type': 'application/json'},
+          body: jsonEncode({'refresh_token': refreshToken}),
+        )
+        .timeout(requestTimeout);
     _expect(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     accessToken = json['access_token'] as String;
@@ -152,11 +161,12 @@ class ApiClient {
     };
     final uri = Uri.parse('$baseUrl$path');
     final encoded = body == null ? null : jsonEncode(body);
-    return switch (method) {
+    final request = switch (method) {
       'POST' => _http.post(uri, headers: headers, body: encoded),
       'GET' => _http.get(uri, headers: headers),
       _ => throw UnsupportedError(method),
     };
+    return request.timeout(requestTimeout);
   }
 
   void _expect(http.Response response) {
