@@ -103,7 +103,7 @@ class AudioBridge(private val activity: FlutterActivity) : EventChannel.StreamHa
     }
 
     private fun emit() {
-        events?.success(hasStereo())
+        activity.runOnUiThread { events?.success(hasStereo()) }
     }
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
@@ -119,4 +119,3 @@ class AudioBridge(private val activity: FlutterActivity) : EventChannel.StreamHa
         events = null
     }
 }
-
