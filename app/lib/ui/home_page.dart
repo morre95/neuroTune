@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 
+String modeDescription(SessionMode mode) => switch (mode) {
+  SessionMode.personal =>
+    'Personlig tränar din policy. Efter ett varv med alla fem stimuli väljer '
+        'banditen oftare det som gett bäst respons, och varje block uppdaterar '
+        'modellen.',
+  SessionMode.comparison =>
+    'Jämförelse mäter utan att träna. Alla fem stimuli spelas lika många '
+        'gånger i slumpad ordning och resultatet sparas, men policyn lämnas '
+        'oförändrad.',
+};
+
 class HomePage extends StatelessWidget {
   const HomePage({
     super.key,
@@ -71,18 +82,24 @@ class HomePage extends StatelessWidget {
           const SizedBox(height: 16),
           const Text('Läge'),
           SegmentedButton<SessionMode>(
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: SessionMode.personal,
-                label: Text('Personlig'),
+                label: const Text('Personlig'),
+                tooltip: modeDescription(SessionMode.personal),
               ),
               ButtonSegment(
                 value: SessionMode.comparison,
-                label: Text('Jämförelse'),
+                label: const Text('Jämförelse'),
+                tooltip: modeDescription(SessionMode.comparison),
               ),
             ],
             selected: {mode},
             onSelectionChanged: (value) => onMode(value.single),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(modeDescription(mode)),
           ),
           const SizedBox(height: 24),
           FilledButton(

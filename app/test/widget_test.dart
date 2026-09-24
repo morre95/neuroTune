@@ -58,6 +58,34 @@ void main() {
     expect(find.textContaining('Offline'), findsOneWidget);
   });
 
+  testWidgets('home describes the selected session mode', (tester) async {
+    Widget home(SessionMode mode) => MaterialApp(
+      home: HomePage(
+        experimentVersion: '2026.1',
+        policyVersion: '0',
+        hardwareApproved: true,
+        offline: false,
+        eyeState: EyeState.open,
+        mode: mode,
+        onEyeState: (_) {},
+        onMode: (_) {},
+        onStartSimulator: () {},
+        onMuse: () {},
+        connectingMuse: false,
+        onHistory: () {},
+        onLogout: () {},
+      ),
+    );
+
+    await tester.pumpWidget(home(SessionMode.personal));
+    expect(find.text(modeDescription(SessionMode.personal)), findsOneWidget);
+    expect(find.text(modeDescription(SessionMode.comparison)), findsNothing);
+
+    await tester.pumpWidget(home(SessionMode.comparison));
+    expect(find.text(modeDescription(SessionMode.comparison)), findsOneWidget);
+    expect(find.text(modeDescription(SessionMode.personal)), findsNothing);
+  });
+
   testWidgets(
     'headphone test is available before baseline and can be stopped',
     (tester) async {
