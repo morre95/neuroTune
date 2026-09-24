@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 os.environ.setdefault("DATABASE_URL", "sqlite://")
-os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("JWT_SECRET", "test-only-secret-at-least-32-bytes-long")
 os.environ.setdefault("RAW_DATA_DIR", "/tmp/neurotune-raw-test")
 os.environ.setdefault(
     "CONTRACTS_PATH",

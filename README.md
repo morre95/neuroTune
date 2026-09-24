@@ -28,6 +28,12 @@ docker compose up --build
 
 API:t lyssnar på [http://localhost:8000](http://localhost:8000). Hälsokoll: `GET /v1/health`. PostgreSQL är bara exponerad på `127.0.0.1:5433`. Workern räknar om banditstatistiken från uppladdade block.
 
+`JWT_SECRET` i `compose.yaml` är ett utvecklingsvärde. Utanför utveckling sätter du `ENVIRONMENT` till något annat än `development` och ett eget `JWT_SECRET` på minst 32 byte, annars vägrar API:t starta:
+
+```bash
+python -c 'import secrets; print(secrets.token_urlsafe(32))'
+```
+
 ### Backendtester
 
 Kör Pytest i en tillfällig Docker-container från repo-roten:
