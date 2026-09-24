@@ -58,7 +58,24 @@ class SessionController extends ChangeNotifier {
   var _finishing = false;
   var _closed = false;
 
+  /// Acquires the foreground service, DSP isolate, data source and audio
+  /// output. Returns false with [error] set if any of them fails, leaving the
+  /// caller to dispose the controller and keep the user on the contact page.
   Future<bool> start({MuseChannel? muse}) async {
+    try {
+      await _open(muse);
+    } catch (failure) {
+      error = 'Sessionen kunde inte starta: $failure';
+      // Keep the headband connected so the contact page can retry without
+      // scanning again; dispose() only stops a Muse the session owns.
+      _muse = null;
+      return false;
+    }
+    notifyListeners();
+    return true;
+  }
+
+  Future<void> _open(MuseChannel? muse) async {
     await keepAlive.start();
     final seed = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final channelNames = muse == null
@@ -126,8 +143,6 @@ class SessionController extends ChangeNotifier {
       (_) => _writeAudio(),
     );
     _source?.start();
-    notifyListeners();
-    return true;
   }
 
   SessionView get view {
