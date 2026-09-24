@@ -14,3 +14,5 @@ app/.flutter-plugins-dependencies
 backend/.venv/
 reference/.venv/
 vendor/muse-android/
+
+.claude/settings.json
