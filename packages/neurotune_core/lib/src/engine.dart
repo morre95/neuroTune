@@ -114,6 +114,7 @@ class SessionEngine {
       timeline: 'monotonic_session_seconds',
       seed: seed,
       checksumSha256: checksum,
+      stopReason: stopReason?.name,
     );
   }
 

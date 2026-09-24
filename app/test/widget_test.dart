@@ -5,6 +5,7 @@ import 'package:neurotune_core/neurotune_core.dart';
 import 'package:neurotune/data/repository.dart';
 import 'package:neurotune/ui/auth_page.dart';
 import 'package:neurotune/ui/contact_page.dart';
+import 'package:neurotune/ui/history_page.dart';
 import 'package:neurotune/ui/home_page.dart';
 import 'package:neurotune/ui/playback_page.dart';
 import 'package:neurotune/ui/session_page.dart';
@@ -193,6 +194,61 @@ void main() {
     expect(find.text('Stoppa'), findsNothing);
     expect(find.text('Fortsätt'), findsNothing);
     expect(find.text('Avsluta session'), findsOneWidget);
+  });
+
+  testWidgets('history explains a session that recorded no blocks', (
+    tester,
+  ) async {
+    SavedSession empty({String? stopReason, List<String> selected = const []}) =>
+        SavedSession(
+          id: 'e',
+          origin: 'muse',
+          mode: 'personal',
+          manifest: SessionManifest(
+            sessionId: 'e',
+            userId: null,
+            experimentVersion: '2026.2',
+            policyVersion: '0',
+            dataOrigin: 'muse',
+            mode: 'personal',
+            eyeState: 'closed',
+            sampleRateHz: 256,
+            channelNames: const ['EEG1', 'EEG2', 'EEG3', 'EEG4'],
+            selectedChannels: selected,
+            startedAtIso: '2026-09-24T09:00:00Z',
+            durationSeconds: 125,
+            audioLatencyMs: 40,
+            audioLatencySource: 'audiotrack_buffer_frames',
+            timeline: 'monotonic_session_seconds',
+            seed: 1,
+            checksumSha256: 'abc',
+            stopReason: stopReason,
+          ),
+          decisions: const [],
+          frames: const [],
+          status: 'stopped',
+          checksum: 'abc',
+          createdAt: DateTime.utc(2026, 9, 24),
+        );
+
+    Widget history(SavedSession session) => MaterialApp(
+      home: HistoryPage(
+        sessions: [session],
+        onOpen: (_) {},
+        onBack: () {},
+      ),
+    );
+
+    await tester.pumpWidget(history(empty(stopReason: 'baselineFailed')));
+    expect(find.textContaining('0 block'), findsOneWidget);
+    expect(find.textContaining('2m 5s'), findsOneWidget);
+    expect(find.textContaining('baslinjen underkändes'), findsOneWidget);
+
+    await tester.pumpWidget(history(empty()));
+    expect(
+      find.textContaining('Stoppad innan baslinjen godkändes'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('playback steps to the next second', (tester) async {

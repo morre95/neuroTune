@@ -665,6 +665,7 @@ class SessionManifest {
     required this.timeline,
     required this.seed,
     required this.checksumSha256,
+    this.stopReason,
   });
 
   final String sessionId;
@@ -689,6 +690,10 @@ class SessionManifest {
   final int seed;
   final String checksumSha256;
 
+  /// Why the session ended, or null when it ran to completion. Without this a
+  /// recording cannot be told apart from one the protocol rejected.
+  final String? stopReason;
+
   Map<String, dynamic> toJson() => {
     'session_id': sessionId,
     'user_id': userId,
@@ -707,6 +712,7 @@ class SessionManifest {
     'timeline': timeline,
     'seed': seed,
     'checksum_sha256': checksumSha256,
+    'stop_reason': stopReason,
   };
 
   factory SessionManifest.fromJson(Map<String, dynamic> json) =>
@@ -732,6 +738,7 @@ class SessionManifest {
         timeline: json['timeline'] as String,
         seed: json['seed'] as int,
         checksumSha256: json['checksum_sha256'] as String,
+        stopReason: json['stop_reason'] as String?,
       );
 }
 
