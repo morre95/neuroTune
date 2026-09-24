@@ -10,6 +10,7 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
         AudioBridge(this).register(messenger)
+        SessionBridge(this).register(messenger)
         museBridge = MuseBridge(this).also { it.register(messenger) }
     }
 

@@ -28,6 +28,7 @@ void main() {
       database: AppDatabase(),
       api: ApiClient(baseUrl: baseUrl),
       audio: AndroidPcmOutput(),
+      keepAlive: AndroidSessionKeepAlive(),
       muse: MuseChannel(),
     ),
   );
@@ -41,12 +42,14 @@ class NeuroTuneApp extends StatefulWidget {
     required this.database,
     required this.api,
     required this.audio,
+    required this.keepAlive,
     required this.muse,
   });
 
   final AppDatabase database;
   final ApiClient api;
   final PcmOutput audio;
+  final SessionKeepAlive keepAlive;
   final MuseChannel muse;
 
   @override
@@ -227,6 +230,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       repository: _repository,
       api: widget.api,
       audio: widget.audio,
+      keepAlive: widget.keepAlive,
       config: _config,
       snapshot: _snapshot!,
       mode: _mode,

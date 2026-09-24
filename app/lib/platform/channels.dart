@@ -7,6 +7,7 @@ import 'package:neurotune_core/neurotune_core.dart';
 import 'package:path_provider/path_provider.dart';
 
 const _audioMethods = MethodChannel('dev.neurotune/audio');
+const _sessionMethods = MethodChannel('dev.neurotune/session');
 
 /// Plays stereo PCM for a session.
 abstract class PcmOutput {
@@ -29,6 +30,22 @@ class AndroidPcmOutput implements PcmOutput {
 
   @override
   Future<void> stop() => _audioMethods.invokeMethod<void>('stop');
+}
+
+/// Holds a foreground service open for the duration of a session so Android
+/// does not throttle playback and the Muse stream once the app leaves the
+/// foreground or the screen turns off.
+abstract class SessionKeepAlive {
+  Future<void> start();
+  Future<void> stop();
+}
+
+class AndroidSessionKeepAlive implements SessionKeepAlive {
+  @override
+  Future<void> start() => _sessionMethods.invokeMethod<void>('start');
+
+  @override
+  Future<void> stop() => _sessionMethods.invokeMethod<void>('stop');
 }
 
 class StereoTestPlayer {

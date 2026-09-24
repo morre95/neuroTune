@@ -11,11 +11,12 @@ import '../dsp/dsp_isolate.dart';
 import '../platform/channels.dart';
 import '../ui/session_page.dart';
 
-class SessionController extends ChangeNotifier with WidgetsBindingObserver {
+class SessionController extends ChangeNotifier {
   SessionController({
     required this.repository,
     required this.api,
     required this.audio,
+    required this.keepAlive,
     required this.config,
     required this.snapshot,
     required this.mode,
@@ -27,6 +28,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   final SessionRepository repository;
   final ApiClient api;
   final PcmOutput audio;
+  final SessionKeepAlive keepAlive;
   final ExperimentConfig config;
   final BanditSnapshot snapshot;
   final SessionMode mode;
@@ -57,7 +59,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   var _closed = false;
 
   Future<bool> start({MuseChannel? muse}) async {
-    WidgetsBinding.instance.addObserver(this);
+    await keepAlive.start();
     final seed = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final channelNames = muse == null
         ? simulatorChannels
@@ -153,6 +155,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
       nirZ: nirZ == null ? '-' : nirZ.toStringAsFixed(3),
       quality: frame == null ? '-' : '$valid/${channels.length} kanaler',
       canContinue: waitingForUser,
+      canStop: current != null && !current.terminal && !waitingForUser,
     );
   }
 
@@ -203,6 +206,7 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     }
     _pauseOutputs();
     if (current != null) await _persist(current);
+    await keepAlive.stop();
     await _muse?.stop();
     _muse = null;
     saved = true;
@@ -210,24 +214,14 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.hidden) {
-      interrupt(StopReason.background);
-    } else if (state == AppLifecycleState.resumed && !waitingForUser) {
-      continueSession();
-    }
-  }
-
-  @override
   void dispose() {
     _closed = true;
-    WidgetsBinding.instance.removeObserver(this);
     _pauseOutputs();
     _frames?.cancel();
     _batches?.cancel();
     _opticsSub?.cancel();
     _lost?.cancel();
+    keepAlive.stop();
     _muse?.stop();
     _dsp?.close();
     super.dispose();

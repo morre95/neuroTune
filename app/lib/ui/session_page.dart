@@ -13,6 +13,7 @@ class SessionView {
     required this.nirZ,
     required this.quality,
     required this.canContinue,
+    required this.canStop,
   });
 
   final String message;
@@ -26,6 +27,7 @@ class SessionView {
   final String nirZ;
   final String quality;
   final bool canContinue;
+  final bool canStop;
 }
 
 class SessionPage extends StatelessWidget {
@@ -71,8 +73,9 @@ class SessionPage extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           if (view.canContinue)
-            FilledButton(onPressed: onContinue, child: const Text('Fortsätt')),
-          OutlinedButton(onPressed: onStop, child: const Text('Stoppa')),
+            FilledButton(onPressed: onContinue, child: const Text('Fortsätt'))
+          else if (view.canStop)
+            OutlinedButton(onPressed: onStop, child: const Text('Stoppa')),
           TextButton(onPressed: onFinish, child: const Text('Avsluta session')),
         ],
       ),

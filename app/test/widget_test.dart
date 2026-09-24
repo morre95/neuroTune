@@ -140,6 +140,7 @@ void main() {
             nirZ: '0.500',
             quality: '4/4 kanaler',
             canContinue: false,
+            canStop: true,
           ),
           onStop: () {},
           onContinue: () {},
@@ -155,6 +156,43 @@ void main() {
     expect(find.text('Signalkvalitet 4/4 kanaler'), findsOneWidget);
     expect(find.text('Åtgärd: Binauralt 10 Hz'), findsOneWidget);
     expect(find.textContaining('Inte syresättning'), findsOneWidget);
+  });
+
+  testWidgets('session swaps stop for resume while paused', (tester) async {
+    Widget page({required bool canContinue, required bool canStop}) => MaterialApp(
+      home: SessionPage(
+        view: SessionView(
+          message: 'Signalen avbröts.',
+          phase: 'waitingStable',
+          blockLabel: '2/15',
+          actionLabel: 'Tystnad',
+          theta: '-',
+          alpha: '-',
+          beta: '-',
+          outerNir: '-',
+          nirZ: '-',
+          quality: '-',
+          canContinue: canContinue,
+          canStop: canStop,
+        ),
+        onStop: () {},
+        onContinue: () {},
+        onFinish: () {},
+      ),
+    );
+
+    await tester.pumpWidget(page(canContinue: false, canStop: true));
+    expect(find.text('Stoppa'), findsOneWidget);
+    expect(find.text('Fortsätt'), findsNothing);
+
+    await tester.pumpWidget(page(canContinue: true, canStop: false));
+    expect(find.text('Fortsätt'), findsOneWidget);
+    expect(find.text('Stoppa'), findsNothing);
+
+    await tester.pumpWidget(page(canContinue: false, canStop: false));
+    expect(find.text('Stoppa'), findsNothing);
+    expect(find.text('Fortsätt'), findsNothing);
+    expect(find.text('Avsluta session'), findsOneWidget);
   });
 
   testWidgets('playback steps to the next second', (tester) async {

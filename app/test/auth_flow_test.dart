@@ -52,6 +52,14 @@ class _TimeoutAuthApi extends _AuthApi {
   }
 }
 
+class _KeepAlive implements SessionKeepAlive {
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> stop() async {}
+}
+
 class _Audio implements PcmOutput {
   @override
   Future<double?> start(int sampleRate) async => 0;
@@ -73,6 +81,7 @@ void main() {
         database: database,
         api: api,
         audio: _Audio(),
+        keepAlive: _KeepAlive(),
         muse: MuseChannel(),
       ),
     );
@@ -106,6 +115,7 @@ void main() {
         database: database,
         api: api,
         audio: _Audio(),
+        keepAlive: _KeepAlive(),
         muse: MuseChannel(),
       ),
     );
