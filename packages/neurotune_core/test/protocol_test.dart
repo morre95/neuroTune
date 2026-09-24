@@ -55,8 +55,13 @@ void main() {
     for (var second = 126; second <= 130; second++) {
       engine.onFrame(_frame(second.toDouble()));
     }
-    expect(engine.phase, SessionPhase.sound);
+    expect(engine.phase, SessionPhase.waitingStable);
     expect(engine.decisions, hasLength(1));
+    engine.resume();
+    for (var second = 131; second <= 135; second++) {
+      engine.onFrame(_frame(second.toDouble()));
+    }
+    expect(engine.phase, SessionPhase.sound);
     expect(engine.currentAction, isNotNull);
   });
 

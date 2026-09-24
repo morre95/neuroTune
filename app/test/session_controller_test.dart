@@ -48,6 +48,7 @@ SessionController controller(
   return SessionController(
     repository: SessionRepository(database),
     api: ApiClient(baseUrl: 'http://localhost:8000'),
+    ownerEmail: 'person@example.com',
     audio: _Audio(),
     keepAlive: keepAlive ?? _FailingKeepAlive(),
     config: config,
@@ -73,34 +74,37 @@ void main() {
     session.dispose();
   });
 
-  test('finish releases the foreground service even when saving fails', () async {
-    final database = AppDatabase(NativeDatabase.memory());
-    final keepAlive = _KeepAlive();
-    final session = controller(database, keepAlive: keepAlive);
-    final config = ExperimentConfig.defaults();
-    session.engine = SessionEngine(
-      config: config,
-      snapshot: BanditSnapshot.empty(
-        experimentVersion: config.version,
+  test(
+    'finish releases the foreground service even when saving fails',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      final keepAlive = _KeepAlive();
+      final session = controller(database, keepAlive: keepAlive);
+      final config = ExperimentConfig.defaults();
+      session.engine = SessionEngine(
+        config: config,
+        snapshot: BanditSnapshot.empty(
+          experimentVersion: config.version,
+          origin: DataOrigin.simulator,
+        ),
+        sessionId: 'unsaveable',
         origin: DataOrigin.simulator,
-      ),
-      sessionId: 'unsaveable',
-      origin: DataOrigin.simulator,
-      mode: SessionMode.personal,
-      eyeState: EyeState.open,
-      sampleRateHz: 256,
-      channelNames: simulatorChannels,
-      seed: 1,
-      startedAt: DateTime.utc(2026, 9, 24),
-    );
+        mode: SessionMode.personal,
+        eyeState: EyeState.open,
+        sampleRateHz: 256,
+        channelNames: simulatorChannels,
+        seed: 1,
+        startedAt: DateTime.utc(2026, 9, 24),
+      );
 
-    // A closed database makes repository.saveSession throw out of _persist.
-    await database.close();
-    await expectLater(session.finish(), throwsA(anything));
+      // A closed database makes repository.saveSession throw out of _persist.
+      await database.close();
+      await expectLater(session.finish(), throwsA(anything));
 
-    expect(keepAlive.stopped, isTrue);
-    expect(session.saved, isFalse);
+      expect(keepAlive.stopped, isTrue);
+      expect(session.saved, isFalse);
 
-    session.dispose();
-  });
+      session.dispose();
+    },
+  );
 }

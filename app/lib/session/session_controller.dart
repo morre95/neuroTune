@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/widgets.dart';
@@ -7,6 +6,7 @@ import 'package:neurotune_core/neurotune_core.dart';
 
 import '../data/api_client.dart';
 import '../data/repository.dart';
+import '../data/upload_sync.dart';
 import '../dsp/dsp_isolate.dart';
 import '../platform/channels.dart';
 import '../ui/session_page.dart';
@@ -15,6 +15,8 @@ class SessionController extends ChangeNotifier {
   SessionController({
     required this.repository,
     required this.api,
+    required this.ownerEmail,
+    UploadSync? uploadSync,
     required this.audio,
     required this.keepAlive,
     required this.config,
@@ -23,10 +25,12 @@ class SessionController extends ChangeNotifier {
     required this.eyeState,
     required this.origin,
     this.sampleRateHz = 256,
-  });
+  }) : _uploadSync = uploadSync ?? UploadSync(repository: repository, api: api);
 
   final SessionRepository repository;
   final ApiClient api;
+  final String ownerEmail;
+  final UploadSync _uploadSync;
   final PcmOutput audio;
   final SessionKeepAlive keepAlive;
   final ExperimentConfig config;
@@ -57,6 +61,7 @@ class SessionController extends ChangeNotifier {
   BinauralSynth? _synth;
   var _finishing = false;
   var _closed = false;
+  StopReason? _lastInterruption;
 
   /// Acquires the foreground service, DSP isolate, data source and audio
   /// output. Returns false with [error] set if any of them fails, leaving the
@@ -178,10 +183,9 @@ class SessionController extends ChangeNotifier {
     final current = engine;
     if (current == null || current.terminal || _finishing) return;
     current.interrupt(reason);
+    _lastInterruption = reason;
     _pauseOutputs();
-    waitingForUser =
-        reason == StopReason.manual &&
-        current.phase == SessionPhase.waitingStable;
+    waitingForUser = current.phase == SessionPhase.waitingStable;
     if (current.terminal) {
       finish();
       return;
@@ -190,14 +194,26 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> continueSession() async {
-    error = null;
-    waitingForUser = false;
-    latencyMs = await audio.start(config.audioSampleRateHz);
-    _audioTimer ??= Timer.periodic(
-      const Duration(milliseconds: 50),
-      (_) => _writeAudio(),
-    );
-    _source?.start();
+    if (!waitingForUser || _finishing || _closed) return;
+    try {
+      if (_lastInterruption == StopReason.sourceDisconnected && _muse != null) {
+        await _muse!.stop();
+        await _muse!.start();
+      }
+      latencyMs = await audio.start(config.audioSampleRateHz);
+      engine?.resume();
+      waitingForUser = false;
+      _lastInterruption = null;
+      _audioTimer ??= Timer.periodic(
+        const Duration(milliseconds: 50),
+        (_) => _writeAudio(),
+      );
+      _source?.start();
+      error = null;
+    } catch (failure) {
+      error = 'Sessionen kunde inte fortsätta: $failure';
+      _pauseOutputs();
+    }
     notifyListeners();
   }
 
@@ -301,48 +317,13 @@ class SessionController extends ChangeNotifier {
       checksum: checksum,
       status: status,
     );
-    await repository.enqueueUpload(manifest.sessionId, checksum, rawPath);
-    await _flush();
-  }
-
-  Future<void> _flush() async {
-    final pending = await repository.pendingUploads();
-    final sessions = await repository.listSessions();
-    for (final job in pending) {
-      try {
-        final saved = sessions.firstWhere(
-          (session) => session.id == job.sessionId,
-        );
-        final bytes = await File(job.payloadPath).readAsBytes();
-        final status = await api.uploadSession(
-          manifest: saved.manifest,
-          decisions: saved.decisions,
-          frames: saved.frames,
-          raw: bytes,
-          checksum: job.checksum,
-        );
-        if (status == 200 || status == 201) {
-          await repository.markUpload(job.sessionId, 'done');
-          await api.createTrainingJob(
-            origin: origin.name,
-            experimentVersion: config.version,
-          );
-        } else if (status == 409) {
-          await repository.markUpload(
-            job.sessionId,
-            'conflict',
-            error: 'checksum',
-          );
-        }
-      } catch (error) {
-        await repository.markUpload(
-          job.sessionId,
-          'pending',
-          attempts: job.attempts + 1,
-          error: '$error',
-        );
-      }
-    }
+    await repository.enqueueUpload(
+      manifest.sessionId,
+      checksum,
+      rawPath,
+      ownerEmail,
+    );
+    await _uploadSync.flush(ownerEmail);
   }
 
   String _mean(

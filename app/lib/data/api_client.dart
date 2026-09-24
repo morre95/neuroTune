@@ -48,6 +48,8 @@ class ApiClient {
   final Duration requestTimeout;
   String? accessToken;
   String? refreshToken;
+  Future<void> Function(String access, String refresh)? onTokensRefreshed;
+  Future<void>? _refreshing;
 
   Future<AuthTokens> register(String email, String password) =>
       _tokens('/v1/auth/register', email, password);
@@ -75,17 +77,30 @@ class ApiClient {
   }
 
   Future<void> refresh() async {
+    final currentRefresh = refreshToken;
+    if (currentRefresh == null) throw StateError('No refresh token');
     final response = await _http
         .post(
           Uri.parse('$baseUrl/v1/auth/refresh'),
           headers: {'content-type': 'application/json'},
-          body: jsonEncode({'refresh_token': refreshToken}),
+          body: jsonEncode({'refresh_token': currentRefresh}),
         )
         .timeout(requestTimeout);
     _expect(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    accessToken = json['access_token'] as String;
-    refreshToken = json['refresh_token'] as String;
+    final nextAccess = json['access_token'] as String;
+    final nextRefresh = json['refresh_token'] as String;
+    accessToken = nextAccess;
+    refreshToken = nextRefresh;
+    await onTokensRefreshed?.call(nextAccess, nextRefresh);
+  }
+
+  Future<void> _refreshOnce() {
+    final active = _refreshing;
+    if (active != null) return active;
+    final next = refresh();
+    _refreshing = next;
+    return next.whenComplete(() => _refreshing = null);
   }
 
   Future<void> logout() async {
@@ -154,7 +169,23 @@ class ApiClient {
     String method,
     String path, [
     Map<String, dynamic>? body,
-  ]) {
+  ]) async {
+    final usedAccess = accessToken;
+    var response = await _request(method, path, body);
+    if (response.statusCode == 401 &&
+        usedAccess != null &&
+        refreshToken != null) {
+      if (accessToken == usedAccess) await _refreshOnce();
+      response = await _request(method, path, body);
+    }
+    return response;
+  }
+
+  Future<http.Response> _request(
+    String method,
+    String path,
+    Map<String, dynamic>? body,
+  ) {
     final headers = {
       'content-type': 'application/json',
       if (accessToken != null) 'authorization': 'Bearer $accessToken',

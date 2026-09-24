@@ -11,11 +11,13 @@ import 'database.dart';
 class PendingUpload {
   PendingUpload({
     required this.sessionId,
+    required this.ownerEmail,
     required this.checksum,
     required this.payloadPath,
     required this.attempts,
   });
   final String sessionId;
+  final String? ownerEmail;
   final String checksum;
   final String payloadPath;
   final int attempts;
@@ -144,12 +146,14 @@ class SessionRepository {
     String sessionId,
     String checksum,
     String rawPath,
+    String ownerEmail,
   ) {
     return db
         .into(db.uploadJobs)
         .insertOnConflictUpdate(
           UploadJobsCompanion.insert(
             sessionId: sessionId,
+            ownerEmail: Value(ownerEmail.toLowerCase()),
             checksum: checksum,
             payloadPath: rawPath,
             state: 'pending',
@@ -165,11 +169,20 @@ class SessionRepository {
       for (final row in rows)
         PendingUpload(
           sessionId: row.sessionId,
+          ownerEmail: row.ownerEmail,
           checksum: row.checksum,
           payloadPath: row.payloadPath,
           attempts: row.attempts,
         ),
     ];
+  }
+
+  Future<void> claimLegacyUploads(String ownerEmail) async {
+    await (db.update(
+      db.uploadJobs,
+    )..where((table) => table.ownerEmail.isNull())).write(
+      UploadJobsCompanion(ownerEmail: Value(ownerEmail.toLowerCase())),
+    );
   }
 
   Future<void> markUpload(

@@ -8,6 +8,7 @@ import 'package:neurotune_core/neurotune_core.dart';
 import 'data/api_client.dart';
 import 'data/database.dart';
 import 'data/repository.dart';
+import 'data/upload_sync.dart';
 import 'platform/channels.dart';
 import 'session/session_controller.dart';
 import 'ui/auth_page.dart';
@@ -58,6 +59,11 @@ class NeuroTuneApp extends StatefulWidget {
 
 class _NeuroTuneAppState extends State<NeuroTuneApp> {
   late final SessionRepository _repository = SessionRepository(widget.database);
+  late final UploadSync _uploadSync = UploadSync(
+    repository: _repository,
+    api: widget.api,
+  );
+  Timer? _uploadRetryTimer;
   _Screen _screen = _Screen.auth;
   ExperimentConfig _config = ExperimentConfig.defaults();
   BanditSnapshot? _snapshot;
@@ -84,7 +90,30 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   @override
   void initState() {
     super.initState();
+    widget.api.onTokensRefreshed = (access, refresh) async {
+      final current = _auth;
+      if (current == null) return;
+      _auth = AuthTokens(
+        accessToken: access,
+        refreshToken: refresh,
+        email: current.email,
+      );
+      await _repository.saveAuth(jsonEncode(_auth!.toJson()));
+    };
     _bootstrap();
+  }
+
+  void _startUploadRetry() {
+    _uploadRetryTimer ??= Timer.periodic(
+      const Duration(minutes: 1),
+      (_) => _retryUploads(),
+    );
+    _retryUploads();
+  }
+
+  void _retryUploads() {
+    if (_auth == null) return;
+    unawaited(_uploadSync.flush(_auth!.email).catchError((Object _) {}));
   }
 
   Future<void> _bootstrap() async {
@@ -94,36 +123,37 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       _auth = AuthTokens.fromJson(jsonDecode(saved) as Map<String, dynamic>);
       widget.api.accessToken = _auth!.accessToken;
       widget.api.refreshToken = _auth!.refreshToken;
+      await _repository.claimLegacyUploads(_auth!.email);
       await _refreshRemote();
+      _startUploadRetry();
       if (mounted) setState(() => _screen = _Screen.home);
     }
     if (mounted) setState(() => _ready = true);
   }
 
-  Future<void> _refreshRemote() async {
+  Future<void> _refreshRemote({
+    DataOrigin origin = DataOrigin.simulator,
+  }) async {
     try {
       _config = await widget.api.activeExperiment();
       await _repository.saveConfig(_config);
       _snapshot = await widget.api.latestBandit(
-        origin: DataOrigin.simulator.name,
+        origin: origin.name,
         experimentVersion: _config.version,
       );
       await _repository.saveBandit(_snapshot!);
       _offline = false;
     } catch (_) {
       _snapshot =
-          await _repository.loadBandit(DataOrigin.simulator.name) ??
+          await _repository.loadBandit(origin.name) ??
           BanditSnapshot.empty(
             experimentVersion: _config.version,
-            origin: DataOrigin.simulator,
+            origin: origin,
             epsilon: _config.epsilon,
           );
       _offline = true;
     }
-    final local = await _repository.localRewards(
-      DataOrigin.simulator.name,
-      _config.version,
-    );
+    final local = await _repository.localRewards(origin.name, _config.version);
     _snapshot = overlayLocalRewards(server: _snapshot!, local: local);
   }
 
@@ -135,6 +165,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       await _repository.saveAuth(jsonEncode(tokens.toJson()));
       _auth = tokens;
       await _refreshRemote();
+      _startUploadRetry();
       setState(() {
         _error = null;
         _screen = _Screen.home;
@@ -161,12 +192,19 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _logout() async {
+    _uploadRetryTimer?.cancel();
+    _uploadRetryTimer = null;
+    _uploadSync.cancel();
+    try {
+      await _uploadSync.waitForIdle();
+    } catch (_) {}
     try {
       await widget.api.logout();
     } catch (_) {}
     await _repository.saveAuth('{}');
     _auth = null;
     widget.api.accessToken = null;
+    widget.api.refreshToken = null;
     setState(() => _screen = _Screen.auth);
   }
 
@@ -217,6 +255,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _startSession() async {
+    final origin = _usingMuse ? DataOrigin.muse : DataOrigin.simulator;
     await _stopStereoTest();
     if (_usingMuse) {
       await _musePreview?.cancel();
@@ -225,17 +264,19 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       await _preview?.stop();
       await _previewSub?.cancel();
     }
-    await _refreshRemote();
+    await _refreshRemote(origin: origin);
     final controller = SessionController(
       repository: _repository,
       api: widget.api,
+      ownerEmail: _auth!.email,
+      uploadSync: _uploadSync,
       audio: widget.audio,
       keepAlive: widget.keepAlive,
       config: _config,
       snapshot: _snapshot!,
       mode: _mode,
       eyeState: _eyes,
-      origin: _usingMuse ? DataOrigin.muse : DataOrigin.simulator,
+      origin: origin,
     );
     final started = await controller.start(
       muse: _usingMuse ? widget.muse : null,
@@ -299,6 +340,9 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
 
   @override
   void dispose() {
+    _uploadRetryTimer?.cancel();
+    _uploadSync.cancel();
+    widget.api.onTokensRefreshed = null;
     unawaited(_stereoTest.stop());
     _previewSub?.cancel();
     _preview?.stop();

@@ -67,6 +67,7 @@ class SessionEngine {
   double _pauseEnd = 0;
   int _attempts = 0;
   int _stableCount = 0;
+  bool _resumeRequested = false;
   double _lastTime = 0;
   bool _blockAborted = false;
 
@@ -101,7 +102,14 @@ class SessionEngine {
     currentAction = null;
     phase = SessionPhase.waitingStable;
     _stableCount = 0;
+    _resumeRequested = false;
     message = 'Signalen avbröts. Väntar på en stabil signal innan nästa block.';
+  }
+
+  void resume() {
+    if (phase != SessionPhase.waitingStable) return;
+    _stableCount = 0;
+    _resumeRequested = true;
   }
 
   SessionManifest manifest({double? audioLatencyMs, String checksum = ''}) {
@@ -158,9 +166,11 @@ class SessionEngine {
       case SessionPhase.pause:
         if (frame.timeSeconds >= _pauseEnd) _afterPause();
       case SessionPhase.waitingStable:
+        if (!_resumeRequested) break;
         final stable = _aggregate(frame, selectedChannels) != null;
         _stableCount = stable ? _stableCount + 1 : 0;
         if (_stableCount >= config.stableFramesRequired) {
+          _resumeRequested = false;
           _startSound(frame.timeSeconds);
         }
       case SessionPhase.completed:

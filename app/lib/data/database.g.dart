@@ -634,6 +634,17 @@ class $UploadJobsTable extends UploadJobs
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _ownerEmailMeta = const VerificationMeta(
+    'ownerEmail',
+  );
+  @override
+  late final GeneratedColumn<String> ownerEmail = GeneratedColumn<String>(
+    'owner_email',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _checksumMeta = const VerificationMeta(
     'checksum',
   );
@@ -691,6 +702,7 @@ class $UploadJobsTable extends UploadJobs
   @override
   List<GeneratedColumn> get $columns => [
     sessionId,
+    ownerEmail,
     checksum,
     payloadPath,
     state,
@@ -716,6 +728,12 @@ class $UploadJobsTable extends UploadJobs
       );
     } else if (isInserting) {
       context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('owner_email')) {
+      context.handle(
+        _ownerEmailMeta,
+        ownerEmail.isAcceptableOrUnknown(data['owner_email']!, _ownerEmailMeta),
+      );
     }
     if (data.containsKey('checksum')) {
       context.handle(
@@ -769,6 +787,10 @@ class $UploadJobsTable extends UploadJobs
         DriftSqlType.string,
         data['${effectivePrefix}session_id'],
       )!,
+      ownerEmail: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_email'],
+      ),
       checksum: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}checksum'],
@@ -800,6 +822,7 @@ class $UploadJobsTable extends UploadJobs
 
 class UploadJob extends DataClass implements Insertable<UploadJob> {
   final String sessionId;
+  final String? ownerEmail;
   final String checksum;
   final String payloadPath;
   final String state;
@@ -807,6 +830,7 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
   final String? lastError;
   const UploadJob({
     required this.sessionId,
+    this.ownerEmail,
     required this.checksum,
     required this.payloadPath,
     required this.state,
@@ -817,6 +841,9 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['session_id'] = Variable<String>(sessionId);
+    if (!nullToAbsent || ownerEmail != null) {
+      map['owner_email'] = Variable<String>(ownerEmail);
+    }
     map['checksum'] = Variable<String>(checksum);
     map['payload_path'] = Variable<String>(payloadPath);
     map['state'] = Variable<String>(state);
@@ -830,6 +857,9 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
   UploadJobsCompanion toCompanion(bool nullToAbsent) {
     return UploadJobsCompanion(
       sessionId: Value(sessionId),
+      ownerEmail: ownerEmail == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerEmail),
       checksum: Value(checksum),
       payloadPath: Value(payloadPath),
       state: Value(state),
@@ -847,6 +877,7 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return UploadJob(
       sessionId: serializer.fromJson<String>(json['sessionId']),
+      ownerEmail: serializer.fromJson<String?>(json['ownerEmail']),
       checksum: serializer.fromJson<String>(json['checksum']),
       payloadPath: serializer.fromJson<String>(json['payloadPath']),
       state: serializer.fromJson<String>(json['state']),
@@ -859,6 +890,7 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'sessionId': serializer.toJson<String>(sessionId),
+      'ownerEmail': serializer.toJson<String?>(ownerEmail),
       'checksum': serializer.toJson<String>(checksum),
       'payloadPath': serializer.toJson<String>(payloadPath),
       'state': serializer.toJson<String>(state),
@@ -869,6 +901,7 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
 
   UploadJob copyWith({
     String? sessionId,
+    Value<String?> ownerEmail = const Value.absent(),
     String? checksum,
     String? payloadPath,
     String? state,
@@ -876,6 +909,7 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
     Value<String?> lastError = const Value.absent(),
   }) => UploadJob(
     sessionId: sessionId ?? this.sessionId,
+    ownerEmail: ownerEmail.present ? ownerEmail.value : this.ownerEmail,
     checksum: checksum ?? this.checksum,
     payloadPath: payloadPath ?? this.payloadPath,
     state: state ?? this.state,
@@ -885,6 +919,9 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
   UploadJob copyWithCompanion(UploadJobsCompanion data) {
     return UploadJob(
       sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      ownerEmail: data.ownerEmail.present
+          ? data.ownerEmail.value
+          : this.ownerEmail,
       checksum: data.checksum.present ? data.checksum.value : this.checksum,
       payloadPath: data.payloadPath.present
           ? data.payloadPath.value
@@ -899,6 +936,7 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
   String toString() {
     return (StringBuffer('UploadJob(')
           ..write('sessionId: $sessionId, ')
+          ..write('ownerEmail: $ownerEmail, ')
           ..write('checksum: $checksum, ')
           ..write('payloadPath: $payloadPath, ')
           ..write('state: $state, ')
@@ -909,13 +947,21 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(sessionId, checksum, payloadPath, state, attempts, lastError);
+  int get hashCode => Object.hash(
+    sessionId,
+    ownerEmail,
+    checksum,
+    payloadPath,
+    state,
+    attempts,
+    lastError,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is UploadJob &&
           other.sessionId == this.sessionId &&
+          other.ownerEmail == this.ownerEmail &&
           other.checksum == this.checksum &&
           other.payloadPath == this.payloadPath &&
           other.state == this.state &&
@@ -925,6 +971,7 @@ class UploadJob extends DataClass implements Insertable<UploadJob> {
 
 class UploadJobsCompanion extends UpdateCompanion<UploadJob> {
   final Value<String> sessionId;
+  final Value<String?> ownerEmail;
   final Value<String> checksum;
   final Value<String> payloadPath;
   final Value<String> state;
@@ -933,6 +980,7 @@ class UploadJobsCompanion extends UpdateCompanion<UploadJob> {
   final Value<int> rowid;
   const UploadJobsCompanion({
     this.sessionId = const Value.absent(),
+    this.ownerEmail = const Value.absent(),
     this.checksum = const Value.absent(),
     this.payloadPath = const Value.absent(),
     this.state = const Value.absent(),
@@ -942,6 +990,7 @@ class UploadJobsCompanion extends UpdateCompanion<UploadJob> {
   });
   UploadJobsCompanion.insert({
     required String sessionId,
+    this.ownerEmail = const Value.absent(),
     required String checksum,
     required String payloadPath,
     required String state,
@@ -954,6 +1003,7 @@ class UploadJobsCompanion extends UpdateCompanion<UploadJob> {
        state = Value(state);
   static Insertable<UploadJob> custom({
     Expression<String>? sessionId,
+    Expression<String>? ownerEmail,
     Expression<String>? checksum,
     Expression<String>? payloadPath,
     Expression<String>? state,
@@ -963,6 +1013,7 @@ class UploadJobsCompanion extends UpdateCompanion<UploadJob> {
   }) {
     return RawValuesInsertable({
       if (sessionId != null) 'session_id': sessionId,
+      if (ownerEmail != null) 'owner_email': ownerEmail,
       if (checksum != null) 'checksum': checksum,
       if (payloadPath != null) 'payload_path': payloadPath,
       if (state != null) 'state': state,
@@ -974,6 +1025,7 @@ class UploadJobsCompanion extends UpdateCompanion<UploadJob> {
 
   UploadJobsCompanion copyWith({
     Value<String>? sessionId,
+    Value<String?>? ownerEmail,
     Value<String>? checksum,
     Value<String>? payloadPath,
     Value<String>? state,
@@ -983,6 +1035,7 @@ class UploadJobsCompanion extends UpdateCompanion<UploadJob> {
   }) {
     return UploadJobsCompanion(
       sessionId: sessionId ?? this.sessionId,
+      ownerEmail: ownerEmail ?? this.ownerEmail,
       checksum: checksum ?? this.checksum,
       payloadPath: payloadPath ?? this.payloadPath,
       state: state ?? this.state,
@@ -997,6 +1050,9 @@ class UploadJobsCompanion extends UpdateCompanion<UploadJob> {
     final map = <String, Expression>{};
     if (sessionId.present) {
       map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (ownerEmail.present) {
+      map['owner_email'] = Variable<String>(ownerEmail.value);
     }
     if (checksum.present) {
       map['checksum'] = Variable<String>(checksum.value);
@@ -1023,6 +1079,7 @@ class UploadJobsCompanion extends UpdateCompanion<UploadJob> {
   String toString() {
     return (StringBuffer('UploadJobsCompanion(')
           ..write('sessionId: $sessionId, ')
+          ..write('ownerEmail: $ownerEmail, ')
           ..write('checksum: $checksum, ')
           ..write('payloadPath: $payloadPath, ')
           ..write('state: $state, ')
@@ -1564,6 +1621,7 @@ typedef $$StoredSessionsTableProcessedTableManager =
 typedef $$UploadJobsTableCreateCompanionBuilder =
     UploadJobsCompanion Function({
       required String sessionId,
+      Value<String?> ownerEmail,
       required String checksum,
       required String payloadPath,
       required String state,
@@ -1574,6 +1632,7 @@ typedef $$UploadJobsTableCreateCompanionBuilder =
 typedef $$UploadJobsTableUpdateCompanionBuilder =
     UploadJobsCompanion Function({
       Value<String> sessionId,
+      Value<String?> ownerEmail,
       Value<String> checksum,
       Value<String> payloadPath,
       Value<String> state,
@@ -1593,6 +1652,11 @@ class $$UploadJobsTableFilterComposer
   });
   ColumnFilters<String> get sessionId => $composableBuilder(
     column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerEmail => $composableBuilder(
+    column: $table.ownerEmail,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1636,6 +1700,11 @@ class $$UploadJobsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get ownerEmail => $composableBuilder(
+    column: $table.ownerEmail,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get checksum => $composableBuilder(
     column: $table.checksum,
     builder: (column) => ColumnOrderings(column),
@@ -1673,6 +1742,11 @@ class $$UploadJobsTableAnnotationComposer
   });
   GeneratedColumn<String> get sessionId =>
       $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerEmail => $composableBuilder(
+    column: $table.ownerEmail,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get checksum =>
       $composableBuilder(column: $table.checksum, builder: (column) => column);
@@ -1724,6 +1798,7 @@ class $$UploadJobsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> sessionId = const Value.absent(),
+                Value<String?> ownerEmail = const Value.absent(),
                 Value<String> checksum = const Value.absent(),
                 Value<String> payloadPath = const Value.absent(),
                 Value<String> state = const Value.absent(),
@@ -1732,6 +1807,7 @@ class $$UploadJobsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => UploadJobsCompanion(
                 sessionId: sessionId,
+                ownerEmail: ownerEmail,
                 checksum: checksum,
                 payloadPath: payloadPath,
                 state: state,
@@ -1742,6 +1818,7 @@ class $$UploadJobsTableTableManager
           createCompanionCallback:
               ({
                 required String sessionId,
+                Value<String?> ownerEmail = const Value.absent(),
                 required String checksum,
                 required String payloadPath,
                 required String state,
@@ -1750,6 +1827,7 @@ class $$UploadJobsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => UploadJobsCompanion.insert(
                 sessionId: sessionId,
+                ownerEmail: ownerEmail,
                 checksum: checksum,
                 payloadPath: payloadPath,
                 state: state,

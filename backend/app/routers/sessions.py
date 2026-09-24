@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -44,8 +45,8 @@ def upload_session(
     user: User = Depends(get_current_user),
 ) -> dict:
     session_id = body.manifest.get("session_id")
-    if not isinstance(session_id, str) or not session_id:
-        raise HTTPException(status_code=400, detail="manifest.session_id is required")
+    if not isinstance(session_id, str) or re.fullmatch(r"[A-Za-z0-9_-]{1,64}", session_id) is None:
+        raise HTTPException(status_code=400, detail="manifest.session_id must be a safe identifier")
     try:
         raw = base64.b64decode(body.raw_base64)
     except Exception as exc:  # noqa: BLE001

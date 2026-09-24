@@ -78,6 +78,7 @@ class MuseBridge(private val activity: FlutterActivity) {
     }
 
     fun onPermissions(grantResults: IntArray) {
+        if (startResult == null || startPhase != StartPhase.PERMISSIONS) return
         val granted = grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }
         if (!granted) {
             teardown()

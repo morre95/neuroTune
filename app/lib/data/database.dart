@@ -21,6 +21,7 @@ class StoredSessions extends Table {
 
 class UploadJobs extends Table {
   TextColumn get sessionId => text()();
+  TextColumn get ownerEmail => text().nullable()();
   TextColumn get checksum => text()();
   TextColumn get payloadPath => text()();
   TextColumn get state => text()();
@@ -45,7 +46,15 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'neurotune'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.addColumn(uploadJobs, uploadJobs.ownerEmail);
+    },
+  );
 
   Future<void> putKv(String key, String value) async {
     await into(

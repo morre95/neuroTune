@@ -126,6 +126,13 @@ def test_accounts_are_separated_and_uploads_are_idempotent():
         db.close()
 
 
+def test_session_id_cannot_escape_raw_directory():
+    tokens = register("path-check@example.com")
+    response = post_session(tokens["access_token"], "../outside")
+    assert response.status_code == 400
+    assert "session_id" in response.json()["detail"]
+
+
 def test_training_builds_a_personal_policy_once():
     tokens = register("trainer@example.com")
     created = post_session(tokens["access_token"], "session-train", reward=1.0)

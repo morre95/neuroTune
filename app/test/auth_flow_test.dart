@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:neurotune/data/api_client.dart';
 import 'package:neurotune/data/database.dart';
 import 'package:neurotune/main.dart';
@@ -50,6 +53,38 @@ class _TimeoutAuthApi extends _AuthApi {
     }
     return super.login(email, password);
   }
+}
+
+class _RefreshApi extends ApiClient {
+  _RefreshApi()
+    : super(
+        baseUrl: 'http://unused',
+        httpClient: MockClient((request) async {
+          expect(request.url.path, '/v1/auth/refresh');
+          return http.Response(
+            jsonEncode({
+              'access_token': 'new-access',
+              'refresh_token': 'new-refresh',
+            }),
+            200,
+          );
+        }),
+      );
+
+  @override
+  Future<ExperimentConfig> activeExperiment() async {
+    await refresh();
+    return ExperimentConfig.defaults();
+  }
+
+  @override
+  Future<BanditSnapshot> latestBandit({
+    required String origin,
+    required String experimentVersion,
+  }) async => BanditSnapshot.empty(
+    experimentVersion: experimentVersion,
+    origin: DataOrigin.simulator,
+  );
 }
 
 class _KeepAlive implements SessionKeepAlive {
@@ -134,6 +169,36 @@ void main() {
     await tester.tap(find.text('Logga in'));
     await tester.pumpAndSettle();
     expect(api.attempts, 2);
+    expect(find.text('Simulator'), findsOneWidget);
+  });
+
+  testWidgets('rotated refresh token is saved for the next app start', (
+    tester,
+  ) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.putKv(
+      'auth',
+      jsonEncode({
+        'access_token': 'old-access',
+        'refresh_token': 'old-refresh',
+        'email': 'person@example.com',
+      }),
+    );
+    await tester.pumpWidget(
+      NeuroTuneApp(
+        database: database,
+        api: _RefreshApi(),
+        audio: _Audio(),
+        keepAlive: _KeepAlive(),
+        muse: MuseChannel(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final saved = jsonDecode((await database.getKv('auth'))!) as Map;
+    expect(saved['access_token'], 'new-access');
+    expect(saved['refresh_token'], 'new-refresh');
     expect(find.text('Simulator'), findsOneWidget);
   });
 }
