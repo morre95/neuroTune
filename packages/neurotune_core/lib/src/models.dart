@@ -666,6 +666,9 @@ class SessionManifest {
     required this.seed,
     required this.checksumSha256,
     this.stopReason,
+    this.endedInPhase,
+    this.interruptions = 0,
+    this.lastInterruptReason,
   });
 
   final String sessionId;
@@ -694,6 +697,15 @@ class SessionManifest {
   /// recording cannot be told apart from one the protocol rejected.
   final String? stopReason;
 
+  /// The phase the session was in when it was saved. A session left in
+  /// `waitingStable` never recovered a stable signal and recorded no blocks.
+  final String? endedInPhase;
+
+  /// How many times the signal was lost, including losses that only paused the
+  /// session and therefore left [stopReason] null.
+  final int interruptions;
+  final String? lastInterruptReason;
+
   Map<String, dynamic> toJson() => {
     'session_id': sessionId,
     'user_id': userId,
@@ -713,6 +725,9 @@ class SessionManifest {
     'seed': seed,
     'checksum_sha256': checksumSha256,
     'stop_reason': stopReason,
+    'ended_in_phase': endedInPhase,
+    'interruptions': interruptions,
+    'last_interrupt_reason': lastInterruptReason,
   };
 
   factory SessionManifest.fromJson(Map<String, dynamic> json) =>
@@ -739,6 +754,9 @@ class SessionManifest {
         seed: json['seed'] as int,
         checksumSha256: json['checksum_sha256'] as String,
         stopReason: json['stop_reason'] as String?,
+        endedInPhase: json['ended_in_phase'] as String?,
+        interruptions: (json['interruptions'] as num?)?.toInt() ?? 0,
+        lastInterruptReason: json['last_interrupt_reason'] as String?,
       );
 }
 

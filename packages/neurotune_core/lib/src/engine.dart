@@ -47,6 +47,12 @@ class SessionEngine {
 
   SessionPhase phase = SessionPhase.baseline;
   StopReason? stopReason;
+
+  /// Every signal loss, not only the ones that end the session. A session that
+  /// never leaves [SessionPhase.waitingStable] ends with no stop reason at all,
+  /// so without these the recording cannot say why it produced no blocks.
+  int interruptions = 0;
+  StopReason? lastInterruption;
   String message = 'Baslinje pågår. Håll samma ögonläge.';
   StimulusAction? currentAction;
   List<String> selectedChannels = [];
@@ -81,7 +87,10 @@ class SessionEngine {
   }
 
   void interrupt(StopReason reason) {
-    if (terminal || phase == SessionPhase.waitingStable) return;
+    if (terminal) return;
+    interruptions += 1;
+    lastInterruption = reason;
+    if (phase == SessionPhase.waitingStable) return;
     if (phase == SessionPhase.baseline) {
       _stop(reason, 'Baslinjen avbröts. Starta en ny session.');
       return;
@@ -115,6 +124,9 @@ class SessionEngine {
       seed: seed,
       checksumSha256: checksum,
       stopReason: stopReason?.name,
+      endedInPhase: phase.name,
+      interruptions: interruptions,
+      lastInterruptReason: lastInterruption?.name,
     );
   }
 

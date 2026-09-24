@@ -199,8 +199,14 @@ void main() {
   testWidgets('history explains a session that recorded no blocks', (
     tester,
   ) async {
-    SavedSession empty({String? stopReason, List<String> selected = const []}) =>
-        SavedSession(
+    SavedSession empty({
+      String? stopReason,
+      List<String> selected = const [],
+      String? endedInPhase,
+      int interruptions = 0,
+      String? lastInterruptReason,
+      double durationSeconds = 125,
+    }) => SavedSession(
           id: 'e',
           origin: 'muse',
           mode: 'personal',
@@ -216,13 +222,16 @@ void main() {
             channelNames: const ['EEG1', 'EEG2', 'EEG3', 'EEG4'],
             selectedChannels: selected,
             startedAtIso: '2026-09-24T09:00:00Z',
-            durationSeconds: 125,
+            durationSeconds: durationSeconds,
             audioLatencyMs: 40,
             audioLatencySource: 'audiotrack_buffer_frames',
             timeline: 'monotonic_session_seconds',
             seed: 1,
             checksumSha256: 'abc',
             stopReason: stopReason,
+            endedInPhase: endedInPhase,
+            interruptions: interruptions,
+            lastInterruptReason: lastInterruptReason,
           ),
           decisions: const [],
           frames: const [],
@@ -249,6 +258,29 @@ void main() {
       find.textContaining('Stoppad innan baslinjen godkändes'),
       findsOneWidget,
     );
+
+    await tester.pumpWidget(
+      history(
+        empty(
+          selected: const ['OPTICS3', 'OPTICS4'],
+          endedInPhase: 'waitingStable',
+          interruptions: 4,
+          lastInterruptReason: 'sourceDisconnected',
+        ),
+      ),
+    );
+    expect(
+      find.textContaining('Fastnade i väntan på stabil signal'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('4 avbrott (Muse kopplades från)'),
+      findsOneWidget,
+    );
+
+    // Truncating minutes while rounding the remainder rendered this "29m 60s".
+    await tester.pumpWidget(history(empty(durationSeconds: 1799.7)));
+    expect(find.textContaining('30m 0s'), findsOneWidget);
   });
 
   testWidgets('playback steps to the next second', (tester) async {

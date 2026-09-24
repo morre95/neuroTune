@@ -29,6 +29,8 @@ import io.flutter.plugin.common.MethodChannel
 
 /// LibMuse 8.0.9 preset 1034: 4 EEG channels at 256 Hz and 8 optics channels at 64 Hz.
 /// OPTICS3 and OPTICS4 are the 850 nm left and right outer channels, in microamps.
+private enum class StartPhase { PERMISSIONS, SCANNING, CONNECTING }
+
 class MuseBridge(private val activity: FlutterActivity) {
     private val handler = Handler(Looper.getMainLooper())
     private val manager = MuseManagerAndroid.getInstance()
@@ -47,7 +49,10 @@ class MuseBridge(private val activity: FlutterActivity) {
     private val lastContact = intArrayOf(1, 1, 1, 1)
     private val optics = arrayOf(ArrayList<Double>(), ArrayList<Double>())
     private var opticsStart = 0.0
-    private var scanning = false
+    /// Which stage of a start is running, so the shared timeout can report the
+    /// stage that actually stalled.
+    private var startPhase: StartPhase? = null
+    private val scanning get() = startPhase == StartPhase.SCANNING
 
     private val museListener = object : MuseListener() {
         override fun museListChanged() {
@@ -75,6 +80,7 @@ class MuseBridge(private val activity: FlutterActivity) {
     fun onPermissions(grantResults: IntArray) {
         val granted = grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }
         if (!granted) {
+            teardown()
             finishStart("BLUETOOTH_DENIED", "Bluetooth-behörighet saknas.")
             return
         }
@@ -97,6 +103,9 @@ class MuseBridge(private val activity: FlutterActivity) {
             activity.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
         }
         if (missing) {
+            // A dialog the user never answers must not strand startResult.
+            startPhase = StartPhase.PERMISSIONS
+            handler.postDelayed(startTimeout, PERMISSION_TIMEOUT_MS)
             activity.requestPermissions(permissions, REQUEST_PERMISSIONS)
             return
         }
@@ -104,10 +113,12 @@ class MuseBridge(private val activity: FlutterActivity) {
     }
 
     private fun beginScan() {
-        scanning = true
+        startPhase = StartPhase.SCANNING
         manager.stopListening()
         manager.startListening()
+        handler.removeCallbacks(startTimeout)
         handler.postDelayed(startTimeout, SCAN_TIMEOUT_MS)
+        handler.removeCallbacks(scanPoll)
         handler.post(scanPoll)
     }
 
@@ -118,26 +129,29 @@ class MuseBridge(private val activity: FlutterActivity) {
     /// getMuses() reads the live list, so poll it instead of waiting to be told.
     private val scanPoll = object : Runnable {
         override fun run() {
-            if (!scanning) return
+            if (!scanning || startResult == null) return
             onMuses()
-            if (scanning) handler.postDelayed(this, SCAN_POLL_MS)
+            if (scanning && startResult != null) handler.postDelayed(this, SCAN_POLL_MS)
         }
     }
 
     private val startTimeout = Runnable {
-        val scanned = scanning
+        val stalled = startPhase
         teardown()
-        if (scanned) {
-            finishStart("MUSE_NOT_FOUND", "Ingen Muse S Athena hittades.")
-        } else {
-            finishStart("MUSE_TIMEOUT", "Muse svarade inte på anslutningen.")
+        when (stalled) {
+            StartPhase.PERMISSIONS ->
+                finishStart("BLUETOOTH_DENIED", "Bluetooth-behörigheten besvarades inte.")
+            StartPhase.SCANNING ->
+                finishStart("MUSE_NOT_FOUND", "Ingen Muse S Athena hittades.")
+            else ->
+                finishStart("MUSE_TIMEOUT", "Muse svarade inte på anslutningen.")
         }
     }
 
     private fun onMuses() {
         if (!scanning || startResult == null) return
         val found = manager.muses.firstOrNull { it.model == MuseModel.MS_03 } ?: return
-        scanning = false
+        startPhase = StartPhase.CONNECTING
         handler.removeCallbacks(startTimeout)
         manager.stopListening()
         connect(found)
@@ -305,7 +319,7 @@ class MuseBridge(private val activity: FlutterActivity) {
     /// running, no pending timeout, no headband holding a BLE link and no
     /// samples left over from the previous session.
     private fun teardown() {
-        scanning = false
+        startPhase = null
         handler.removeCallbacks(startTimeout)
         handler.removeCallbacks(scanPoll)
         manager.stopListening()
@@ -356,6 +370,7 @@ class MuseBridge(private val activity: FlutterActivity) {
         private const val SCAN_TIMEOUT_MS = 12_000L
         private const val SCAN_POLL_MS = 500L
         private const val CONNECT_TIMEOUT_MS = 20_000L
+        private const val PERMISSION_TIMEOUT_MS = 120_000L
         private const val EEG_CHUNK = 128
         private const val OPTICS_CHUNK = 32
         private const val EEG_RATE_HZ = 256.0

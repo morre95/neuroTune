@@ -30,13 +30,26 @@ class _FailingKeepAlive implements SessionKeepAlive {
   Future<void> stop() async {}
 }
 
-SessionController controller(AppDatabase database) {
+class _KeepAlive implements SessionKeepAlive {
+  var stopped = false;
+
+  @override
+  Future<void> start() async {}
+
+  @override
+  Future<void> stop() async => stopped = true;
+}
+
+SessionController controller(
+  AppDatabase database, {
+  SessionKeepAlive? keepAlive,
+}) {
   final config = ExperimentConfig.defaults();
   return SessionController(
     repository: SessionRepository(database),
     api: ApiClient(baseUrl: 'http://localhost:8000'),
     audio: _Audio(),
-    keepAlive: _FailingKeepAlive(),
+    keepAlive: keepAlive ?? _FailingKeepAlive(),
     config: config,
     snapshot: BanditSnapshot.empty(
       experimentVersion: config.version,
@@ -56,6 +69,37 @@ void main() {
 
     expect(await session.start(), isFalse);
     expect(session.error, contains('kunde inte starta'));
+
+    session.dispose();
+  });
+
+  test('finish releases the foreground service even when saving fails', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    final keepAlive = _KeepAlive();
+    final session = controller(database, keepAlive: keepAlive);
+    final config = ExperimentConfig.defaults();
+    session.engine = SessionEngine(
+      config: config,
+      snapshot: BanditSnapshot.empty(
+        experimentVersion: config.version,
+        origin: DataOrigin.simulator,
+      ),
+      sessionId: 'unsaveable',
+      origin: DataOrigin.simulator,
+      mode: SessionMode.personal,
+      eyeState: EyeState.open,
+      sampleRateHz: 256,
+      channelNames: simulatorChannels,
+      seed: 1,
+      startedAt: DateTime.utc(2026, 9, 24),
+    );
+
+    // A closed database makes repository.saveSession throw out of _persist.
+    await database.close();
+    await expectLater(session.finish(), throwsA(anything));
+
+    expect(keepAlive.stopped, isTrue);
+    expect(session.saved, isFalse);
 
     session.dispose();
   });

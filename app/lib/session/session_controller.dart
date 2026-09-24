@@ -212,20 +212,26 @@ class SessionController extends ChangeNotifier {
     return values.reduce((a, b) => a + b) / values.length;
   }
 
+  /// Persisting can fail on a full disk or a closed database. The foreground
+  /// service and the headband are released either way, or the app is left with
+  /// an ongoing notification and a connected Muse that only a restart clears.
   Future<void> finish() async {
     if (_finishing || _closed) return;
     _finishing = true;
-    final current = engine;
-    if (current != null && current.phase == SessionPhase.sound) {
-      current.interrupt(StopReason.manual);
+    try {
+      final current = engine;
+      if (current != null && current.phase == SessionPhase.sound) {
+        current.interrupt(StopReason.manual);
+      }
+      _pauseOutputs();
+      if (current != null) await _persist(current);
+      saved = true;
+    } finally {
+      await keepAlive.stop();
+      await _muse?.stop();
+      _muse = null;
+      if (!_closed) notifyListeners();
     }
-    _pauseOutputs();
-    if (current != null) await _persist(current);
-    await keepAlive.stop();
-    await _muse?.stop();
-    _muse = null;
-    saved = true;
-    if (!_closed) notifyListeners();
   }
 
   @override

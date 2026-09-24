@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:neurotune_core/neurotune_core.dart';
 
 import '../data/repository.dart';
 
@@ -42,20 +43,39 @@ class HistoryPage extends StatelessWidget {
 }
 
 String _duration(double seconds) {
-  final minutes = seconds ~/ 60;
-  final rest = (seconds % 60).round();
+  // Round to whole seconds first: truncating the minutes while rounding the
+  // remainder renders 1799.7 s as "29m 60s".
+  final total = seconds.round();
+  final minutes = total ~/ 60;
+  final rest = total % 60;
   return minutes == 0 ? '${rest}s' : '${minutes}m ${rest}s';
 }
 
-/// A session with no blocks is only meaningful together with why it ended and
-/// whether the baseline ever accepted any optics channels.
+/// A session with no blocks is only meaningful together with why it ended,
+/// whether the baseline ever accepted any optics channels, and whether it was
+/// still waiting for a stable signal when it was saved.
 String _outcome(SavedSession session) {
-  final reason = session.manifest.stopReason;
-  if (reason != null) return 'Avbröts: ${stopReasonLabel(reason)}';
-  if (session.status == 'completed') return 'Slutförd';
-  return session.manifest.selectedChannels.isEmpty
-      ? 'Stoppad innan baslinjen godkändes'
-      : 'Stoppad · kanaler ${session.manifest.selectedChannels.join(', ')}';
+  final manifest = session.manifest;
+  final reason = manifest.stopReason;
+  if (reason != null) {
+    return 'Avbröts: ${stopReasonLabel(reason)}${_losses(manifest)}';
+  }
+  if (manifest.selectedChannels.isEmpty) {
+    return 'Stoppad innan baslinjen godkändes${_losses(manifest)}';
+  }
+  if (manifest.endedInPhase == 'waitingStable') {
+    return 'Fastnade i väntan på stabil signal${_losses(manifest)}';
+  }
+  if (session.status == 'completed') return 'Slutförd${_losses(manifest)}';
+  return 'Stoppad · kanaler ${manifest.selectedChannels.join(', ')}'
+      '${_losses(manifest)}';
+}
+
+String _losses(SessionManifest manifest) {
+  if (manifest.interruptions == 0) return '';
+  final last = manifest.lastInterruptReason;
+  final cause = last == null ? '' : ' (${stopReasonLabel(last)})';
+  return ' · ${manifest.interruptions} avbrott$cause';
 }
 
 String stopReasonLabel(String reason) {

@@ -371,11 +371,21 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         onContinue: () => _session?.continueSession(),
         onFinish: () async {
           final controller = _session;
-          await controller?.finish();
+          String? failure;
+          try {
+            await controller?.finish();
+          } catch (error) {
+            failure = 'Sessionen kunde inte sparas: $error';
+          }
           controller?.dispose();
           _session = null;
           _usingMuse = false;
-          if (mounted) setState(() => _screen = _Screen.home);
+          if (mounted) {
+            setState(() {
+              _error = failure;
+              _screen = _Screen.home;
+            });
+          }
         },
       ),
       _Screen.history => HistoryPage(

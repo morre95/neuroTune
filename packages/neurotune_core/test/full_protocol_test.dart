@@ -46,6 +46,65 @@ void main() {
     expect(engine.completedBlocks, config.blockCount);
     expect(engine.manifest().stopReason, isNull);
     expect(engine.manifest().durationSeconds, greaterThan(700));
+    expect(engine.manifest().endedInPhase, 'completed');
+    expect(engine.manifest().interruptions, 0);
+  });
+
+  test('a session left waiting for a stable signal says so', () {
+    final config = ExperimentConfig.defaults().withProtocol(
+      baselineSeconds: 12,
+      blockCount: 2,
+      soundSeconds: 6,
+      pauseSeconds: 1,
+      rewardTailSeconds: 4,
+    );
+    final engine = SessionEngine(
+      config: config,
+      snapshot: BanditSnapshot.empty(
+        experimentVersion: config.version,
+        origin: DataOrigin.simulator,
+      ),
+      sessionId: 'waiting',
+      origin: DataOrigin.simulator,
+      mode: SessionMode.personal,
+      eyeState: EyeState.closed,
+      sampleRateHz: 256,
+      channelNames: simulatorChannels,
+      seed: 7,
+      startedAt: DateTime.utc(2026, 9, 24),
+    );
+    final source = SimulatorSource(config: config, sampleRateHz: 256, seed: 7);
+    final pipeline = DspPipeline(
+      config: config,
+      sampleRateHz: 256,
+      channelNames: simulatorChannels,
+    );
+    final optics = OpticsAccumulator();
+
+    // Run past the baseline so channels are selected and a block is running.
+    while (engine.phase != SessionPhase.sound && source.clock < 60) {
+      source.action = engine.currentAction;
+      for (final frame in pullFrames(
+        source: source,
+        pipeline: pipeline,
+        optics: optics,
+      )) {
+        engine.onFrame(frame);
+      }
+    }
+    expect(engine.manifest().selectedChannels, isNotEmpty);
+
+    // Three dropouts: the first pauses the block, the rest land while paused.
+    engine.interrupt(StopReason.sourceDisconnected);
+    engine.interrupt(StopReason.sourceDisconnected);
+    engine.interrupt(StopReason.manual);
+
+    final manifest = engine.manifest();
+    expect(engine.phase, SessionPhase.waitingStable);
+    expect(manifest.stopReason, isNull);
+    expect(manifest.endedInPhase, 'waitingStable');
+    expect(manifest.interruptions, 3);
+    expect(manifest.lastInterruptReason, 'manual');
   });
 
   test('a rejected baseline records why the session ended', () {
