@@ -21,7 +21,8 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql+psycopg://neurotune:neurotune@db:5432/neurotune
-      JWT_SECRET: dev-only-insecure-secret-change-me
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
       RAW_DATA_DIR: /data/raw
       CONTRACTS_PATH: /srv/contracts/default_experiment.json
     ports:
@@ -39,7 +40,8 @@ services:
     command: ["sh", "-c", "python -m app.wait_for_db && python -m app.worker"]
     environment:
       DATABASE_URL: postgresql+psycopg://neurotune:neurotune@db:5432/neurotune
-      JWT_SECRET: dev-only-insecure-secret-change-me
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
       RAW_DATA_DIR: /data/raw
       CONTRACTS_PATH: /srv/contracts/default_experiment.json
     volumes:

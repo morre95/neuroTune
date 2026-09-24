@@ -20,7 +20,20 @@ Det här är en utforskande prototyp. Måttet är baslinjenormaliserad relativ t
 
 ## Backend
 
-Från repo-roten:
+Vid installation, kopiera miljömallen och skapa en egen JWT-hemlighet på minst 32 byte:
+
+```bash
+cp .env.example .env
+python -c 'import secrets; print(secrets.token_urlsafe(32))'
+```
+
+Klistra in det genererade värdet efter `JWT_SECRET=` i `.env`:
+
+```text
+JWT_SECRET=ditt-genererade-värde
+```
+
+`.env` är gitignorerad. Docker Compose skickar samma värde till `api` och `worker`. Starta sedan från repo-roten:
 
 ```bash
 docker compose up --build
@@ -28,11 +41,7 @@ docker compose up --build
 
 API:t lyssnar på [http://localhost:8000](http://localhost:8000). Hälsokoll: `GET /v1/health`. PostgreSQL är bara exponerad på `127.0.0.1:5433`. Workern räknar om banditstatistiken från uppladdade block.
 
-`JWT_SECRET` i `compose.yaml` är ett utvecklingsvärde. Utanför utveckling sätter du `ENVIRONMENT` till något annat än `development` och ett eget `JWT_SECRET` på minst 32 byte, annars vägrar API:t starta:
-
-```bash
-python -c 'import secrets; print(secrets.token_urlsafe(32))'
-```
+Utanför utveckling sätter du även `ENVIRONMENT=production` i `.env`.
 
 ### Backendtester
 
