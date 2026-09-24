@@ -108,6 +108,20 @@ class MuseBridge(private val activity: FlutterActivity) {
         manager.stopListening()
         manager.startListening()
         handler.postDelayed(startTimeout, SCAN_TIMEOUT_MS)
+        handler.post(scanPoll)
+    }
+
+    /// LibMuse keeps a headband in its list for DEFAULT_REMOVE_FROM_LIST_AFTER
+    /// (30 s) after it was last seen, and only calls museListChanged() when that
+    /// list actually changes. Rediscovering a headband that is still listed from
+    /// the previous session is not a change, so the callback alone never fires.
+    /// getMuses() reads the live list, so poll it instead of waiting to be told.
+    private val scanPoll = object : Runnable {
+        override fun run() {
+            if (!scanning) return
+            onMuses()
+            if (scanning) handler.postDelayed(this, SCAN_POLL_MS)
+        }
     }
 
     private val startTimeout = Runnable {
@@ -293,6 +307,7 @@ class MuseBridge(private val activity: FlutterActivity) {
     private fun teardown() {
         scanning = false
         handler.removeCallbacks(startTimeout)
+        handler.removeCallbacks(scanPoll)
         manager.stopListening()
         muse?.let {
             it.unregisterAllListeners()
@@ -339,6 +354,7 @@ class MuseBridge(private val activity: FlutterActivity) {
     companion object {
         const val REQUEST_PERMISSIONS = 0x4D55
         private const val SCAN_TIMEOUT_MS = 12_000L
+        private const val SCAN_POLL_MS = 500L
         private const val CONNECT_TIMEOUT_MS = 20_000L
         private const val EEG_CHUNK = 128
         private const val OPTICS_CHUNK = 32
