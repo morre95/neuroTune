@@ -1,45 +1,48 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart' hide Uint8List;
 import 'package:neurotune_core/neurotune_core.dart';
+import 'package:path_provider/path_provider.dart';
 
-/// Plays stereo PCM and reports whether a headphone output is connected.
+const _audioMethods = MethodChannel('dev.neurotune/audio');
+
+/// Plays stereo PCM for a session.
 abstract class PcmOutput {
-  Future<bool> hasStereoOutput();
   Future<double?> start(int sampleRate);
   Future<void> write(Uint8List pcm16);
   Future<void> stop();
-  Stream<bool> get stereoConnected;
 }
 
 class AndroidPcmOutput implements PcmOutput {
-  static const _methods = MethodChannel('dev.neurotune/audio');
-  static const _events = EventChannel('dev.neurotune/audio_status');
-
-  @override
-  Future<bool> hasStereoOutput() async {
-    final connected = await _methods.invokeMethod<bool>('hasStereoOutput');
-    return connected ?? false;
-  }
-
   @override
   Future<double?> start(int sampleRate) async {
-    await _methods.invokeMethod<void>('start', {'sampleRate': sampleRate});
-    final latency = await _methods.invokeMethod<num>('latencyMs');
+    await _audioMethods.invokeMethod<void>('start', {'sampleRate': sampleRate});
+    final latency = await _audioMethods.invokeMethod<num>('latencyMs');
     return latency?.toDouble();
   }
 
   @override
   Future<void> write(Uint8List pcm16) =>
-      _methods.invokeMethod<void>('write', pcm16);
+      _audioMethods.invokeMethod<void>('write', pcm16);
 
   @override
-  Future<void> stop() => _methods.invokeMethod<void>('stop');
+  Future<void> stop() => _audioMethods.invokeMethod<void>('stop');
+}
 
-  @override
-  Stream<bool> get stereoConnected =>
-      _events.receiveBroadcastStream().map((event) => event == true);
+class StereoTestPlayer {
+  Future<void> start() async {
+    final data = await rootBundle.load('assets/audio/stereo_test.wav');
+    final directory = await getTemporaryDirectory();
+    final file = File('${directory.path}/stereo_test.wav');
+    await file.writeAsBytes(
+      data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+    );
+    await _audioMethods.invokeMethod<void>('startTest', {'path': file.path});
+  }
+
+  Future<void> stop() => _audioMethods.invokeMethod<void>('stopTest');
 }
 
 class MuseChannel {
@@ -59,9 +62,8 @@ class MuseChannel {
 
   Future<void> start() async {
     _eegPlatform ??= _eegEvents.receiveBroadcastStream().listen(
-      (event) => _eeg.add(
-        EegBatch.fromJson(Map<String, dynamic>.from(event as Map)),
-      ),
+      (event) =>
+          _eeg.add(EegBatch.fromJson(Map<String, dynamic>.from(event as Map))),
       onError: (_) => _lost.add(null),
     );
     _opticsPlatform ??= _opticsEvents.receiveBroadcastStream().listen(

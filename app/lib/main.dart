@@ -70,6 +70,10 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   StreamSubscription<EegBatch>? _musePreview;
   var _usingMuse = false;
   var _connectingMuse = false;
+  final StereoTestPlayer _stereoTest = StereoTestPlayer();
+  var _stereoTestPlaying = false;
+  var _stereoTestBusy = false;
+  Future<void>? _stereoTestStart;
   SessionController? _session;
   List<SavedSession> _history = [];
   SavedSession? _playback;
@@ -170,7 +174,42 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     setState(() => _screen = _Screen.contact);
   }
 
+  Future<void> _toggleStereoTest() async {
+    if (_stereoTestBusy) return;
+    setState(() => _stereoTestBusy = true);
+    try {
+      if (_stereoTestPlaying) {
+        await _stopStereoTest();
+      } else {
+        final start = _stereoTest.start();
+        _stereoTestStart = start;
+        await start;
+        if (mounted) setState(() => _stereoTestPlaying = true);
+      }
+      if (mounted) setState(() => _error = null);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = 'Hörlurstestet misslyckades: $error');
+      }
+    } finally {
+      _stereoTestStart = null;
+      if (mounted) setState(() => _stereoTestBusy = false);
+    }
+  }
+
+  Future<void> _stopStereoTest() async {
+    try {
+      await _stereoTestStart;
+    } catch (_) {
+      return;
+    }
+    if (!_stereoTestPlaying) return;
+    await _stereoTest.stop();
+    if (mounted) setState(() => _stereoTestPlaying = false);
+  }
+
   Future<void> _startSession() async {
+    await _stopStereoTest();
     if (_usingMuse) {
       await _musePreview?.cancel();
       _musePreview = null;
@@ -251,6 +290,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
 
   @override
   void dispose() {
+    unawaited(_stereoTest.stop());
     _previewSub?.cancel();
     _preview?.stop();
     _session?.dispose();
@@ -293,12 +333,16 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       ),
       _Screen.contact => ContactPage(
         batch: _contactBatch,
+        onStereoTest: _toggleStereoTest,
+        stereoTestPlaying: _stereoTestPlaying,
+        stereoTestBusy: _stereoTestBusy,
         note: _usingMuse
             ? 'Kvalitetsgränserna är inte verifierade mot en inspelning från Athena.'
             : null,
         error: _error,
         onStart: _startSession,
-        onBack: () {
+        onBack: () async {
+          await _stopStereoTest();
           if (_usingMuse) {
             _musePreview?.cancel();
             widget.muse.stop();

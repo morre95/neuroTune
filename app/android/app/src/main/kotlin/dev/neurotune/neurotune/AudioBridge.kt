@@ -1,38 +1,30 @@
 package dev.neurotune.neurotune
 
-import android.content.Context
 import android.media.AudioAttributes
-import android.media.AudioDeviceCallback
-import android.media.AudioDeviceInfo
 import android.media.AudioFormat
-import android.media.AudioManager
 import android.media.AudioTrack
+import android.media.MediaPlayer
 import android.os.Handler
 import android.os.HandlerThread
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.BinaryMessenger
-import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.io.FileInputStream
 
 /**
  * Stereo PCM playback. [latencyMs] is the AudioTrack buffer delay
  * (bufferSizeInFrames / sampleRate), an estimate of output latency,
  * not a measured delay at the ear.
  */
-class AudioBridge(private val activity: FlutterActivity) : EventChannel.StreamHandler {
+class AudioBridge(private val activity: FlutterActivity) {
     private val thread = HandlerThread("neurotune-pcm").also { it.start() }
     private val handler = Handler(thread.looper)
     private var track: AudioTrack? = null
-    private var events: EventChannel.EventSink? = null
-    private val devices = object : AudioDeviceCallback() {
-        override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>) = emit()
-        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>) = emit()
-    }
+    private var testPlayer: MediaPlayer? = null
 
     fun register(messenger: BinaryMessenger) {
         MethodChannel(messenger, "dev.neurotune/audio").setMethodCallHandler { call, result ->
             when (call.method) {
-                "hasStereoOutput" -> result.success(hasStereo())
                 "start" -> start(call.argument<Int>("sampleRate") ?: 48000, result)
                 "write" -> {
                     val bytes = call.arguments as ByteArray
@@ -42,6 +34,13 @@ class AudioBridge(private val activity: FlutterActivity) : EventChannel.StreamHa
                 "stop" -> {
                     handler.post { stopTrack() }
                     result.success(null)
+                }
+                "startTest" -> startTest(call.argument<String>("path"), result)
+                "stopTest" -> {
+                    handler.post {
+                        stopTest()
+                        activity.runOnUiThread { result.success(null) }
+                    }
                 }
                 "latencyMs" -> {
                     val current = track
@@ -54,11 +53,11 @@ class AudioBridge(private val activity: FlutterActivity) : EventChannel.StreamHa
                 else -> result.notImplemented()
             }
         }
-        EventChannel(messenger, "dev.neurotune/audio_status").setStreamHandler(this)
     }
 
     private fun start(rate: Int, result: MethodChannel.Result) {
         handler.post {
+            stopTest()
             stopTrack()
             val minBuffer = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT)
             val created = AudioTrack.Builder()
@@ -84,6 +83,41 @@ class AudioBridge(private val activity: FlutterActivity) : EventChannel.StreamHa
         }
     }
 
+    private fun startTest(path: String?, result: MethodChannel.Result) {
+        handler.post {
+            var player: MediaPlayer? = null
+            try {
+                require(path != null) { "Testljudfil saknas." }
+                stopTest()
+                stopTrack()
+                val candidate = MediaPlayer()
+                player = candidate
+                candidate.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build(),
+                )
+                FileInputStream(path).use { candidate.setDataSource(it.fd) }
+                candidate.isLooping = true
+                candidate.prepare()
+                candidate.start()
+                testPlayer = candidate
+                activity.runOnUiThread { result.success(null) }
+            } catch (error: Exception) {
+                runCatching { player?.release() }
+                activity.runOnUiThread {
+                    result.error("STEREO_TEST_FAILED", error.message ?: "Testljudet kunde inte spelas upp.", null)
+                }
+            }
+        }
+    }
+
+    private fun stopTest() {
+        testPlayer?.release()
+        testPlayer = null
+    }
+
     private fun stopTrack() {
         track?.pause()
         track?.flush()
@@ -91,31 +125,4 @@ class AudioBridge(private val activity: FlutterActivity) : EventChannel.StreamHa
         track = null
     }
 
-    private fun hasStereo(): Boolean {
-        val manager = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        return manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { device ->
-            device.type == AudioDeviceInfo.TYPE_WIRED_HEADPHONES ||
-                device.type == AudioDeviceInfo.TYPE_WIRED_HEADSET ||
-                device.type == AudioDeviceInfo.TYPE_USB_HEADSET ||
-                device.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
-                device.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP
-        }
-    }
-
-    private fun emit() {
-        activity.runOnUiThread { events?.success(hasStereo()) }
-    }
-
-    override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
-        this.events = events
-        val manager = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        manager.registerAudioDeviceCallback(devices, handler)
-        emit()
-    }
-
-    override fun onCancel(arguments: Any?) {
-        val manager = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        manager.unregisterAudioDeviceCallback(devices)
-        events = null
-    }
 }

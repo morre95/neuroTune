@@ -7,6 +7,9 @@ class ContactPage extends StatelessWidget {
     required this.batch,
     required this.onStart,
     required this.onBack,
+    required this.onStereoTest,
+    required this.stereoTestPlaying,
+    required this.stereoTestBusy,
     this.note,
     this.error,
   });
@@ -14,6 +17,9 @@ class ContactPage extends StatelessWidget {
   final EegBatch? batch;
   final VoidCallback onStart;
   final VoidCallback onBack;
+  final VoidCallback onStereoTest;
+  final bool stereoTestPlaying;
+  final bool stereoTestBusy;
   final String? note;
   final String? error;
 
@@ -28,14 +34,8 @@ class ContactPage extends StatelessWidget {
           const Text(
             'Kontrollera att signalen är stabil innan baslinjen. Samma ögonläge gäller hela sessionen.',
           ),
-          if (note != null) ...[
-            const SizedBox(height: 12),
-            Text(note!),
-          ],
-          if (error != null) ...[
-            const SizedBox(height: 12),
-            Text(error!),
-          ],
+          if (note != null) ...[const SizedBox(height: 12), Text(note!)],
+          if (error != null) ...[const SizedBox(height: 12), Text(error!)],
           const SizedBox(height: 16),
           for (var index = 0; index < names.length; index++)
             ListTile(
@@ -43,11 +43,27 @@ class ContactPage extends StatelessWidget {
               subtitle: Text(_contactLabel(batch, index)),
             ),
           const SizedBox(height: 16),
+          const Text('Testa att vänster och höger kanal hörs i dina hörlurar.'),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: stereoTestBusy ? null : onStereoTest,
+            child: Text(
+              stereoTestPlaying ? 'Stoppa hörlurstest' : 'Testa hörlurar',
+            ),
+          ),
+          if (stereoTestPlaying)
+            const Text('Testljudet upprepas tills du stoppar det.'),
+          const SizedBox(height: 16),
           FilledButton(
-            onPressed: batch == null ? null : onStart,
+            onPressed: batch == null || stereoTestBusy || stereoTestPlaying
+                ? null
+                : onStart,
             child: const Text('Starta baslinje'),
           ),
-          TextButton(onPressed: onBack, child: const Text('Tillbaka')),
+          TextButton(
+            onPressed: stereoTestBusy ? null : onBack,
+            child: const Text('Tillbaka'),
+          ),
         ],
       ),
     );

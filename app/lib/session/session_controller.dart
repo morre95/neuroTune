@@ -51,18 +51,12 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   StreamSubscription<OpticsBatch>? _opticsSub;
   StreamSubscription<void>? _lost;
   StreamSubscription<FeatureFrame>? _frames;
-  StreamSubscription<bool>? _audioStatus;
   Timer? _audioTimer;
   BinauralSynth? _synth;
   var _finishing = false;
   var _closed = false;
 
   Future<bool> start({MuseChannel? muse}) async {
-    if (!await audio.hasStereoOutput()) {
-      error = 'Sessionen kräver stereohörlurar.';
-      notifyListeners();
-      return false;
-    }
     WidgetsBinding.instance.addObserver(this);
     final seed = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final channelNames = muse == null
@@ -129,9 +123,6 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
       const Duration(milliseconds: 50),
       (_) => _writeAudio(),
     );
-    _audioStatus = audio.stereoConnected.listen((connected) {
-      if (!connected) interrupt(StopReason.audioLost);
-    });
     _source?.start();
     notifyListeners();
     return true;
@@ -181,11 +172,6 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> continueSession() async {
-    if (!await audio.hasStereoOutput()) {
-      error = 'Sessionen kräver stereohörlurar.';
-      notifyListeners();
-      return;
-    }
     error = null;
     waitingForUser = false;
     latencyMs = await audio.start(config.audioSampleRateHz);
@@ -243,7 +229,6 @@ class SessionController extends ChangeNotifier with WidgetsBindingObserver {
     _opticsSub?.cancel();
     _lost?.cancel();
     _muse?.stop();
-    _audioStatus?.cancel();
     _dsp?.close();
     super.dispose();
   }

@@ -2,7 +2,7 @@
 
 neuroTune är en Android-prototyp som spelar binaurala toner och lär sig, per person, vilken frekvens som höjer relativ theta i EEG. Under en session mäts signalen från en Muse S Athena eller från den inbyggda simulatorn. En personlig bandit väljer mellan 6, 8, 10 och 12 Hz samt en kontrollton. EEG, ljud och beslut körs på telefonen, så en påbörjad session fungerar utan nät. Konton, sessionsuppladdning och uppdaterad policy ligger i en Python-backend.
 
-Det här är en utforskande prototyp. Måttet är baslinjenormaliserad relativ theta medan ljudet spelas, och ska inte läsas som bevis på avslappning, fokus eller behandlingseffekt. En session tar ungefär tolv minuter och kräver stereohörlurar.
+Det här är en utforskande prototyp. Måttet är baslinjenormaliserad relativ theta medan ljudet spelas, och ska inte läsas som bevis på avslappning, fokus eller behandlingseffekt. En session tar ungefär tolv minuter. För binauralt ljud bör du använda stereohörlurar; appen gör ingen automatisk kontroll av ljudutgången.
 
 ## Förutsättningar
 
@@ -44,7 +44,7 @@ På en fysisk telefon pekar du appen mot datorns adress i samma nät:
 flutter run --dart-define=API_BASE=http://192.168.1.10:8000
 ```
 
-Byt `192.168.1.10` mot datorns LAN-adress. Skapa konto i appen, välj ögonläge och starta antingen simulatorn eller Muse. Simulatorn räcker för att köra hela flödet utan headset.
+Byt `192.168.1.10` mot datorns LAN-adress. Skapa konto i appen, välj ögonläge och starta antingen simulatorn eller Muse. På kontaktsidan kan du trycka på **Testa hörlurar** för att spela `audio/stereo_test.wav` upprepade gånger och **Stoppa hörlurstest** när du är klar. Simulatorn räcker för att köra hela flödet utan Muse-headset.
 
 Om `flutter run` bygger APK:n men installationen avbryts med `INSTALL_FAILED_INSUFFICIENT_STORAGE` är emulatorns datapartition nästan full. Android håller ungefär 500 MB i reserv och vägrar då installationen även när APK:n får plats i det som återstår. Sänk reserven på den körande emulatorn och kör `flutter run` igen:
 

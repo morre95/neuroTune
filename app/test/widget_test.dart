@@ -4,6 +4,7 @@ import 'package:neurotune_core/neurotune_core.dart';
 
 import 'package:neurotune/data/repository.dart';
 import 'package:neurotune/ui/auth_page.dart';
+import 'package:neurotune/ui/contact_page.dart';
 import 'package:neurotune/ui/home_page.dart';
 import 'package:neurotune/ui/playback_page.dart';
 import 'package:neurotune/ui/session_page.dart';
@@ -56,6 +57,42 @@ void main() {
     expect(find.textContaining('inte verifierat'), findsOneWidget);
     expect(find.textContaining('Offline'), findsOneWidget);
   });
+
+  testWidgets(
+    'headphone test is available before baseline and can be stopped',
+    (tester) async {
+      var taps = 0;
+
+      Widget page({required bool playing}) => MaterialApp(
+        home: ContactPage(
+          batch: null,
+          onStart: () {},
+          onBack: () {},
+          onStereoTest: () => taps++,
+          stereoTestPlaying: playing,
+          stereoTestBusy: false,
+        ),
+      );
+
+      await tester.pumpWidget(page(playing: false));
+      expect(find.text('Testa hörlurar'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Starta baslinje'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.text('Testa hörlurar'));
+      expect(taps, 1);
+
+      await tester.pumpWidget(page(playing: true));
+      expect(find.text('Stoppa hörlurstest'), findsOneWidget);
+      await tester.tap(find.text('Stoppa hörlurstest'));
+      expect(taps, 2);
+    },
+  );
 
   testWidgets('session shows theta, alpha, beta, quality and the action', (
     tester,
