@@ -28,6 +28,20 @@ docker compose up --build
 
 API:t lyssnar på [http://localhost:8000](http://localhost:8000). Hälsokoll: `GET /v1/health`. PostgreSQL är bara exponerad på `127.0.0.1:5433`. Workern räknar om banditstatistiken från uppladdade block.
 
+### Backendtester
+
+Kör Pytest i en tillfällig Docker-container från repo-roten:
+
+```bash
+docker compose build api
+docker compose run --rm --no-deps \
+  -e DATABASE_URL=sqlite:// \
+  -e RAW_DATA_DIR=/tmp/neurotune-raw-test \
+  api sh -c 'pip install ".[dev]" && pytest -q'
+```
+
+Testerna använder en separat SQLite-databas och ändrar inte PostgreSQL-datan. `--rm` tar bort testcontainern efter körningen.
+
 ## Appen
 
 Starta backend först. I Android-emulatorn är värddatorn `10.0.2.2`, vilket också är appens standardadress.
