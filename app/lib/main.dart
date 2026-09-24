@@ -69,6 +69,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   StreamSubscription<EegBatch>? _previewSub;
   StreamSubscription<EegBatch>? _musePreview;
   var _usingMuse = false;
+  var _connectingMuse = false;
   SessionController? _session;
   List<SavedSession> _history = [];
   SavedSession? _playback;
@@ -214,10 +215,14 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _muse() async {
+    if (_connectingMuse) return;
     _usingMuse = true;
     await _preview?.stop();
     await _previewSub?.cancel();
-    setState(() => _error = 'Söker efter Muse S Athena.');
+    setState(() {
+      _connectingMuse = true;
+      _error = 'Söker efter Muse S Athena.';
+    });
     try {
       await _musePreview?.cancel();
       _listenToMuse();
@@ -234,6 +239,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     } catch (error) {
       _usingMuse = false;
       setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _connectingMuse = false);
     }
   }
 
@@ -279,6 +286,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         onMode: (value) => setState(() => _mode = value),
         onStartSimulator: _openContact,
         onMuse: _muse,
+        connectingMuse: _connectingMuse,
         onHistory: _openHistory,
         onLogout: _logout,
         message: _error,
@@ -309,7 +317,11 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         onStop: () => _session?.interrupt(StopReason.manual),
         onContinue: () => _session?.continueSession(),
         onFinish: () async {
-          await _session?.finish();
+          final controller = _session;
+          await controller?.finish();
+          controller?.dispose();
+          _session = null;
+          _usingMuse = false;
           if (mounted) setState(() => _screen = _Screen.home);
         },
       ),

@@ -49,8 +49,15 @@ class MuseBridge(private val activity: FlutterActivity) {
     private var opticsStart = 0.0
     private var scanning = false
 
+    private val museListener = object : MuseListener() {
+        override fun museListChanged() {
+            handler.post { onMuses() }
+        }
+    }
+
     fun register(messenger: BinaryMessenger) {
         manager.setContext(activity)
+        manager.setMuseListener(museListener)
         MethodChannel(messenger, "dev.neurotune/muse").setMethodCallHandler { call, result ->
             when (call.method) {
                 "start" -> start(result)
@@ -79,6 +86,7 @@ class MuseBridge(private val activity: FlutterActivity) {
             result.error("MUSE_BUSY", "En anslutning pågår redan.", null)
             return
         }
+        teardown()
         startResult = result
         if (!bluetoothEnabled()) {
             finishStart("BLUETOOTH_OFF", "Bluetooth är avstängt.")
@@ -98,19 +106,17 @@ class MuseBridge(private val activity: FlutterActivity) {
     private fun beginScan() {
         scanning = true
         manager.stopListening()
-        manager.setMuseListener(object : MuseListener() {
-            override fun museListChanged() {
-                handler.post { onMuses() }
-            }
-        })
         manager.startListening()
-        handler.postDelayed(scanTimeout, SCAN_TIMEOUT_MS)
+        handler.postDelayed(startTimeout, SCAN_TIMEOUT_MS)
     }
 
-    private val scanTimeout = Runnable {
-        if (startResult != null) {
-            manager.stopListening()
+    private val startTimeout = Runnable {
+        val scanned = scanning
+        teardown()
+        if (scanned) {
             finishStart("MUSE_NOT_FOUND", "Ingen Muse S Athena hittades.")
+        } else {
+            finishStart("MUSE_TIMEOUT", "Muse svarade inte på anslutningen.")
         }
     }
 
@@ -118,7 +124,7 @@ class MuseBridge(private val activity: FlutterActivity) {
         if (!scanning || startResult == null) return
         val found = manager.muses.firstOrNull { it.model == MuseModel.MS_03 } ?: return
         scanning = false
-        handler.removeCallbacks(scanTimeout)
+        handler.removeCallbacks(startTimeout)
         manager.stopListening()
         connect(found)
     }
@@ -128,7 +134,7 @@ class MuseBridge(private val activity: FlutterActivity) {
         headband.unregisterAllListeners()
         headband.registerConnectionListener(object : MuseConnectionListener() {
             override fun receiveMuseConnectionPacket(packet: MuseConnectionPacket, muse: Muse) {
-                handler.post { onConnection(packet) }
+                handler.post { if (muse === this@MuseBridge.muse) onConnection(packet) }
             }
         })
         val listener = dataListener()
@@ -139,20 +145,27 @@ class MuseBridge(private val activity: FlutterActivity) {
         headband.registerDataListener(listener, MuseDataPacketType.OPTICS)
         headband.setPreset(MusePreset.PRESET_1034)
         headband.runAsynchronously()
+        handler.postDelayed(startTimeout, CONNECT_TIMEOUT_MS)
     }
 
     private fun onConnection(packet: MuseConnectionPacket) {
         when (packet.currentConnectionState) {
-            ConnectionState.CONNECTED -> finishStart(null, null)
+            ConnectionState.CONNECTED -> {
+                handler.removeCallbacks(startTimeout)
+                finishStart(null, null)
+            }
             ConnectionState.DISCONNECTED -> {
                 if (startResult != null) {
+                    teardown()
                     finishStart("MUSE_DISCONNECTED", "Muse kopplades från innan sessionen började.")
                 } else {
                     failStreams("Muse kopplades från.")
                 }
             }
-            ConnectionState.NEEDS_LICENSE ->
+            ConnectionState.NEEDS_LICENSE -> {
+                teardown()
                 finishStart("MUSE_LICENSE", "LibMuse kräver en licens för det här headsetet.")
+            }
             else -> Unit
         }
     }
@@ -270,15 +283,25 @@ class MuseBridge(private val activity: FlutterActivity) {
     }
 
     private fun stop() {
+        teardown()
+        finishStart("MUSE_STOPPED", "Anslutningen avbröts.")
+    }
+
+    /// Returns the bridge to the state it had before the first start: no scan
+    /// running, no pending timeout, no headband holding a BLE link and no
+    /// samples left over from the previous session.
+    private fun teardown() {
         scanning = false
-        handler.removeCallbacks(scanTimeout)
+        handler.removeCallbacks(startTimeout)
         manager.stopListening()
-        muse?.disconnect()
+        muse?.let {
+            it.unregisterAllListeners()
+            it.disconnect()
+        }
         muse = null
         clearEeg()
         clearOptics()
         originUs = null
-        finishStart("MUSE_STOPPED", "Anslutningen avbröts.")
     }
 
     private fun failStreams(message: String) {
@@ -316,6 +339,7 @@ class MuseBridge(private val activity: FlutterActivity) {
     companion object {
         const val REQUEST_PERMISSIONS = 0x4D55
         private const val SCAN_TIMEOUT_MS = 12_000L
+        private const val CONNECT_TIMEOUT_MS = 20_000L
         private const val EEG_CHUNK = 128
         private const val OPTICS_CHUNK = 32
         private const val EEG_RATE_HZ = 256.0

@@ -46,6 +46,7 @@ void main() {
           onMode: (_) {},
           onStartSimulator: () {},
           onMuse: () {},
+          connectingMuse: false,
           onHistory: () {},
           onLogout: () {},
         ),

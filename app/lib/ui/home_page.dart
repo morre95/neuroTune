@@ -14,6 +14,7 @@ class HomePage extends StatelessWidget {
     required this.onMode,
     required this.onStartSimulator,
     required this.onMuse,
+    required this.connectingMuse,
     required this.onHistory,
     required this.onLogout,
     this.message,
@@ -29,6 +30,7 @@ class HomePage extends StatelessWidget {
   final ValueChanged<SessionMode> onMode;
   final VoidCallback onStartSimulator;
   final VoidCallback onMuse;
+  final bool connectingMuse;
   final VoidCallback onHistory;
   final VoidCallback onLogout;
   final String? message;
@@ -88,7 +90,10 @@ class HomePage extends StatelessWidget {
             child: const Text('Simulator'),
           ),
           const SizedBox(height: 8),
-          OutlinedButton(onPressed: onMuse, child: const Text('Muse')),
+          OutlinedButton(
+            onPressed: connectingMuse ? null : onMuse,
+            child: Text(connectingMuse ? 'Ansluter…' : 'Muse'),
+          ),
           if (!hardwareApproved)
             const Padding(
               padding: EdgeInsets.only(top: 8),
