@@ -9,7 +9,14 @@ Det här är en utforskande prototyp. Måttet är baslinjenormaliserad relativ t
 - [Flutter](https://docs.flutter.dev/get-started/install) med Dart 3.12 eller nyare
 - Android SDK, plus en telefon eller emulator
 - Docker, för backend och PostgreSQL
-- Valfritt: Muse S Athena och Interaxon libmuse Android 8.0.9, uppackad till `vendor/muse-android/libmuse_android_8.0.9` (katalogen är gitignorerad). Android-bygget länkar `libs/libmuse_android.jar` därifrån.
+- Interaxon libmuse Android 8.0.9 krävs för att bygga Android-appen, även om du bara använder simulatorn. Ladda ned [Android SDK-arkivet](https://drive.google.com/file/d/1l6LrH3Uy4KUlEAR0-dT-78bHAz6CDrTG/view) som länkas i [planen](docs/PLAN.md) och packa upp det från repo-roten:
+
+  ```bash
+  mkdir -p vendor/muse-android
+  tar -xzf ~/Downloads/libmuse_android_8.0.9.tar.gz -C vendor/muse-android
+  ```
+
+  Kontrollera att `vendor/muse-android/libmuse_android_8.0.9/libs/libmuse_android.jar` finns efteråt. Bygget använder också `.so`-filerna i samma `libs`-katalog. SDK-katalogen är gitignorerad. En fysisk Muse S Athena behövs först när du vill använda eller verifiera hårdvaruläget.
 
 ## Backend
 
