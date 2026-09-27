@@ -88,8 +88,8 @@ Installera en APK:
 
 ```bash
 cd app
-flutter build apk --dart-define=API_BASE=http://192.168.1.10:8000
-adb install -r build/app/outputs/flutter-apk/app-release.apk
+flutter build apk --debug --dart-define=API_BASE=http://192.168.1.10:8000
+adb install -r build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-`API_BASE` bakas in vid bygget. Samma adress gäller för `flutter run` och för APK:n.
+`API_BASE` bakas in vid bygget. Samma adress gäller för `flutter run` och för APK:n. Bara debug-byggen får använda `http://`. Ett release-bygge kräver en `https://`-adress, eftersom lösenord, tokens och EEG annars skickas okrypterat. Inloggningen sparas krypterad i Androids nyckellager, och appen har säkerhetskopiering avstängd.

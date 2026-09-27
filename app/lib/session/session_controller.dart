@@ -6,7 +6,6 @@ import 'package:neurotune_core/neurotune_core.dart';
 
 import '../data/api_client.dart';
 import '../data/repository.dart';
-import '../data/upload_sync.dart';
 import '../dsp/dsp_isolate.dart';
 import '../platform/channels.dart';
 import '../ui/session_page.dart';
@@ -14,9 +13,7 @@ import '../ui/session_page.dart';
 class SessionController extends ChangeNotifier {
   SessionController({
     required this.repository,
-    required this.api,
     required this.ownerEmail,
-    UploadSync? uploadSync,
     required this.audio,
     required this.keepAlive,
     required this.config,
@@ -25,12 +22,10 @@ class SessionController extends ChangeNotifier {
     required this.eyeState,
     required this.origin,
     this.sampleRateHz = 256,
-  }) : _uploadSync = uploadSync ?? UploadSync(repository: repository, api: api);
+  });
 
   final SessionRepository repository;
-  final ApiClient api;
   final String ownerEmail;
-  final UploadSync _uploadSync;
   final PcmOutput audio;
   final SessionKeepAlive keepAlive;
   final ExperimentConfig config;
@@ -59,9 +54,16 @@ class SessionController extends ChangeNotifier {
   StreamSubscription<FeatureFrame>? _frames;
   Timer? _audioTimer;
   BinauralSynth? _synth;
-  var _finishing = false;
+  Future<void>? _finish;
   var _closed = false;
   StopReason? _lastInterruption;
+
+  /// The bridge's clock starts when the headband first streams, which is
+  /// before this session because of the contact preview. Session time starts
+  /// at the first sample this session receives.
+  double? _museOrigin;
+
+  bool get _finishing => _finish != null;
 
   /// Acquires the foreground service, DSP isolate, data source and audio
   /// output. Returns false with [error] set if any of them fails, leaving the
@@ -112,7 +114,7 @@ class SessionController extends ChangeNotifier {
       sampleRateHz: sampleRateHz,
       channelNames: channelNames,
     );
-    _frames = _dsp!.frames.listen(_onFrame);
+    _frames = _dsp!.frames.listen(_onFrame, onError: _onDspFailure);
     if (_source != null) {
       _batches = _source!.batches.listen((batch) {
         _raw.add(batch);
@@ -124,11 +126,13 @@ class SessionController extends ChangeNotifier {
         _dsp?.addBatch(batch);
       });
     } else {
-      _batches = _muse!.eeg.listen((batch) {
+      _batches = _muse!.eeg.listen((bridged) {
+        final batch = bridged.shifted(-_sessionOrigin(bridged.timeSeconds));
         _raw.add(batch);
         _dsp?.addBatch(batch);
       });
-      _opticsSub = _muse!.optics.listen((batch) {
+      _opticsSub = _muse!.optics.listen((bridged) {
+        final batch = bridged.shifted(-_sessionOrigin(bridged.timeSeconds));
         _opticsRaw.add(batch);
         _optics.addBatch(batch);
       });
@@ -187,7 +191,7 @@ class SessionController extends ChangeNotifier {
     _pauseOutputs();
     waitingForUser = current.phase == SessionPhase.waitingStable;
     if (current.terminal) {
-      finish();
+      _finishInBackground();
       return;
     }
     notifyListeners();
@@ -228,12 +232,15 @@ class SessionController extends ChangeNotifier {
     return values.reduce((a, b) => a + b) / values.length;
   }
 
+  /// Saves the session once. The automatic finish when the engine ends and a
+  /// tap on the finish button share this future, so a failed save reaches the
+  /// caller instead of hiding behind a second call that returned early.
+  Future<void> finish() => _finish ??= _finishOnce();
+
   /// Persisting can fail on a full disk or a closed database. The foreground
   /// service and the headband are released either way, or the app is left with
   /// an ongoing notification and a connected Muse that only a restart clears.
-  Future<void> finish() async {
-    if (_finishing || _closed) return;
-    _finishing = true;
+  Future<void> _finishOnce() async {
     try {
       final current = engine;
       if (current != null && current.phase == SessionPhase.sound) {
@@ -264,6 +271,31 @@ class SessionController extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Finishes without a caller to await it, so a failed save is shown in the
+  /// session view instead of becoming an unhandled error.
+  void _finishInBackground() {
+    unawaited(
+      finish().catchError((Object failure) {
+        error = 'Sessionen kunde inte sparas: $failure';
+        if (!_closed) notifyListeners();
+      }),
+    );
+  }
+
+  double _sessionOrigin(double bridgeSeconds) => _museOrigin ??= bridgeSeconds;
+
+  /// The isolate is dead after an error and no frames will follow, so the
+  /// session cannot wait for a stable signal. Save what was recorded.
+  void _onDspFailure(Object failure) {
+    if (_closed || _finishing) return;
+    engine?.abort(
+      StopReason.processingFailed,
+      'Signalbehandlingen slutade fungera. Sessionen sparas.',
+    );
+    error = 'Signalbehandlingen slutade fungera: $failure';
+    _finishInBackground();
+  }
+
   void _onFrame(FeatureFrame frame) {
     final current = engine;
     if (current == null || _closed || _finishing) return;
@@ -278,7 +310,7 @@ class SessionController extends ChangeNotifier {
     _synth?.setAction(current.currentAction);
     latest = scored;
     if (current.terminal) {
-      finish();
+      _finishInBackground();
     } else if (!_closed) {
       notifyListeners();
     }
@@ -323,7 +355,6 @@ class SessionController extends ChangeNotifier {
       rawPath,
       ownerEmail,
     );
-    await _uploadSync.flush(ownerEmail);
   }
 
   String _mean(

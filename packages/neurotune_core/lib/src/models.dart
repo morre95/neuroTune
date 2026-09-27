@@ -87,6 +87,7 @@ enum StopReason {
   sourceDisconnected,
   baselineFailed,
   attemptLimit,
+  processingFailed,
 }
 
 class ExperimentConfig {
@@ -342,6 +343,18 @@ class EegBatch {
 
   int get sampleCount => eeg.isEmpty ? 0 : eeg.first.length;
 
+  /// The same samples with [timeSeconds] moved by [offsetSeconds].
+  EegBatch shifted(double offsetSeconds) => EegBatch(
+    channelNames: channelNames,
+    unit: unit,
+    sampleRateHz: sampleRateHz,
+    timeSeconds: timeSeconds + offsetSeconds,
+    eeg: eeg,
+    accel: accel,
+    gyro: gyro,
+    contact: contact,
+  );
+
   Map<String, dynamic> toJson() => {
     'channel_names': channelNames,
     'unit': unit,
@@ -391,6 +404,15 @@ class OpticsBatch {
   final List<List<double>> values;
 
   int get sampleCount => values.isEmpty ? 0 : values.first.length;
+
+  /// The same samples with [timeSeconds] moved by [offsetSeconds].
+  OpticsBatch shifted(double offsetSeconds) => OpticsBatch(
+    channelNames: channelNames,
+    unit: unit,
+    sampleRateHz: sampleRateHz,
+    timeSeconds: timeSeconds + offsetSeconds,
+    values: values,
+  );
 
   Map<String, dynamic> toJson() => {
     'channel_names': channelNames,

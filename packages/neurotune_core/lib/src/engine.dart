@@ -106,6 +106,18 @@ class SessionEngine {
     message = 'Signalen avbröts. Väntar på en stabil signal innan nästa block.';
   }
 
+  /// Ends the session on a failure that waiting for a stable signal cannot
+  /// recover from. A running block is recorded as aborted.
+  void abort(StopReason reason, String text) {
+    if (terminal) return;
+    interruptions += 1;
+    lastInterruption = reason;
+    if (phase == SessionPhase.sound) {
+      _closeBlock(aborted: true, reason: reason);
+    }
+    _stop(reason, text);
+  }
+
   void resume() {
     if (phase != SessionPhase.waitingStable) return;
     _stableCount = 0;

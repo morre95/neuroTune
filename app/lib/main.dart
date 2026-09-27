@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 
 import 'data/api_client.dart';
+import 'data/auth_store.dart';
 import 'data/database.dart';
 import 'data/repository.dart';
 import 'data/upload_sync.dart';
@@ -27,6 +29,7 @@ void main() {
   runApp(
     NeuroTuneApp(
       database: AppDatabase(),
+      authStore: AuthStore(),
       api: ApiClient(baseUrl: baseUrl),
       audio: AndroidPcmOutput(),
       keepAlive: AndroidSessionKeepAlive(),
@@ -41,6 +44,7 @@ class NeuroTuneApp extends StatefulWidget {
   const NeuroTuneApp({
     super.key,
     required this.database,
+    required this.authStore,
     required this.api,
     required this.audio,
     required this.keepAlive,
@@ -48,6 +52,7 @@ class NeuroTuneApp extends StatefulWidget {
   });
 
   final AppDatabase database;
+  final AuthStore authStore;
   final ApiClient api;
   final PcmOutput audio;
   final SessionKeepAlive keepAlive;
@@ -84,6 +89,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   var _stereoTestBusy = false;
   Future<void>? _stereoTestStart;
   SessionController? _session;
+  var _endingSession = false;
   List<SavedSession> _history = [];
   SavedSession? _playback;
 
@@ -98,7 +104,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         refreshToken: refresh,
         email: current.email,
       );
-      await _repository.saveAuth(jsonEncode(_auth!.toJson()));
+      await widget.authStore.save(_auth!);
     };
     _bootstrap();
   }
@@ -116,19 +122,54 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     unawaited(_uploadSync.flush(_auth!.email).catchError((Object _) {}));
   }
 
+  /// Unreadable saved state must not leave the app on the loading spinner.
+  /// The user logs in again, which overwrites the saved login, and the server
+  /// replaces a broken cached config.
   Future<void> _bootstrap() async {
-    _config = await _repository.loadConfig();
-    final saved = await _repository.loadAuth();
-    if (saved != null && saved.contains('access_token')) {
-      _auth = AuthTokens.fromJson(jsonDecode(saved) as Map<String, dynamic>);
-      widget.api.accessToken = _auth!.accessToken;
-      widget.api.refreshToken = _auth!.refreshToken;
-      await _repository.claimLegacyUploads(_auth!.email);
-      await _refreshRemote();
-      _startUploadRetry();
-      if (mounted) setState(() => _screen = _Screen.home);
+    try {
+      await _restore();
+    } catch (failure, stack) {
+      log(
+        'Saved state could not be restored',
+        error: failure,
+        stackTrace: stack,
+      );
+      _auth = null;
+      widget.api.accessToken = null;
+      widget.api.refreshToken = null;
+      _screen = _Screen.auth;
+      _error = 'Sparad data kunde inte läsas. Logga in igen.';
     }
     if (mounted) setState(() => _ready = true);
+  }
+
+  Future<void> _restore() async {
+    _config = await _repository.loadConfig();
+    await _moveLegacyAuth();
+    _auth = await widget.authStore.load();
+    if (_auth == null) return;
+    widget.api.accessToken = _auth!.accessToken;
+    widget.api.refreshToken = _auth!.refreshToken;
+    await _repository.claimLegacyUploads(_auth!.email);
+    await _refreshRemote();
+    _startUploadRetry();
+    _screen = _Screen.home;
+  }
+
+  /// A logged-out legacy row holds '{}'. The row is deleted even when it is
+  /// unreadable, or it would fail every start after the user logs in again.
+  Future<void> _moveLegacyAuth() async {
+    final legacy = await _repository.loadLegacyAuth();
+    if (legacy == null) return;
+    try {
+      if (legacy.contains('access_token')) {
+        await widget.authStore.save(
+          AuthTokens.fromJson(jsonDecode(legacy) as Map<String, dynamic>),
+        );
+      }
+    } finally {
+      await _repository.deleteLegacyAuth();
+    }
   }
 
   Future<void> _refreshRemote({
@@ -162,7 +203,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       final tokens = register
           ? await widget.api.register(email, password)
           : await widget.api.login(email, password);
-      await _repository.saveAuth(jsonEncode(tokens.toJson()));
+      await widget.authStore.save(tokens);
       _auth = tokens;
       await _refreshRemote();
       _startUploadRetry();
@@ -201,7 +242,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     try {
       await widget.api.logout();
     } catch (_) {}
-    await _repository.saveAuth('{}');
+    await widget.authStore.clear();
     _auth = null;
     widget.api.accessToken = null;
     widget.api.refreshToken = null;
@@ -267,9 +308,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     await _refreshRemote(origin: origin);
     final controller = SessionController(
       repository: _repository,
-      api: widget.api,
       ownerEmail: _auth!.email,
-      uploadSync: _uploadSync,
       audio: widget.audio,
       keepAlive: widget.keepAlive,
       config: _config,
@@ -330,6 +369,31 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       setState(() => _error = '$error');
     } finally {
       if (mounted) setState(() => _connectingMuse = false);
+    }
+  }
+
+  /// The button stays disabled until the save is done, so a second tap cannot
+  /// dispose the controller while the first one still waits for it.
+  Future<void> _finishSession() async {
+    final controller = _session;
+    if (controller == null || _endingSession) return;
+    setState(() => _endingSession = true);
+    String? failure;
+    try {
+      await controller.finish();
+    } catch (error) {
+      failure = 'Sessionen kunde inte sparas: $error';
+    }
+    controller.dispose();
+    _session = null;
+    _usingMuse = false;
+    _endingSession = false;
+    _retryUploads();
+    if (mounted) {
+      setState(() {
+        _error = failure;
+        _screen = _Screen.home;
+      });
     }
   }
 
@@ -413,24 +477,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         view: _session!.view,
         onStop: () => _session?.interrupt(StopReason.manual),
         onContinue: () => _session?.continueSession(),
-        onFinish: () async {
-          final controller = _session;
-          String? failure;
-          try {
-            await controller?.finish();
-          } catch (error) {
-            failure = 'Sessionen kunde inte sparas: $error';
-          }
-          controller?.dispose();
-          _session = null;
-          _usingMuse = false;
-          if (mounted) {
-            setState(() {
-              _error = failure;
-              _screen = _Screen.home;
-            });
-          }
-        },
+        onFinish: _endingSession ? null : _finishSession,
       ),
       _Screen.history => HistoryPage(
         sessions: _history,

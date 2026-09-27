@@ -42,7 +42,9 @@ class SessionPage extends StatelessWidget {
   final SessionView view;
   final VoidCallback onStop;
   final VoidCallback onContinue;
-  final VoidCallback onFinish;
+
+  /// Null while the session is being saved.
+  final VoidCallback? onFinish;
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +78,10 @@ class SessionPage extends StatelessWidget {
             FilledButton(onPressed: onContinue, child: const Text('Fortsätt'))
           else if (view.canStop)
             OutlinedButton(onPressed: onStop, child: const Text('Stoppa')),
-          TextButton(onPressed: onFinish, child: const Text('Avsluta session')),
+          TextButton(
+            onPressed: onFinish,
+            child: Text(onFinish == null ? 'Sparar…' : 'Avsluta session'),
+          ),
         ],
       ),
     );

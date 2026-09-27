@@ -4,11 +4,23 @@ import 'dart:isolate';
 import 'package:neurotune_core/neurotune_core.dart';
 
 class DspHost {
-  DspHost._(this._isolate, this._send, this.frames);
+  DspHost._(
+    this._isolate,
+    this._send,
+    this._incoming,
+    this._failures,
+    this._frames,
+  );
 
   final Isolate _isolate;
   final SendPort _send;
-  final Stream<FeatureFrame> frames;
+  final ReceivePort _incoming;
+  final ReceivePort _failures;
+  final StreamController<FeatureFrame> _frames;
+
+  /// Feature frames, or a [RemoteError] if the isolate died. An uncaught error
+  /// kills the isolate, so no frames follow an error.
+  Stream<FeatureFrame> get frames => _frames.stream;
 
   static Future<DspHost> start({
     required ExperimentConfig config,
@@ -16,9 +28,20 @@ class DspHost {
     required List<String> channelNames,
   }) async {
     final ready = ReceivePort();
-    final isolate = await Isolate.spawn(_dspMain, ready.sendPort);
+    final failures = ReceivePort();
+    final isolate = await Isolate.spawn(
+      _dspMain,
+      ready.sendPort,
+      onError: failures.sendPort,
+    );
     final send = await ready.first as SendPort;
     final incoming = ReceivePort();
+    final frames = StreamController<FeatureFrame>();
+    incoming.listen((frame) => frames.add(frame as FeatureFrame));
+    failures.listen((message) {
+      final [error, stack] = message as List<Object?>;
+      frames.addError(RemoteError('$error', '$stack'));
+    });
     send.send({
       'cmd': 'init',
       'config': config.toJson(),
@@ -26,7 +49,7 @@ class DspHost {
       'channels': channelNames,
       'out': incoming.sendPort,
     });
-    return DspHost._(isolate, send, incoming.cast<FeatureFrame>());
+    return DspHost._(isolate, send, incoming, failures, frames);
   }
 
   void addBatch(EegBatch batch) {
@@ -36,6 +59,9 @@ class DspHost {
   void close() {
     _send.send({'cmd': 'stop'});
     _isolate.kill(priority: Isolate.immediate);
+    _incoming.close();
+    _failures.close();
+    _frames.close();
   }
 }
 

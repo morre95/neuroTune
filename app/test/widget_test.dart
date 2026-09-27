@@ -196,6 +196,38 @@ void main() {
     expect(find.text('Avsluta session'), findsOneWidget);
   });
 
+  testWidgets('finish button is disabled while the session is saved', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SessionPage(
+          view: const SessionView(
+            message: 'Sessionen är klar.',
+            phase: 'completed',
+            blockLabel: '15/15',
+            actionLabel: 'Tystnad',
+            theta: '-',
+            alpha: '-',
+            beta: '-',
+            outerNir: '-',
+            nirZ: '-',
+            quality: '-',
+            canContinue: false,
+            canStop: false,
+          ),
+          onStop: () {},
+          onContinue: () {},
+          onFinish: null,
+        ),
+      ),
+    );
+
+    final button = find.widgetWithText(TextButton, 'Sparar…');
+    expect(button, findsOneWidget);
+    expect(tester.widget<TextButton>(button).onPressed, isNull);
+  });
+
   testWidgets('history explains a session that recorded no blocks', (
     tester,
   ) async {

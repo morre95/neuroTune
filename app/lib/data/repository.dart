@@ -60,9 +60,10 @@ class SessionRepository {
     return ExperimentConfig.fromJson(jsonDecode(raw) as Map<String, dynamic>);
   }
 
-  Future<void> saveAuth(String json) => db.putKv('auth', json);
+  /// Logins were kept in the database before they moved to encrypted storage.
+  Future<String?> loadLegacyAuth() => db.getKv('auth');
 
-  Future<String?> loadAuth() => db.getKv('auth');
+  Future<void> deleteLegacyAuth() => db.deleteKv('auth');
 
   Future<void> saveBandit(BanditSnapshot snapshot) =>
       db.putKv('bandit:${snapshot.dataOrigin}', jsonEncode(snapshot.toJson()));

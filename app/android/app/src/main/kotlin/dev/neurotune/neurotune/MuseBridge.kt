@@ -38,6 +38,9 @@ class MuseBridge(private val activity: FlutterActivity) {
     private var startResult: MethodChannel.Result? = null
     private var eegSink: EventChannel.EventSink? = null
     private var opticsSink: EventChannel.EventSink? = null
+    /// Set by the first packet the bridge ever sees and never reset, so the
+    /// timeline keeps running across reconnects. A session rebases this clock
+    /// to its own start, which is later than the contact preview's.
     private var originUs: Long? = null
     private val eeg = Array(4) { ArrayList<Double>() }
     private val accel = ArrayList<List<Double>>()
@@ -318,7 +321,7 @@ class MuseBridge(private val activity: FlutterActivity) {
 
     /// Returns the bridge to the state it had before the first start: no scan
     /// running, no pending timeout, no headband holding a BLE link and no
-    /// samples left over from the previous session.
+    /// samples left over from the previous session. The clock origin stays.
     private fun teardown() {
         startPhase = null
         handler.removeCallbacks(startTimeout)
@@ -331,7 +334,6 @@ class MuseBridge(private val activity: FlutterActivity) {
         muse = null
         clearEeg()
         clearOptics()
-        originUs = null
     }
 
     private fun failStreams(message: String) {

@@ -62,6 +62,10 @@ class AppDatabase extends _$AppDatabase {
     ).insertOnConflictUpdate(KvStoreCompanion.insert(key: key, value: value));
   }
 
+  Future<void> deleteKv(String key) async {
+    await (delete(kvStore)..where((table) => table.key.equals(key))).go();
+  }
+
   Future<String?> getKv(String key) async {
     final row = await (select(
       kvStore,

@@ -86,6 +86,7 @@ String stopReasonLabel(String reason) {
     'sourceDisconnected' => 'Muse kopplades från',
     'baselineFailed' => 'baslinjen underkändes',
     'attemptLimit' => 'för många avbrutna block',
+    'processingFailed' => 'signalbehandlingen slutade fungera',
     _ => reason,
   };
 }

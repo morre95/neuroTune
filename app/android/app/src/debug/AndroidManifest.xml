@@ -4,4 +4,7 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- The development backend runs on plain HTTP. Release builds only
+         talk HTTPS, so passwords, tokens and EEG never leave unencrypted. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

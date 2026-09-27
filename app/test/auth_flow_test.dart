@@ -4,10 +4,12 @@ import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:neurotune/data/api_client.dart';
+import 'package:neurotune/data/auth_store.dart';
 import 'package:neurotune/data/database.dart';
 import 'package:neurotune/main.dart';
 import 'package:neurotune/platform/channels.dart';
@@ -107,6 +109,8 @@ class _Audio implements PcmOutput {
 }
 
 void main() {
+  setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+
   testWidgets('wrong password can be corrected in the app', (tester) async {
     final database = AppDatabase(NativeDatabase.memory());
     final api = _AuthApi();
@@ -114,6 +118,7 @@ void main() {
     await tester.pumpWidget(
       NeuroTuneApp(
         database: database,
+        authStore: AuthStore(),
         api: api,
         audio: _Audio(),
         keepAlive: _KeepAlive(),
@@ -148,6 +153,7 @@ void main() {
     await tester.pumpWidget(
       NeuroTuneApp(
         database: database,
+        authStore: AuthStore(),
         api: api,
         audio: _Audio(),
         keepAlive: _KeepAlive(),
@@ -172,7 +178,7 @@ void main() {
     expect(find.text('Simulator'), findsOneWidget);
   });
 
-  testWidgets('rotated refresh token is saved for the next app start', (
+  testWidgets('a login from the database moves to encrypted storage', (
     tester,
   ) async {
     final database = AppDatabase(NativeDatabase.memory());
@@ -180,14 +186,44 @@ void main() {
     await database.putKv(
       'auth',
       jsonEncode({
-        'access_token': 'old-access',
-        'refresh_token': 'old-refresh',
+        'access_token': 'stored-access',
+        'refresh_token': 'stored-refresh',
         'email': 'person@example.com',
       }),
     );
     await tester.pumpWidget(
       NeuroTuneApp(
         database: database,
+        authStore: AuthStore(),
+        api: _AuthApi(),
+        audio: _Audio(),
+        keepAlive: _KeepAlive(),
+        muse: MuseChannel(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(await database.getKv('auth'), isNull);
+    expect((await AuthStore().load())!.refreshToken, 'stored-refresh');
+    expect(find.text('Simulator'), findsOneWidget);
+  });
+
+  testWidgets('rotated refresh token is saved for the next app start', (
+    tester,
+  ) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await AuthStore().save(
+      AuthTokens(
+        accessToken: 'old-access',
+        refreshToken: 'old-refresh',
+        email: 'person@example.com',
+      ),
+    );
+    await tester.pumpWidget(
+      NeuroTuneApp(
+        database: database,
+        authStore: AuthStore(),
         api: _RefreshApi(),
         audio: _Audio(),
         keepAlive: _KeepAlive(),
@@ -196,9 +232,31 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final saved = jsonDecode((await database.getKv('auth'))!) as Map;
-    expect(saved['access_token'], 'new-access');
-    expect(saved['refresh_token'], 'new-refresh');
+    final saved = (await AuthStore().load())!;
+    expect(saved.accessToken, 'new-access');
+    expect(saved.refreshToken, 'new-refresh');
     expect(find.text('Simulator'), findsOneWidget);
+  });
+
+  testWidgets('unreadable saved login falls back to the login page', (
+    tester,
+  ) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    FlutterSecureStorage.setMockInitialValues({'auth': '{"access_token": 1}'});
+    await tester.pumpWidget(
+      NeuroTuneApp(
+        database: database,
+        authStore: AuthStore(),
+        api: _AuthApi(),
+        audio: _Audio(),
+        keepAlive: _KeepAlive(),
+        muse: MuseChannel(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Logga in'), findsOneWidget);
+    expect(find.textContaining('kunde inte läsas'), findsOneWidget);
   });
 }

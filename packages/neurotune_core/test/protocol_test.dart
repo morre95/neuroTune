@@ -95,6 +95,21 @@ void main() {
     expect(engine.phase, SessionPhase.stopped);
     expect(engine.decisions, isEmpty);
   });
+
+  test('abort during a block stops the session and records it as aborted', () {
+    final engine = _engine();
+    for (var second = 4; second <= 125; second++) {
+      engine.onFrame(_frame(second.toDouble()));
+    }
+    expect(engine.phase, SessionPhase.sound);
+
+    engine.abort(StopReason.processingFailed, 'Signalbehandlingen slutade.');
+
+    expect(engine.phase, SessionPhase.stopped);
+    expect(engine.stopReason, StopReason.processingFailed);
+    expect(engine.decisions.single.aborted, isTrue);
+    expect(engine.decisions.single.abortReason, 'processingFailed');
+  });
 }
 
 bool _inAnyReward(double second) {
