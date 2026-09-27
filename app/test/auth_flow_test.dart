@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:drift/native.dart';
@@ -55,6 +56,13 @@ class _TimeoutAuthApi extends _AuthApi {
     }
     return super.login(email, password);
   }
+}
+
+/// A server whose certificate the phone rejects.
+class _UntrustedApi extends _AuthApi {
+  @override
+  Future<AuthTokens> login(String email, String password) async =>
+      throw const HandshakeException('CERTIFICATE_VERIFY_FAILED');
 }
 
 class _RefreshApi extends ApiClient {
@@ -289,5 +297,20 @@ void main() {
 
     expect(find.textContaining('Lokala data'), findsOneWidget);
     expect(find.textContaining('Servern nås inte'), findsNothing);
+  });
+
+  testWidgets('a rejected certificate is reported as such', (tester) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await tester.pumpWidget(app(database, _UntrustedApi()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), 'person@example.com');
+    await tester.enterText(find.byType(TextField).at(1), 'password');
+    await tester.tap(find.text('Logga in'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Säker anslutning'), findsOneWidget);
+    expect(find.textContaining('svarade inte som väntat'), findsNothing);
   });
 }

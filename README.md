@@ -73,7 +73,7 @@ På en fysisk telefon pekar du appen mot datorns adress i samma nät:
 flutter run --dart-define=API_BASE=http://192.168.50.210:8000
 ```
 
-Byt `192.168.1.10` mot datorns LAN-adress. Skapa konto i appen, välj ögonläge och starta antingen simulatorn eller Muse. På kontaktsidan kan du trycka på **Testa hörlurar** för att spela `audio/stereo_test.wav` upprepade gånger och **Stoppa hörlurstest** när du är klar. Simulatorn räcker för att köra hela flödet utan Muse-headset.
+Byt `192.168.50.210` mot datorns LAN-adress. Skapa konto i appen, välj ögonläge och starta antingen simulatorn eller Muse. På kontaktsidan kan du trycka på **Testa hörlurar** för att spela `audio/stereo_test.wav` upprepade gånger och **Stoppa hörlurstest** när du är klar. Simulatorn räcker för att köra hela flödet utan Muse-headset.
 
 Om `flutter run` bygger APK:n men installationen avbryts med `INSTALL_FAILED_INSUFFICIENT_STORAGE` är emulatorns datapartition nästan full. Android håller ungefär 500 MB i reserv och vägrar då installationen även när APK:n får plats i det som återstår. Sänk reserven på den körande emulatorn och kör `flutter run` igen:
 
@@ -88,8 +88,8 @@ Installera en APK:
 
 ```bash
 cd app
-flutter build apk --debug --dart-define=API_BASE=http://192.168.1.10:8000
+flutter build apk --debug --dart-define=API_BASE=http://192.168.50.210:8000
 adb install -r build/app/outputs/flutter-apk/app-debug.apk
 ```
 
-`API_BASE` bakas in vid bygget. Samma adress gäller för `flutter run` och för APK:n. Bara debug-byggen får använda `http://`. Ett release-bygge kräver en `https://`-adress, eftersom lösenord, tokens och EEG annars skickas okrypterat. Inloggningen sparas krypterad i Androids nyckellager, och appen har säkerhetskopiering avstängd.
+`API_BASE` bakas in vid bygget. Samma adress gäller för `flutter run` och för APK:n. Bara debug-byggen får använda `http://`. Ett release-bygge kräver en `https://`-adress, eftersom lösenord, tokens och EEG annars skickas okrypterat. Inloggningen sparas krypterad med en nyckel i Androids nyckellager, och appen har säkerhetskopiering avstängd.

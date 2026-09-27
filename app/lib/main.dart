@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -157,12 +158,20 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       await _refreshRemote();
     } catch (failure, stack) {
       log('Local data could not be read', error: failure, stackTrace: stack);
-      _error = 'Lokala data på telefonen kunde inte läsas: $failure';
+      if (mounted) {
+        setState(
+          () => _error = 'Lokala data på telefonen kunde inte läsas: $failure',
+        );
+      }
       return;
     }
     _startUploadRetry();
-    _error = null;
-    _screen = _Screen.home;
+    if (mounted) {
+      setState(() {
+        _error = null;
+        _screen = _Screen.home;
+      });
+    }
   }
 
   /// A logged-out legacy row holds '{}'. The row is deleted even when it is
@@ -234,6 +243,15 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
             'Servern nås inte via ${widget.api.baseUrl}. Kontrollera API_BASE på en fysisk telefon.',
       );
       return;
+    } on TlsException catch (failure, stack) {
+      // IOClient only wraps socket and HTTP errors in ClientException, so a
+      // rejected certificate arrives here as it is.
+      log('TLS handshake failed', error: failure, stackTrace: stack);
+      setState(
+        () => _error =
+            'Säker anslutning till ${widget.api.baseUrl} misslyckades. Kontrollera serverns certifikat.',
+      );
+      return;
     } catch (failure, stack) {
       log('Login response was malformed', error: failure, stackTrace: stack);
       setState(() => _error = 'Servern svarade inte som väntat.');
@@ -250,7 +268,6 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     }
     _auth = tokens;
     await _enterHome();
-    if (mounted) setState(() {});
   }
 
   Future<void> _logout() async {
