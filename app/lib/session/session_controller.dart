@@ -55,6 +55,7 @@ class SessionController extends ChangeNotifier {
   Timer? _audioTimer;
   BinauralSynth? _synth;
   Future<void>? _finish;
+  Future<void>? _resuming;
   var _closed = false;
   StopReason? _lastInterruption;
 
@@ -197,8 +198,15 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> continueSession() async {
-    if (!waitingForUser || _finishing || _closed) return;
+  /// A finish that starts while this reconnects the headband waits for it.
+  /// Otherwise the audio and the simulator would start again after the
+  /// session was saved. A second tap joins the running attempt.
+  Future<void> continueSession() {
+    if (!waitingForUser || _finishing || _closed) return Future.value();
+    return _resuming ??= _resume().whenComplete(() => _resuming = null);
+  }
+
+  Future<void> _resume() async {
     try {
       if (_lastInterruption == StopReason.sourceDisconnected && _muse != null) {
         await _muse!.stop();
@@ -218,7 +226,7 @@ class SessionController extends ChangeNotifier {
       error = 'Sessionen kunde inte fortsätta: $failure';
       _pauseOutputs();
     }
-    notifyListeners();
+    if (!_closed) notifyListeners();
   }
 
   double? _outerNir(FeatureFrame? frame, List<String> selected) {
@@ -242,6 +250,7 @@ class SessionController extends ChangeNotifier {
   /// an ongoing notification and a connected Muse that only a restart clears.
   Future<void> _finishOnce() async {
     try {
+      await _resuming;
       final current = engine;
       if (current != null && current.phase == SessionPhase.sound) {
         current.interrupt(StopReason.manual);

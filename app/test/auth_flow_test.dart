@@ -108,6 +108,33 @@ class _Audio implements PcmOutput {
   Future<void> stop() async {}
 }
 
+Widget app(AppDatabase database, ApiClient api) => NeuroTuneApp(
+  database: database,
+  authStore: AuthStore(),
+  api: api,
+  audio: _Audio(),
+  keepAlive: _KeepAlive(),
+  muse: MuseChannel(),
+);
+
+/// A saved session whose manifest no longer parses.
+Future<void> saveBrokenSession(AppDatabase database) => database
+    .into(database.storedSessions)
+    .insert(
+      StoredSessionsCompanion.insert(
+        id: 'broken',
+        origin: 'simulator',
+        mode: 'personal',
+        manifestJson: '{}',
+        decisionsJson: '[]',
+        framesJson: '[]',
+        status: 'completed',
+        checksum: 'checksum',
+        rawPath: 'broken.bin',
+        createdAt: DateTime.utc(2026, 9, 27),
+      ),
+    );
+
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
 
@@ -115,16 +142,7 @@ void main() {
     final database = AppDatabase(NativeDatabase.memory());
     final api = _AuthApi();
     addTearDown(database.close);
-    await tester.pumpWidget(
-      NeuroTuneApp(
-        database: database,
-        authStore: AuthStore(),
-        api: api,
-        audio: _Audio(),
-        keepAlive: _KeepAlive(),
-        muse: MuseChannel(),
-      ),
-    );
+    await tester.pumpWidget(app(database, api));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).at(0), 'person@example.com');
@@ -150,16 +168,7 @@ void main() {
     final database = AppDatabase(NativeDatabase.memory());
     final api = _TimeoutAuthApi();
     addTearDown(database.close);
-    await tester.pumpWidget(
-      NeuroTuneApp(
-        database: database,
-        authStore: AuthStore(),
-        api: api,
-        audio: _Audio(),
-        keepAlive: _KeepAlive(),
-        muse: MuseChannel(),
-      ),
-    );
+    await tester.pumpWidget(app(database, api));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField).at(0), 'person@example.com');
@@ -191,16 +200,7 @@ void main() {
         'email': 'person@example.com',
       }),
     );
-    await tester.pumpWidget(
-      NeuroTuneApp(
-        database: database,
-        authStore: AuthStore(),
-        api: _AuthApi(),
-        audio: _Audio(),
-        keepAlive: _KeepAlive(),
-        muse: MuseChannel(),
-      ),
-    );
+    await tester.pumpWidget(app(database, _AuthApi()));
     await tester.pumpAndSettle();
 
     expect(await database.getKv('auth'), isNull);
@@ -220,16 +220,7 @@ void main() {
         email: 'person@example.com',
       ),
     );
-    await tester.pumpWidget(
-      NeuroTuneApp(
-        database: database,
-        authStore: AuthStore(),
-        api: _RefreshApi(),
-        audio: _Audio(),
-        keepAlive: _KeepAlive(),
-        muse: MuseChannel(),
-      ),
-    );
+    await tester.pumpWidget(app(database, _RefreshApi()));
     await tester.pumpAndSettle();
 
     final saved = (await AuthStore().load())!;
@@ -244,19 +235,59 @@ void main() {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
     FlutterSecureStorage.setMockInitialValues({'auth': '{"access_token": 1}'});
-    await tester.pumpWidget(
-      NeuroTuneApp(
-        database: database,
-        authStore: AuthStore(),
-        api: _AuthApi(),
-        audio: _Audio(),
-        keepAlive: _KeepAlive(),
-        muse: MuseChannel(),
-      ),
-    );
+    await tester.pumpWidget(app(database, _AuthApi()));
     await tester.pumpAndSettle();
 
     expect(find.text('Logga in'), findsOneWidget);
     expect(find.textContaining('kunde inte läsas'), findsOneWidget);
+  });
+
+  testWidgets('an unreadable login in the database is removed', (tester) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.putKv('auth', '{"access_token": 1}');
+    await tester.pumpWidget(app(database, _AuthApi()));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('kunde inte läsas'), findsOneWidget);
+    expect(await database.getKv('auth'), isNull);
+  });
+
+  testWidgets('broken local data at start is not blamed on the login', (
+    tester,
+  ) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await saveBrokenSession(database);
+    await AuthStore().save(
+      AuthTokens(
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        email: 'person@example.com',
+      ),
+    );
+    await tester.pumpWidget(app(database, _AuthApi()));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Lokala data'), findsOneWidget);
+    expect(find.textContaining('Logga in igen'), findsNothing);
+  });
+
+  testWidgets('broken local data at login is not blamed on the server', (
+    tester,
+  ) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await saveBrokenSession(database);
+    await tester.pumpWidget(app(database, _AuthApi()));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), 'person@example.com');
+    await tester.enterText(find.byType(TextField).at(1), 'password');
+    await tester.tap(find.text('Logga in'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Lokala data'), findsOneWidget);
+    expect(find.textContaining('Servern nås inte'), findsNothing);
   });
 }

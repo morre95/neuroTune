@@ -4,6 +4,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:neurotune_core/neurotune_core.dart';
 
 import 'data/api_client.dart';
@@ -123,36 +124,44 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   /// Unreadable saved state must not leave the app on the loading spinner.
-  /// The user logs in again, which overwrites the saved login, and the server
-  /// replaces a broken cached config.
+  /// Logging in again overwrites the saved login, and the server replaces a
+  /// broken cached config.
   Future<void> _bootstrap() async {
     try {
-      await _restore();
+      await _restoreLogin();
     } catch (failure, stack) {
-      log(
-        'Saved state could not be restored',
-        error: failure,
-        stackTrace: stack,
-      );
+      log('Saved login could not be read', error: failure, stackTrace: stack);
       _auth = null;
       widget.api.accessToken = null;
       widget.api.refreshToken = null;
-      _screen = _Screen.auth;
       _error = 'Sparad data kunde inte läsas. Logga in igen.';
     }
+    if (_auth != null) await _enterHome();
     if (mounted) setState(() => _ready = true);
   }
 
-  Future<void> _restore() async {
+  Future<void> _restoreLogin() async {
     _config = await _repository.loadConfig();
     await _moveLegacyAuth();
     _auth = await widget.authStore.load();
-    if (_auth == null) return;
-    widget.api.accessToken = _auth!.accessToken;
-    widget.api.refreshToken = _auth!.refreshToken;
-    await _repository.claimLegacyUploads(_auth!.email);
-    await _refreshRemote();
+    widget.api.accessToken = _auth?.accessToken;
+    widget.api.refreshToken = _auth?.refreshToken;
+  }
+
+  /// [_refreshRemote] already falls back to the cache when the server is
+  /// unreachable, so a failure here is local data that logging in again cannot
+  /// repair. The user stays on the login page with the cause.
+  Future<void> _enterHome() async {
+    try {
+      await _repository.claimLegacyUploads(_auth!.email);
+      await _refreshRemote();
+    } catch (failure, stack) {
+      log('Local data could not be read', error: failure, stackTrace: stack);
+      _error = 'Lokala data på telefonen kunde inte läsas: $failure';
+      return;
+    }
     _startUploadRetry();
+    _error = null;
     _screen = _Screen.home;
   }
 
@@ -199,18 +208,11 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _submitAuth(String email, String password, bool register) async {
+    final AuthTokens tokens;
     try {
-      final tokens = register
+      tokens = register
           ? await widget.api.register(email, password)
           : await widget.api.login(email, password);
-      await widget.authStore.save(tokens);
-      _auth = tokens;
-      await _refreshRemote();
-      _startUploadRetry();
-      setState(() {
-        _error = null;
-        _screen = _Screen.home;
-      });
     } on ApiException catch (error) {
       final message = switch (error.status) {
         401 => 'Fel e-post eller lösenord. Försök igen.',
@@ -219,17 +221,36 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         _ => 'Servern svarade inte som väntat (${error.status}).',
       };
       setState(() => _error = message);
+      return;
     } on TimeoutException {
       setState(
         () => _error =
             'Inloggningen tog för lång tid. Kontrollera att telefonen når ${widget.api.baseUrl}.',
       );
-    } catch (_) {
+      return;
+    } on http.ClientException {
       setState(
         () => _error =
             'Servern nås inte via ${widget.api.baseUrl}. Kontrollera API_BASE på en fysisk telefon.',
       );
+      return;
+    } catch (failure, stack) {
+      log('Login response was malformed', error: failure, stackTrace: stack);
+      setState(() => _error = 'Servern svarade inte som väntat.');
+      return;
     }
+    try {
+      await widget.authStore.save(tokens);
+    } catch (failure, stack) {
+      log('Login could not be saved', error: failure, stackTrace: stack);
+      setState(
+        () => _error = 'Inloggningen kunde inte sparas på telefonen: $failure',
+      );
+      return;
+    }
+    _auth = tokens;
+    await _enterHome();
+    if (mounted) setState(() {});
   }
 
   Future<void> _logout() async {

@@ -12,16 +12,19 @@ import 'package:neurotune/session/session_controller.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 
 class _Audio implements PcmOutput {
-  var stopped = false;
+  var playing = false;
 
   @override
-  Future<double?> start(int sampleRate) async => 0;
+  Future<double?> start(int sampleRate) async {
+    playing = true;
+    return 0;
+  }
 
   @override
   Future<void> write(Uint8List pcm16) async {}
 
   @override
-  Future<void> stop() async => stopped = true;
+  Future<void> stop() async => playing = false;
 }
 
 class _FailingKeepAlive implements SessionKeepAlive {
@@ -60,7 +63,13 @@ class _Muse extends MuseChannel {
   Stream<void> get disconnected => lost.stream;
 
   @override
-  Future<void> start() async => starts += 1;
+  Future<void> start() async {
+    starts += 1;
+    await reconnecting?.future;
+  }
+
+  /// Holds [start] open, as a slow Bluetooth reconnect does.
+  Completer<void>? reconnecting;
 
   @override
   Future<void> stop() async {}
@@ -87,12 +96,13 @@ SessionController controller(
   SessionKeepAlive? keepAlive,
   ExperimentConfig? config,
   DataOrigin origin = DataOrigin.simulator,
+  PcmOutput? audio,
 }) {
   final protocol = config ?? ExperimentConfig.defaults();
   return SessionController(
     repository: SessionRepository(database),
     ownerEmail: 'person@example.com',
-    audio: _Audio(),
+    audio: audio ?? _Audio(),
     keepAlive: keepAlive ?? _FailingKeepAlive(),
     config: protocol,
     snapshot: BanditSnapshot.empty(
@@ -115,13 +125,15 @@ Future<void> until(bool Function() done) async {
 
 Future<SessionController> _startMuseSession(
   AppDatabase database,
-  _Muse muse,
-) async {
+  _Muse muse, {
+  PcmOutput? audio,
+}) async {
   final session = controller(
     database,
     keepAlive: _KeepAlive(),
     config: shortProtocol,
     origin: DataOrigin.muse,
+    audio: audio,
   );
   expect(await session.start(muse: muse), isTrue);
   return session;
@@ -284,4 +296,31 @@ void main() {
       expect(session.saved, isFalse);
     },
   );
+
+  test('finishing during a reconnect leaves the audio stopped', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final muse = _Muse();
+    final audio = _Audio();
+    final session = await _startMuseSession(database, muse, audio: audio);
+    addTearDown(session.dispose);
+    muse.stream(
+      SimulatorSource(config: shortProtocol, sampleRateHz: 256, seed: 1),
+      12,
+      300,
+    );
+    await until(() => session.engine?.phase == SessionPhase.sound);
+    muse.lost.add(null);
+    await until(() => session.waitingForUser);
+
+    muse.reconnecting = Completer<void>();
+    final resuming = session.continueSession();
+    final finishing = session.finish();
+    muse.reconnecting!.complete();
+    await resuming;
+    await finishing;
+
+    expect(session.saved, isTrue);
+    expect(audio.playing, isFalse);
+  });
 }

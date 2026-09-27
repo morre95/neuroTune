@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- allowBackup="false" stops cloud backup, but on Android 12+ a device-to-device
+     transfer still copies app data. flutter_secure_storage keeps its encrypted
+     values and wrapped keys in shared preferences, and the Keystore key that
+     unwraps them never leaves the old phone, so they are useless on the new one.
+     The app itself keeps nothing else in shared preferences. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+    </device-transfer>
+</data-extraction-rules>
