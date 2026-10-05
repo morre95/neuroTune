@@ -3,6 +3,7 @@ import 'dart:math';
 import 'bandit.dart';
 import 'dsp/pipeline.dart';
 import 'models.dart';
+import 'diagnostics.dart';
 
 class SessionEngine {
   SessionEngine({
@@ -124,7 +125,12 @@ class SessionEngine {
     _resumeRequested = true;
   }
 
-  SessionManifest manifest({double? audioLatencyMs, String checksum = ''}) {
+  SessionManifest manifest({
+    double? audioLatencyMs,
+    String checksum = '',
+    List<SessionDiagnostic> diagnostics = const [],
+    int diagnosticsVersion = 0,
+  }) {
     return SessionManifest(
       sessionId: sessionId,
       userId: null,
@@ -147,6 +153,8 @@ class SessionEngine {
       endedInPhase: phase.name,
       interruptions: interruptions,
       lastInterruptReason: lastInterruption?.name,
+      diagnostics: diagnostics,
+      diagnosticsVersion: diagnosticsVersion,
     );
   }
 

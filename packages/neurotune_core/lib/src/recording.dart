@@ -2,17 +2,25 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'models.dart';
+import 'diagnostics.dart';
 
 Uint8List encodeBatches(List<EegBatch> batches) => Uint8List.fromList(
   utf8.encode(jsonEncode([for (final batch in batches) batch.toJson()])),
 );
 
-Uint8List encodeSessionRaw(List<EegBatch> eeg, List<OpticsBatch> optics) {
+Uint8List encodeSessionRaw(
+  List<EegBatch> eeg,
+  List<OpticsBatch> optics, {
+  List<SessionDiagnostic> diagnostics = const [],
+  int diagnosticsVersion = 0,
+}) {
   return Uint8List.fromList(
     utf8.encode(
       jsonEncode({
         'eeg': [for (final batch in eeg) batch.toJson()],
         'optics': [for (final batch in optics) batch.toJson()],
+        'diagnostics_version': diagnosticsVersion,
+        'diagnostics': diagnostics.map((event) => event.toJson()).toList(),
       }),
     ),
   );

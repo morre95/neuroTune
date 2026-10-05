@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -51,6 +52,10 @@ class _Muse extends MuseChannel {
   final eegOut = StreamController<EegBatch>.broadcast();
   final opticsOut = StreamController<OpticsBatch>.broadcast();
   final lost = StreamController<void>.broadcast();
+  final diagnosticOut = StreamController<SessionDiagnostic>.broadcast();
+
+  @override
+  Stream<SessionDiagnostic> get diagnostics => diagnosticOut.stream;
   var starts = 0;
 
   @override
@@ -229,6 +234,104 @@ void main() {
     expect(session.engine!.phase, SessionPhase.sound);
   });
 
+  test(
+    'Muse diagnostics and all optical channels survive save and reload',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final muse = _Muse();
+      final session = await _startMuseSession(database, muse);
+      addTearDown(session.dispose);
+      final source = SimulatorSource(
+        config: shortProtocol,
+        sampleRateHz: 256,
+        seed: 1,
+      );
+      muse.diagnosticOut.add(
+        const SessionDiagnostic(
+          timeSeconds: 300,
+          type: 'battery',
+          values: {'percent': 70.0},
+        ),
+      );
+      muse.diagnosticOut.add(
+        const SessionDiagnostic(
+          timeSeconds: 301,
+          type: 'artifact',
+          values: {'blink': true, 'jaw_clench': true, 'headband_on': true},
+        ),
+      );
+      muse.stream(source, 12, 300);
+      await until(() => session.engine?.phase == SessionPhase.sound);
+      for (var index = 0; index < 10; index++) {
+        final batch = source.pull().shifted(300.25);
+        if (index == 0) batch.eeg[0][3] = double.nan;
+        muse.eegOut.add(batch);
+        final optical = source.lastOptics!.shifted(300.25);
+        muse.opticsOut.add(
+          OpticsBatch(
+            channelNames: [for (var i = 1; i <= 8; i++) 'OPTICS$i'],
+            unit: optical.unit,
+            sampleRateHz: optical.sampleRateHz,
+            timeSeconds: optical.timeSeconds,
+            values: [
+              for (var i = 0; i < 8; i++)
+                List<double>.of(optical.values[i % 2]),
+            ],
+          ),
+        );
+      }
+      await until(() => session.engine!.frames.last.timeSeconds >= 16);
+      await session.finish();
+      final saved = (await session.repository.listSessions()).single;
+      expect(saved.manifest.diagnosticsVersion, 1);
+      expect(
+        saved.manifest.diagnostics
+            .where((e) => e.type == 'battery')
+            .single
+            .values['percent'],
+        70,
+      );
+      expect(
+        saved.manifest.diagnostics
+            .where((e) => e.type == 'artifact')
+            .single
+            .values['blink'],
+        isTrue,
+      );
+      expect(
+        saved.manifest.diagnostics.any(
+          (e) => e.type == 'data_gap' && e.values['stream'] == 'eeg',
+        ),
+        isTrue,
+      );
+      expect(
+        saved.manifest.diagnostics
+            .where((e) => e.type == 'invalid_samples')
+            .single
+            .values['channel_counts'],
+        {simulatorChannels.first: 1},
+      );
+      expect(
+        saved.frames.last.optics.map((e) => e.name),
+        containsAll([for (var i = 1; i <= 8; i++) 'OPTICS$i']),
+      );
+      final upload = (await session.repository.pendingUploads()).single;
+      final raw =
+          jsonDecode(await File(upload.payloadPath).readAsString())
+              as Map<String, dynamic>;
+      expect(raw['diagnostics'], saved.manifest.toJson()['diagnostics']);
+      expect(raw['diagnostics_version'], 1);
+      expect((raw['optics'] as List).last['channel_names'], hasLength(8));
+      expect(
+        (raw['eeg'] as List).any(
+          (batch) => (batch['eeg'][0] as List).contains(null),
+        ),
+        isTrue,
+      );
+    },
+  );
+
   test('a reconnected Muse continues the session timeline', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -244,7 +347,9 @@ void main() {
     await until(() => session.engine?.phase == SessionPhase.sound);
 
     muse.lost.add(null);
+    muse.lost.add(null); // Both platform streams can report the same loss.
     await until(() => session.waitingForUser);
+    expect(session.engine!.interruptions, 1);
     await session.continueSession();
     // The bridge clock kept running for the five seconds without signal.
     muse.stream(source, 10, 305);
@@ -252,6 +357,14 @@ void main() {
     await until(() => session.engine!.phase == SessionPhase.sound);
     expect(muse.starts, 1);
     expect(session.engine!.frames.last.timeSeconds, greaterThan(20));
+    await session.finish();
+    final saved = (await session.repository.listSessions()).single;
+    expect(
+      saved.manifest.diagnostics
+          .where((e) => e.type == 'connection')
+          .map((e) => e.values['state']),
+      ['connected', 'disconnected', 'connected'],
+    );
   });
 
   test('a crashed DSP isolate ends and saves the session', () async {

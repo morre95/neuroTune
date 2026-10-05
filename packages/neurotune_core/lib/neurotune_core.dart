@@ -5,6 +5,7 @@ export 'src/dsp/filters.dart';
 export 'src/dsp/pipeline.dart';
 export 'src/dsp/welch.dart';
 export 'src/engine.dart';
+export 'src/diagnostics.dart';
 export 'src/models.dart';
 export 'src/optics.dart';
 export 'src/recording.dart';

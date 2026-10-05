@@ -67,6 +67,9 @@ class MuseChannel {
   static const _eegEvents = EventChannel('dev.neurotune/muse_eeg');
   static const _opticsEvents = EventChannel('dev.neurotune/muse_optics');
   static const _batteryEvents = EventChannel('dev.neurotune/muse_battery');
+  static const _diagnosticEvents = EventChannel(
+    'dev.neurotune/muse_diagnostics',
+  );
 
   final _batteryPercent = ValueNotifier<int?>(null);
   ValueListenable<int?> get batteryPercent => _batteryPercent;
@@ -74,6 +77,8 @@ class MuseChannel {
   final _eeg = StreamController<EegBatch>.broadcast();
   final _optics = StreamController<OpticsBatch>.broadcast();
   final _lost = StreamController<void>.broadcast();
+  final _diagnostics = StreamController<SessionDiagnostic>.broadcast();
+  StreamSubscription<dynamic>? _diagnosticPlatform;
   StreamSubscription<dynamic>? _eegPlatform;
   StreamSubscription<dynamic>? _opticsPlatform;
   StreamSubscription<dynamic>? _batteryPlatform;
@@ -81,8 +86,15 @@ class MuseChannel {
   Stream<EegBatch> get eeg => _eeg.stream;
   Stream<OpticsBatch> get optics => _optics.stream;
   Stream<void> get disconnected => _lost.stream;
+  Stream<SessionDiagnostic> get diagnostics => _diagnostics.stream;
 
   Future<void> start() async {
+    _diagnosticPlatform ??= _diagnosticEvents.receiveBroadcastStream().listen(
+      (event) => _diagnostics.add(
+        SessionDiagnostic.fromJson(Map<String, dynamic>.from(event as Map)),
+      ),
+      onError: (_) {},
+    );
     _batteryPercent.value = null;
     _batteryPlatform ??= _batteryEvents.receiveBroadcastStream().listen((
       event,
@@ -122,8 +134,10 @@ class MuseChannel {
     await _eegPlatform?.cancel();
     await _opticsPlatform?.cancel();
     await _batteryPlatform?.cancel();
+    await _diagnosticPlatform?.cancel();
     _eegPlatform = null;
     _opticsPlatform = null;
     _batteryPlatform = null;
+    _diagnosticPlatform = null;
   }
 }

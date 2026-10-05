@@ -91,9 +91,15 @@ class DspPipeline {
       for (var sample = 0; sample < count; sample++) {
         final raw = batch.eeg[channel][sample];
         _raw[channel].add(raw);
-        final filtered = _bandpass[channel].process(
-          _notch[channel].process(raw),
-        );
+        // LibMuse inserts NaN for lost samples. Reset so one missing sample
+        // cannot poison the IIR state for the rest of the session.
+        var filtered = 0.0;
+        if (raw.isFinite) {
+          filtered = _bandpass[channel].process(_notch[channel].process(raw));
+        } else {
+          _bandpass[channel].reset();
+          _notch[channel].reset();
+        }
         _filtered[channel].add(filtered);
         _contact[channel].add(batch.contact[sample][channel]);
       }
@@ -142,6 +148,13 @@ class DspPipeline {
     final reasons = <String>[];
     if (time <= _gapUntil) reasons.add('gap');
     if (_motion(start, endSample)) reasons.add('motion');
+    for (var i = _index(start); i < _index(endSample); i++) {
+      if (_accel[i].any((value) => !value.isFinite) ||
+          _gyro[i].any((value) => !value.isFinite)) {
+        reasons.add('missing_motion');
+        break;
+      }
+    }
     final rejected = reasons.isNotEmpty;
     final channels = <ChannelFeature>[];
     for (var channel = 0; channel < channelNames.length; channel++) {
@@ -164,6 +177,7 @@ class DspPipeline {
   ) {
     final reasons = <String>[];
     final raw = _raw[channel].sublist(_index(start), _index(end));
+    if (raw.any((value) => !value.isFinite)) reasons.add('missing_samples');
     final filtered = _filtered[channel].sublist(_index(start), _index(end));
     var worstContact = 1;
     for (var i = _index(start); i < _index(end); i++) {

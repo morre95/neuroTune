@@ -44,6 +44,11 @@ class SessionController extends ChangeNotifier {
 
   final List<EegBatch> _raw = [];
   final List<OpticsBatch> _opticsRaw = [];
+  final List<SessionDiagnostic> _diagnostics = [];
+  final DataLossTracker _dataLoss = DataLossTracker();
+  final Stopwatch _diagnosticClock = Stopwatch();
+  StreamSubscription<SessionDiagnostic>? _diagnosticSub;
+  bool _museConnected = false;
   final OpticsAccumulator _optics = OpticsAccumulator();
   SimulatorSource? _source;
   MuseChannel? _muse;
@@ -97,6 +102,23 @@ class SessionController extends ChangeNotifier {
       );
     } else {
       _muse = muse;
+      _museConnected = true;
+      _diagnosticClock.start();
+      _recordDiagnostic('connection', {'state': 'connected'});
+      final battery = muse.batteryPercent.value;
+      if (battery != null) {
+        _recordDiagnostic('battery', {
+          'percent': battery,
+          'initial_reading': true,
+        });
+      }
+      _diagnosticSub = muse.diagnostics.listen((event) {
+        if (_closed || _finishing) return;
+        _recordDiagnostic(event.type, {
+          ...event.values,
+          'muse_time_seconds': event.timeSeconds,
+        });
+      });
     }
     engine = SessionEngine(
       config: config,
@@ -128,17 +150,58 @@ class SessionController extends ChangeNotifier {
       });
     } else {
       _batches = _muse!.eeg.listen((bridged) {
+        if (_closed || _finishing) return;
         final batch = bridged.shifted(-_sessionOrigin(bridged.timeSeconds));
         _raw.add(batch);
+        _diagnostics.addAll(
+          _dataLoss.add(
+            stream: 'eeg',
+            timeSeconds: batch.timeSeconds,
+            sampleRateHz: batch.sampleRateHz,
+            channelNames: batch.channelNames,
+            samples: batch.eeg,
+          ),
+        );
+        for (final entry in {
+          'accelerometer': batch.accel,
+          'gyro': batch.gyro,
+        }.entries) {
+          final invalid = entry.value
+              .where((row) => row.any((value) => !value.isFinite))
+              .length;
+          if (invalid > 0) {
+            _diagnostics.add(
+              SessionDiagnostic(
+                timeSeconds: batch.timeSeconds,
+                type: 'invalid_motion',
+                values: {'stream': entry.key, 'resampled_rows': invalid},
+              ),
+            );
+          }
+        }
         _dsp?.addBatch(batch);
       });
       _opticsSub = _muse!.optics.listen((bridged) {
+        if (_closed || _finishing) return;
         final batch = bridged.shifted(-_sessionOrigin(bridged.timeSeconds));
         _opticsRaw.add(batch);
+        _diagnostics.addAll(
+          _dataLoss.add(
+            stream: 'optics',
+            timeSeconds: batch.timeSeconds,
+            sampleRateHz: batch.sampleRateHz,
+            channelNames: batch.channelNames,
+            samples: batch.values,
+          ),
+        );
         _optics.addBatch(batch);
         _releaseFrames();
       });
       _lost = _muse!.disconnected.listen((_) {
+        if (_closed || _finishing) return;
+        if (!_museConnected) return;
+        _museConnected = false;
+        _recordDiagnostic('connection', {'state': 'disconnected'});
         interrupt(StopReason.sourceDisconnected);
       });
     }
@@ -212,6 +275,8 @@ class SessionController extends ChangeNotifier {
       if (_lastInterruption == StopReason.sourceDisconnected && _muse != null) {
         await _muse!.stop();
         await _muse!.start();
+        _museConnected = true;
+        _recordDiagnostic('connection', {'state': 'connected'});
       }
       latencyMs = await audio.start(config.audioSampleRateHz);
       engine?.resume();
@@ -257,6 +322,10 @@ class SessionController extends ChangeNotifier {
         current.interrupt(StopReason.manual);
       }
       _pauseOutputs();
+      if (origin == DataOrigin.muse) {
+        _recordDiagnostic('recording_end', {'connected': _museConnected});
+        _diagnosticClock.stop();
+      }
       if (current != null) await _persist(current);
       saved = true;
     } finally {
@@ -275,6 +344,8 @@ class SessionController extends ChangeNotifier {
     _batches?.cancel();
     _opticsSub?.cancel();
     _lost?.cancel();
+    _diagnosticSub?.cancel();
+    _diagnosticClock.stop();
     keepAlive.stop();
     _muse?.stop();
     _dsp?.close();
@@ -293,6 +364,16 @@ class SessionController extends ChangeNotifier {
   }
 
   double _sessionOrigin(double bridgeSeconds) => _museOrigin ??= bridgeSeconds;
+
+  void _recordDiagnostic(String type, Map<String, dynamic> values) {
+    _diagnostics.add(
+      SessionDiagnostic(
+        timeSeconds: _diagnosticClock.elapsedMicroseconds / 1000000,
+        type: type,
+        values: {...values, 'time_source': 'observed_monotonic'},
+      ),
+    );
+  }
 
   /// The isolate is dead after an error and no frames will follow, so the
   /// session cannot wait for a stable signal. Save what was recorded.
@@ -344,11 +425,20 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> _persist(SessionEngine current) async {
-    final raw = encodeSessionRaw(_raw, _opticsRaw);
+    final diagnostics = List<SessionDiagnostic>.of(_diagnostics)
+      ..sort((a, b) => a.timeSeconds.compareTo(b.timeSeconds));
+    final raw = encodeSessionRaw(
+      _raw,
+      _opticsRaw,
+      diagnostics: diagnostics,
+      diagnosticsVersion: origin == DataOrigin.muse ? 1 : 0,
+    );
     final checksum = sha256Hex(raw);
     final manifest = current.manifest(
       audioLatencyMs: latencyMs,
       checksum: checksum,
+      diagnostics: diagnostics,
+      diagnosticsVersion: origin == DataOrigin.muse ? 1 : 0,
     );
     final status = current.phase == SessionPhase.completed
         ? 'completed'

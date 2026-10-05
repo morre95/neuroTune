@@ -3,6 +3,7 @@ import 'package:neurotune_core/neurotune_core.dart';
 
 import '../data/repository.dart';
 import 'session_page.dart';
+import 'session_diagnostics.dart';
 
 class PlaybackPage extends StatefulWidget {
   const PlaybackPage({super.key, required this.session, required this.onBack});
@@ -42,6 +43,28 @@ class _PlaybackPageState extends State<PlaybackPage> {
           Text('Beta ${_mean(frame, (channel) => channel.relativeBeta)}'),
           Text('Yttre NIR ${_outerNir(frame)} µA'),
           Text('Signalkvalitet $valid/$total kanaler'),
+          if (frame != null)
+            for (final channel in frame.channels)
+              Text(
+                '${channel.name}: ${channel.valid && !frame.rejected ? 'godkänd' : {...channel.reasons, ...frame.reasons}.map(qualityReasonLabel).join(', ')}',
+              ),
+          if (frame != null && frame.optics.isNotEmpty)
+            ExpansionTile(
+              title: const Text('Optiska kanaler'),
+              children: [
+                for (final channel in frame.optics)
+                  ListTile(
+                    title: Text(
+                      '${channel.name}: ${channel.intensity.toStringAsFixed(3)} µA',
+                    ),
+                    subtitle: Text(
+                      channel.valid
+                          ? 'Godkänd'
+                          : channel.reasons.map(qualityReasonLabel).join(', '),
+                    ),
+                  ),
+              ],
+            ),
           if (decision?.reward != null)
             Text('Belöning ${decision!.reward!.toStringAsFixed(2)}'),
           const SizedBox(height: 16),
@@ -52,6 +75,8 @@ class _PlaybackPageState extends State<PlaybackPage> {
             child: const Text('Nästa sekund'),
           ),
           TextButton(onPressed: widget.onBack, child: const Text('Tillbaka')),
+          const SizedBox(height: 24),
+          SessionDiagnostics(manifest: widget.session.manifest, frames: frames),
         ],
       ),
     );
@@ -66,7 +91,13 @@ class _PlaybackPageState extends State<PlaybackPage> {
   }
 
   String _outerNir(FeatureFrame? frame) {
-    final valid = frame?.optics.where((item) => item.valid).toList() ?? [];
+    final selected = widget.session.manifest.selectedChannels;
+    final names = selected.isEmpty ? const ['OPTICS3', 'OPTICS4'] : selected;
+    final valid =
+        frame?.optics
+            .where((item) => item.valid && names.contains(item.name))
+            .toList() ??
+        [];
     if (valid.isEmpty) return '-';
     final value =
         valid.map((item) => item.intensity).reduce((a, b) => a + b) /

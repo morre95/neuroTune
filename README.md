@@ -59,6 +59,11 @@ Testerna använder en separat SQLite-databas och ändrar inte PostgreSQL-datan. 
 
 ## Appen
 
+I historiken visas signalkvalitet per EEG-kanal och, för nya Muse-inspelningar,
+batteri, störningsmarkörer, dataförlust och samtliga åtta optiska kanaler.
+Se [sessionsdiagnostik](docs/SESSION_DIAGNOSTICS.md) för vilka värden som sparas
+och hur tidsstämplar och saknade uppgifter ska tolkas.
+
 Starta backend först. I Android-emulatorn är värddatorn `10.0.2.2`, vilket också är appens standardadress.
 
 ```bash

@@ -44,7 +44,18 @@
       "required": ["session_id", "experiment_version", "policy_version", "data_origin", "timeline", "sample_rate_hz"],
       "properties": {
         "timeline": {"const": "monotonic_session_seconds"},
-        "audio_latency_source": {"const": "audiotrack_buffer_frames"}
+        "audio_latency_source": {"const": "audiotrack_buffer_frames"},
+        "diagnostics_version": {"type": "integer", "minimum": 0},
+        "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/sessionDiagnostic"}}
+      }
+    },
+    "sessionDiagnostic": {
+      "type": "object",
+      "required": ["time_seconds", "type", "values"],
+      "properties": {
+        "time_seconds": {"type": "number"},
+        "type": {"type": "string"},
+        "values": {"type": "object"}
       }
     },
     "banditSnapshot": {

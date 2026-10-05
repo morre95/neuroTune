@@ -3,6 +3,8 @@ import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 
+import 'diagnostics.dart';
+
 /// Embedded copy of `contracts/default_experiment.json`.
 const String defaultExperimentJson = '''
 {
@@ -360,9 +362,9 @@ class EegBatch {
     'unit': unit,
     'sample_rate_hz': sampleRateHz,
     'time_seconds': timeSeconds,
-    'eeg': eeg,
-    'accel': accel,
-    'gyro': gyro,
+    'eeg': _finiteMatrix(eeg),
+    'accel': _finiteMatrix(accel),
+    'gyro': _finiteMatrix(gyro),
     'contact': contact,
   };
 
@@ -419,7 +421,7 @@ class OpticsBatch {
     'unit': unit,
     'sample_rate_hz': sampleRateHz,
     'time_seconds': timeSeconds,
-    'values': values,
+    'values': _finiteMatrix(values),
   };
 
   factory OpticsBatch.fromJson(Map<String, dynamic> json) {
@@ -691,6 +693,8 @@ class SessionManifest {
     this.endedInPhase,
     this.interruptions = 0,
     this.lastInterruptReason,
+    this.diagnostics = const [],
+    this.diagnosticsVersion = 0,
   });
 
   final String sessionId;
@@ -727,6 +731,8 @@ class SessionManifest {
   /// session and therefore left [stopReason] null.
   final int interruptions;
   final String? lastInterruptReason;
+  final List<SessionDiagnostic> diagnostics;
+  final int diagnosticsVersion;
 
   Map<String, dynamic> toJson() => {
     'session_id': sessionId,
@@ -750,6 +756,8 @@ class SessionManifest {
     'ended_in_phase': endedInPhase,
     'interruptions': interruptions,
     'last_interrupt_reason': lastInterruptReason,
+    'diagnostics_version': diagnosticsVersion,
+    'diagnostics': diagnostics.map((event) => event.toJson()).toList(),
   };
 
   factory SessionManifest.fromJson(Map<String, dynamic> json) =>
@@ -779,6 +787,11 @@ class SessionManifest {
         endedInPhase: json['ended_in_phase'] as String?,
         interruptions: (json['interruptions'] as num?)?.toInt() ?? 0,
         lastInterruptReason: json['last_interrupt_reason'] as String?,
+        diagnosticsVersion: (json['diagnostics_version'] as num?)?.toInt() ?? 0,
+        diagnostics: [
+          for (final event in json['diagnostics'] as List<dynamic>? ?? const [])
+            SessionDiagnostic.fromJson(Map<String, dynamic>.from(event as Map)),
+        ],
       );
 }
 
@@ -1003,5 +1016,13 @@ String newSessionId(Random random) {
 
 List<List<double>> _matrix(Object? value) => [
   for (final row in value as List<dynamic>)
-    [for (final item in row as List<dynamic>) (item as num).toDouble()],
+    [
+      for (final item in row as List<dynamic>)
+        item == null ? double.nan : (item as num).toDouble(),
+    ],
+];
+
+List<List<double?>> _finiteMatrix(List<List<double>> values) => [
+  for (final row in values)
+    [for (final value in row) value.isFinite ? value : null],
 ];

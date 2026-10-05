@@ -40,6 +40,7 @@ class MuseBridge(private val activity: FlutterActivity) {
     private var eegSink: EventChannel.EventSink? = null
     private var opticsSink: EventChannel.EventSink? = null
     private var batterySink: EventChannel.EventSink? = null
+    private var diagnosticSink: EventChannel.EventSink? = null
     private var batteryPercent: Int? = null
     private var connected = false
     /// Set by the first packet the bridge ever sees and never reset, so the
@@ -54,7 +55,7 @@ class MuseBridge(private val activity: FlutterActivity) {
     private val lastAccel = doubleArrayOf(0.0, 0.0, 1.0)
     private val lastGyro = doubleArrayOf(0.0, 0.0, 0.0)
     private val lastContact = intArrayOf(1, 1, 1, 1)
-    private val optics = arrayOf(ArrayList<Double>(), ArrayList<Double>())
+    private val optics = Array(8) { ArrayList<Double>() }
     private var opticsStart = 0.0
     /// Which stage of a start is running, so the shared timeout can report the
     /// stage that actually stalled.
@@ -86,6 +87,7 @@ class MuseBridge(private val activity: FlutterActivity) {
             batterySink = it
             it?.success(batteryPercent)
         })
+        EventChannel(messenger, "dev.neurotune/muse_diagnostics").setStreamHandler(sinkHandler { diagnosticSink = it })
     }
 
     fun onPermissions(grantResults: IntArray) {
@@ -184,6 +186,7 @@ class MuseBridge(private val activity: FlutterActivity) {
         headband.registerDataListener(listener, MuseDataPacketType.HSI_PRECISION)
         headband.registerDataListener(listener, MuseDataPacketType.OPTICS)
         headband.registerDataListener(listener, MuseDataPacketType.BATTERY)
+        headband.registerDataListener(listener, MuseDataPacketType.ARTIFACTS)
         headband.setPreset(MusePreset.PRESET_1034)
         headband.runAsynchronously()
         handler.postDelayed(startTimeout, CONNECT_TIMEOUT_MS)
@@ -217,17 +220,39 @@ class MuseBridge(private val activity: FlutterActivity) {
 
     private fun dataListener(): MuseDataListener {
         return object : MuseDataListener() {
-            override fun receiveMuseArtifactPacket(packet: MuseArtifactPacket, muse: Muse) = Unit
+            override fun receiveMuseArtifactPacket(packet: MuseArtifactPacket, muse: Muse) {
+                val values = mapOf(
+                    "headband_on" to packet.headbandOn,
+                    "blink" to packet.blink,
+                    "jaw_clench" to packet.jawClench,
+                )
+                val timestamp = packet.timestamp
+                handler.post {
+                    if (connected && muse === this@MuseBridge.muse) {
+                        diagnosticSink?.success(mapOf(
+                            "type" to "artifact",
+                            "time_seconds" to sessionSeconds(timestamp),
+                            "values" to values,
+                        ))
+                    }
+                }
+            }
 
             override fun receiveMuseDataPacket(packet: MuseDataPacket, muse: Muse) {
                 when (packet.packetType()) {
                     MuseDataPacketType.BATTERY -> {
                         val percentage = packet.getBatteryValue(Battery.CHARGE_PERCENTAGE_REMAINING)
+                        val timestamp = packet.timestamp()
                         if (percentage.isFinite() && percentage in 0.0..100.0) {
                             handler.post {
                                 if (connected && muse === this@MuseBridge.muse) {
                                     batteryPercent = kotlin.math.round(percentage).toInt()
                                     batterySink?.success(batteryPercent)
+                                    diagnosticSink?.success(mapOf(
+                                        "type" to "battery",
+                                        "time_seconds" to sessionSeconds(timestamp),
+                                        "values" to mapOf("percent" to percentage),
+                                    ))
                                 }
                             }
                         }
@@ -262,10 +287,9 @@ class MuseBridge(private val activity: FlutterActivity) {
                         handler.post { values.copyInto(lastContact) }
                     }
                     MuseDataPacketType.OPTICS -> {
-                        val left = packet.getOpticsChannelValue(Optics.OPTICS3)
-                        val right = packet.getOpticsChannelValue(Optics.OPTICS4)
+                        val values = DoubleArray(8) { index -> packet.getOpticsChannelValue(OPTICS_CHANNELS[index]) }
                         val time = packet.timestamp()
-                        handler.post { addOptics(time, left, right) }
+                        handler.post { addOptics(time, values) }
                     }
                     else -> Unit
                 }
@@ -307,11 +331,10 @@ class MuseBridge(private val activity: FlutterActivity) {
         contact.clear()
     }
 
-    private fun addOptics(timestampUs: Long, left: Double, right: Double) {
+    private fun addOptics(timestampUs: Long, values: DoubleArray) {
         val seconds = sessionSeconds(timestampUs)
         if (optics[0].isEmpty()) opticsStart = seconds
-        optics[0].add(left)
-        optics[1].add(right)
+        for (channel in values.indices) optics[channel].add(values[channel])
         if (optics[0].size >= OPTICS_CHUNK) emitOptics()
     }
 
@@ -319,7 +342,7 @@ class MuseBridge(private val activity: FlutterActivity) {
         val sink = opticsSink ?: return clearOptics()
         sink.success(
             mapOf(
-                "channel_names" to listOf("OPTICS3", "OPTICS4"),
+                "channel_names" to (1..8).map { "OPTICS$it" },
                 "unit" to "uA",
                 "sample_rate_hz" to OPTICS_RATE_HZ,
                 "time_seconds" to opticsStart,
@@ -406,5 +429,6 @@ class MuseBridge(private val activity: FlutterActivity) {
         private const val EEG_RATE_HZ = 256.0
         private const val OPTICS_RATE_HZ = 64.0
         private val EEG_CHANNELS = arrayOf(Eeg.EEG1, Eeg.EEG2, Eeg.EEG3, Eeg.EEG4)
+        private val OPTICS_CHANNELS = arrayOf(Optics.OPTICS1, Optics.OPTICS2, Optics.OPTICS3, Optics.OPTICS4, Optics.OPTICS5, Optics.OPTICS6, Optics.OPTICS7, Optics.OPTICS8)
     }
 }

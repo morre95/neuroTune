@@ -23,6 +23,7 @@ void main() {
       'dev.neurotune/muse',
       'dev.neurotune/muse_eeg',
       'dev.neurotune/muse_optics',
+      'dev.neurotune/muse_diagnostics',
       batteryChannel,
     ]) {
       binding.defaultBinaryMessenger.setMockMethodCallHandler(

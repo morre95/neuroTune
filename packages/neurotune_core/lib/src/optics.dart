@@ -86,7 +86,10 @@ List<OpticsFeature> _scoreOpticsHop({
   final expected = max(1, (config.welchHopSeconds * rate).round());
   final short = samples.length < expected - config.gapSamples;
   return [
-    for (final name in config.outerNirChannels)
+    for (final name in {
+      ...config.outerNirChannels,
+      for (final sample in samples) ...sample.values.keys,
+    })
       _scoreChannel(
         name: name,
         values: [for (final sample in samples) sample.values[name]],
