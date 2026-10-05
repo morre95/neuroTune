@@ -64,6 +64,16 @@ batteri, störningsmarkörer, dataförlust och samtliga åtta optiska kanaler.
 Se [sessionsdiagnostik](docs/SESSION_DIAGNOSTICS.md) för vilka värden som sparas
 och hur tidsstämplar och saknade uppgifter ska tolkas.
 
+Tryck **Välj** i historiken, markera sessioner (eller **Välj alla**) och tryck
+**Radera valda**. Efter bekräftelsen tas de bort från mobilen. Raderingen av
+backendens sessionsdata och råfiler köas beständigt om backenden inte nås,
+och synkas när appen körs med kontakt igen. Historiken visar väntande synk.
+Endast det inloggade kontots sessioner visas och kan raderas. Backendens
+personliga statistik räknas om utan de raderade sessionerna; en liten
+raderingsmarkering utan signaldata hindrar fördröjda uppladdningar från att
+återställa dem. Backendens nya migration körs vid ordinarie Docker-start efter
+att API och worker byggts om.
+
 Starta backend först. I Android-emulatorn är värddatorn `10.0.2.2`, vilket också är appens standardadress.
 
 ```bash

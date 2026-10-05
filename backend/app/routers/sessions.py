@@ -7,13 +7,14 @@ from pathlib import Path
 
 from compression import zstd
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.config import settings
 from app.db import get_db
-from app.models import SessionRecord, User
+from app.models import BanditVersion, SessionDeletion, SessionRecord, User
+from app.worker import build_policy
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -24,6 +25,10 @@ class SessionUpload(BaseModel):
     frames: list[dict]
     raw_base64: str
     checksum_sha256: str
+
+
+class SessionDelete(BaseModel):
+    session_ids: list[str] = Field(min_length=1, max_length=100)
 
 
 def _summary(row: SessionRecord) -> dict:
@@ -54,6 +59,12 @@ def upload_session(
     digest = hashlib.sha256(raw).hexdigest()
     if digest != body.checksum_sha256:
         raise HTTPException(status_code=400, detail="checksum mismatch")
+    db.query(User).filter(User.id == user.id).with_for_update().one()
+    deletion = db.query(SessionDeletion).filter(SessionDeletion.session_id == session_id).first()
+    if deletion is not None:
+        if deletion.user_id == user.id:
+            raise HTTPException(status_code=410, detail="Session was deleted")
+        raise HTTPException(status_code=409, detail="session id not available")
     existing = db.get(SessionRecord, session_id)
     if existing is not None:
         if existing.user_id != user.id:
@@ -86,6 +97,54 @@ def upload_session(
 def list_sessions(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> list[dict]:
     rows = db.query(SessionRecord).filter(SessionRecord.user_id == user.id).order_by(SessionRecord.created_at.desc()).all()
     return [_summary(row) for row in rows]
+
+
+@router.post("/delete")
+def delete_sessions(
+    body: SessionDelete,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    ids = list(dict.fromkeys(body.session_ids))
+    if any(re.fullmatch(r"[A-Za-z0-9_-]{1,64}", sid) is None for sid in ids):
+        raise HTTPException(status_code=400, detail="Invalid session id")
+    db.query(User).filter(User.id == user.id).with_for_update().one()
+    rows = db.query(SessionRecord).filter(SessionRecord.id.in_(ids)).all()
+    if any(row.user_id != user.id for row in rows):
+        raise HTTPException(status_code=404, detail="Session not found")
+    by_id = {row.id: row for row in rows}
+    affected = {(row.origin, row.experiment_version) for row in rows}
+    deletions = []
+    for sid in ids:
+        marker = db.get(SessionDeletion, (user.id, sid))
+        if marker is None:
+            marker = SessionDeletion(
+                user_id=user.id, session_id=sid, deleted_at=datetime.now(UTC),
+                raw_path=by_id[sid].raw_path if sid in by_id else None,
+            )
+            db.add(marker)
+        deletions.append(marker)
+    for row in rows:
+        db.delete(row)
+    db.flush()
+    for origin, version in affected:
+        policy = build_policy(db, user.id, origin, version)
+        db.flush()
+        db.query(BanditVersion).filter(
+            BanditVersion.user_id == user.id,
+            BanditVersion.origin == origin,
+            BanditVersion.experiment_version == version,
+            BanditVersion.id != policy.id,
+        ).delete(synchronize_session=False)
+    db.commit()
+    # Keep the path in the marker until cleanup succeeds. A timeout or file
+    # error can then safely retry this endpoint without recreating a session.
+    for marker in deletions:
+        if marker.raw_path is not None:
+            Path(marker.raw_path).unlink(missing_ok=True)
+            marker.raw_path = None
+    db.commit()
+    return {"deleted_session_ids": ids}
 
 
 @router.get("/{session_id}")

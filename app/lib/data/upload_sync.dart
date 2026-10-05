@@ -22,6 +22,27 @@ class UploadSync {
 
   Future<void> _flush(String ownerEmail) async {
     final generation = _generation;
+    final deletions = await repository.pendingDeletions(ownerEmail);
+    for (var offset = 0; offset < deletions.length; offset += 100) {
+      if (generation != _generation) return;
+      final chunk = deletions.skip(offset).take(100).toList();
+      try {
+        await api.deleteSessions(chunk.map((job) => job.sessionId).toList());
+        if (generation != _generation) return;
+        for (final job in chunk) {
+          await repository.completeDeletion(job);
+        }
+      } catch (error) {
+        for (final job in chunk) {
+          await repository.markUpload(
+            job.sessionId,
+            'delete_pending',
+            attempts: job.attempts + 1,
+            error: '$error',
+          );
+        }
+      }
+    }
     final pending = await repository.pendingUploads();
     if (generation != _generation) return;
     if (pending.isEmpty) return;

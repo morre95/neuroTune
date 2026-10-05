@@ -70,10 +70,13 @@ class HomePage extends StatelessWidget {
           const Text('Ögonläge under hela sessionen'),
           SegmentedButton<EyeState>(
             segments: const [
-              ButtonSegment(value: EyeState.open, label: Text('Ögon öppna')),
               ButtonSegment(
                 value: EyeState.closed,
-                label: Text('Ögon stängda'),
+                label: Text('Stängda'),
+              ),
+              ButtonSegment(
+                value: EyeState.open, 
+                label: Text('Öppna')
               ),
             ],
             selected: {eyeState},

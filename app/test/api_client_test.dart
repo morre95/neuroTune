@@ -7,6 +7,33 @@ import 'package:http/testing.dart';
 import 'package:neurotune/data/api_client.dart';
 
 void main() {
+  test(
+    'bulk deletion sends selected IDs and requires complete confirmation',
+    () async {
+      var complete = true;
+      final api = ApiClient(
+        baseUrl: 'http://unused',
+        httpClient: MockClient((request) async {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/v1/sessions/delete');
+          expect(request.headers['authorization'], 'Bearer access');
+          expect(jsonDecode(request.body), {
+            'session_ids': ['a', 'b'],
+          });
+          return http.Response(
+            jsonEncode({
+              'deleted_session_ids': complete ? ['a', 'b'] : ['a'],
+            }),
+            200,
+          );
+        }),
+      )..accessToken = 'access';
+      await api.deleteSessions(['a', 'b']);
+      complete = false;
+      await expectLater(api.deleteSessions(['a', 'b']), throwsStateError);
+    },
+  );
+
   test('login request times out instead of remaining pending', () async {
     final pending = Completer<http.Response>();
     final api = ApiClient(

@@ -117,6 +117,109 @@ class SessionRepository {
     return rows.map(_saved).toList();
   }
 
+  /// Only the account which owns the upload may request remote deletion.
+  Future<List<SavedSession>> listOwnedSessions(String ownerEmail) async {
+    final jobs = await (db.select(
+      db.uploadJobs,
+    )..where((row) => row.ownerEmail.equals(ownerEmail.toLowerCase()))).get();
+    final ids = jobs.map((job) => job.sessionId).toSet();
+    return (await listSessions())
+        .where((session) => ids.contains(session.id))
+        .toList();
+  }
+
+  /// Queue remote deletion in the same transaction that hides local sessions.
+  /// Retain the raw path until cleanup succeeds, including across app restarts.
+  Future<void> deleteSessions(
+    List<String> sessionIds,
+    String ownerEmail,
+  ) async {
+    final ids = sessionIds.toSet().toList();
+    if (ids.isEmpty) return;
+    final owner = ownerEmail.toLowerCase();
+    await db.transaction(() async {
+      final jobs = await (db.select(
+        db.uploadJobs,
+      )..where((row) => row.sessionId.isIn(ids))).get();
+      if (jobs.length != ids.length ||
+          jobs.any((job) => job.ownerEmail != owner)) {
+        throw StateError(
+          'Du kan bara radera sessioner som tillhör ditt konto.',
+        );
+      }
+      await (db.update(
+        db.uploadJobs,
+      )..where((row) => row.sessionId.isIn(ids))).write(
+        const UploadJobsCompanion(
+          state: Value('delete_pending'),
+          attempts: Value(0),
+          lastError: Value(null),
+        ),
+      );
+      await (db.delete(
+        db.storedSessions,
+      )..where((row) => row.id.isIn(ids))).go();
+      // Cached aggregates may still contain rewards from a deleted session.
+      await (db.delete(
+        db.kvStore,
+      )..where((row) => row.key.like('bandit:%'))).go();
+    });
+    for (final job in await pendingDeletions(owner)) {
+      if (ids.contains(job.sessionId)) {
+        try {
+          await _deleteRawFile(job.payloadPath);
+        } on FileSystemException {
+          // Keep the path in the persistent queue for the next cleanup attempt.
+        }
+      }
+    }
+  }
+
+  Future<List<PendingUpload>> pendingDeletions(String ownerEmail) async {
+    final rows =
+        await (db.select(db.uploadJobs)..where(
+              (row) =>
+                  row.state.equals('delete_pending') &
+                  row.ownerEmail.equals(ownerEmail.toLowerCase()),
+            ))
+            .get();
+    return [
+      for (final row in rows)
+        PendingUpload(
+          sessionId: row.sessionId,
+          ownerEmail: row.ownerEmail,
+          checksum: row.checksum,
+          payloadPath: row.payloadPath,
+          attempts: row.attempts,
+        ),
+    ];
+  }
+
+  Future<void> completeDeletion(PendingUpload job) async {
+    await _deleteRawFile(job.payloadPath);
+    await db.transaction(() async {
+      await (db.delete(db.uploadJobs)..where(
+            (row) =>
+                row.sessionId.equals(job.sessionId) &
+                row.state.equals('delete_pending') &
+                row.ownerEmail.equals(job.ownerEmail!),
+          ))
+          .go();
+      // A restart could have fetched an old policy before deletion synced.
+      await (db.delete(
+        db.kvStore,
+      )..where((row) => row.key.like('bandit:%'))).go();
+    });
+  }
+
+  Future<void> _deleteRawFile(String path) async {
+    try {
+      await File(path).delete();
+    } on FileSystemException catch (error) {
+      if (error.osError?.errorCode != 2) rethrow;
+    }
+  }
+
   Future<List<LocalSessionRewards>> localRewards(
     String origin,
     String experimentVersion,

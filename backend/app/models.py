@@ -50,6 +50,17 @@ class SessionRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+class SessionDeletion(Base):
+    """No signal data: prevents delayed uploads from restoring deleted sessions."""
+
+    __tablename__ = "session_deletions"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    raw_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class TrainingJob(Base):
     __tablename__ = "training_jobs"
 

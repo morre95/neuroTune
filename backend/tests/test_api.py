@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite://")
 os.environ.setdefault("JWT_SECRET", "test-only-secret-at-least-32-bytes-long")
@@ -166,3 +167,81 @@ def test_training_builds_a_personal_policy_once():
     )
     assert other.json()["policy_version"] == "0"
     assert other.json()["included_session_ids"] == []
+
+
+def test_bulk_delete_removes_raw_data_and_rebuilds_policy():
+    from app.models import BanditVersion, SessionDeletion, SessionRecord
+
+    token = register("delete-many@example.com")["access_token"]
+    for sid, reward in [("delete-one", 0.1), ("delete-two", 0.2), ("keep-three", 0.3)]:
+        assert post_session(token, sid, reward=reward).status_code == 200
+    client.post("/v1/training/jobs", json={"origin": "simulator", "experiment_version": "2026.2"}, headers=auth(token))
+    with SessionLocal() as db:
+        run_once(db)
+        paths = [Path(db.get(SessionRecord, sid).raw_path) for sid in ["delete-one", "delete-two"]]
+        owner = db.get(SessionRecord, "delete-one").user_id
+    body = {"session_ids": ["delete-one", "delete-two", "never-uploaded"]}
+    response = client.post("/v1/sessions/delete", json=body, headers=auth(token))
+    assert response.status_code == 200, response.text
+    assert set(response.json()["deleted_session_ids"]) == set(body["session_ids"])
+    assert all(not path.exists() for path in paths)
+    assert client.get("/v1/sessions/delete-one", headers=auth(token)).status_code == 404
+    assert [row["session_id"] for row in client.get("/v1/sessions", headers=auth(token)).json()] == ["keep-three"]
+    assert client.post("/v1/sessions/delete", json=body, headers=auth(token)).status_code == 200
+    assert post_session(token, "delete-one").status_code == 410
+    assert post_session(token, "never-uploaded").status_code == 410
+    policy = client.get("/v1/bandit/latest", params={"origin": "simulator", "experiment_version": "2026.2"}, headers=auth(token)).json()
+    assert policy["included_session_ids"] == ["keep-three"]
+    assert policy["actions"]["binaural_10"]["n"] == 1
+    assert policy["actions"]["binaural_10"]["mean"] == pytest.approx(0.3)
+    with SessionLocal() as db:
+        assert db.get(SessionRecord, "delete-one") is None
+        assert db.get(SessionDeletion, (owner, "delete-one")).raw_path is None
+        assert db.query(BanditVersion).filter(BanditVersion.user_id == owner).count() == 1
+
+
+def test_bulk_delete_is_atomic_and_account_scoped():
+    from app.models import SessionDeletion, SessionRecord
+
+    alice = register("delete-owner@example.com")["access_token"]
+    bob = register("delete-other@example.com")["access_token"]
+    assert post_session(alice, "delete-owned").status_code == 200
+    assert post_session(bob, "delete-foreign").status_code == 200
+    body = {"session_ids": ["delete-owned", "delete-foreign"]}
+    assert client.post("/v1/sessions/delete", json=body, headers=auth(alice)).status_code == 404
+    with SessionLocal() as db:
+        row = db.get(SessionRecord, "delete-owned")
+        assert row is not None
+        assert Path(row.raw_path).exists()
+        assert db.get(SessionDeletion, (row.user_id, "delete-owned")) is None
+        assert db.get(SessionRecord, "delete-foreign") is not None
+    assert client.post("/v1/sessions/delete", json=body).status_code == 401
+    assert client.post("/v1/sessions/delete", json={"session_ids": ["../escape"]}, headers=auth(alice)).status_code == 400
+    assert client.post("/v1/sessions/delete", json={"session_ids": []}, headers=auth(alice)).status_code == 422
+    assert client.post("/v1/sessions/delete", json={"session_ids": [str(i) for i in range(101)]}, headers=auth(alice)).status_code == 422
+
+
+def test_delete_retries_raw_file_cleanup_without_restoring_session(monkeypatch):
+    from app.models import SessionDeletion, SessionRecord
+
+    token = register("delete-cleanup@example.com")["access_token"]
+    assert post_session(token, "delete-cleanup").status_code == 200
+    with SessionLocal() as db:
+        row = db.get(SessionRecord, "delete-cleanup")
+        owner, path = row.user_id, Path(row.raw_path)
+    original = Path.unlink
+
+    def fail_cleanup(self, *args, **kwargs):
+        if self == path:
+            raise OSError("temporary cleanup failure")
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_cleanup)
+    with pytest.raises(OSError, match="temporary cleanup failure"):
+        client.post("/v1/sessions/delete", json={"session_ids": ["delete-cleanup"]}, headers=auth(token))
+    with SessionLocal() as db:
+        assert db.get(SessionRecord, "delete-cleanup") is None
+        assert db.get(SessionDeletion, (owner, "delete-cleanup")).raw_path is not None
+    monkeypatch.setattr(Path, "unlink", original)
+    assert client.post("/v1/sessions/delete", json={"session_ids": ["delete-cleanup"]}, headers=auth(token)).status_code == 200
+    assert not path.exists()

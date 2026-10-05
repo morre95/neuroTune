@@ -93,6 +93,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   SessionController? _session;
   var _endingSession = false;
   List<SavedSession> _history = [];
+  bool _deletingSessions = false;
+  String? _historyMessage;
   SavedSession? _playback;
 
   @override
@@ -120,8 +122,24 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   void _retryUploads() {
-    if (_auth == null) return;
-    unawaited(_uploadSync.flush(_auth!.email).catchError((Object _) {}));
+    if (_auth == null || _deletingSessions) return;
+    unawaited(_syncSessions().catchError((Object _) {}));
+  }
+
+  Future<void> _syncSessions() async {
+    final owner = _auth!.email;
+    await _uploadSync.flush(owner);
+    if (!mounted || _auth?.email != owner || _screen != _Screen.history) return;
+    final pending = await _repository.pendingDeletions(owner);
+    if (!mounted) return;
+    setState(() {
+      if (pending.isNotEmpty) {
+        _historyMessage =
+            '${pending.length} raderingar väntar på synk med backenden.';
+      } else if (_historyMessage != null) {
+        _historyMessage = 'Raderingen är synkroniserad med backenden.';
+      }
+    });
   }
 
   /// Unreadable saved state must not leave the app on the loading spinner.
@@ -436,8 +454,35 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _openHistory() async {
-    _history = await _repository.listSessions();
+    _history = await _repository.listOwnedSessions(_auth!.email);
+    final pending = await _repository.pendingDeletions(_auth!.email);
+    _historyMessage = pending.isEmpty
+        ? null
+        : '${pending.length} raderingar väntar på synk med backenden.';
     setState(() => _screen = _Screen.history);
+  }
+
+  Future<void> _deleteSessions(List<String> ids) async {
+    if (_deletingSessions) return;
+    _deletingSessions = true;
+    try {
+      // Let any in-flight upload finish before changing its persistent job.
+      _uploadSync.cancel();
+      await _uploadSync.waitForIdle();
+      await _repository.deleteSessions(ids, _auth!.email);
+      _snapshot = null;
+      _history = await _repository.listOwnedSessions(_auth!.email);
+      if (mounted) {
+        setState(
+          () => _historyMessage =
+              'Sessionerna är raderade på mobilen. Raderingen synkas med backenden.',
+        );
+      }
+      await _syncSessions();
+    } finally {
+      _deletingSessions = false;
+      _retryUploads();
+    }
   }
 
   @override
@@ -521,6 +566,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       ),
       _Screen.history => HistoryPage(
         sessions: _history,
+        onDelete: _deleteSessions,
+        message: _historyMessage,
         onOpen: (session) => setState(() {
           _playback = session;
           _screen = _Screen.playback;

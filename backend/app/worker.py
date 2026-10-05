@@ -4,19 +4,32 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import BanditVersion, SessionRecord, TrainingJob
+from app.models import BanditVersion, SessionRecord, TrainingJob, User
 
 ACTIONS = ["binaural_6", "binaural_8", "binaural_10", "binaural_12", "control"]
 
 
 def process_job(db: Session, job: TrainingJob) -> None:
+    # Serialize policy building with deletion and upload for this account.
+    db.query(User).filter(User.id == job.user_id).with_for_update().one()
+    db.refresh(job)
+    if job.status != "queued":
+        return
     job.status = "running"
+    policy = build_policy(db, job.user_id, job.origin, job.experiment_version)
+    job.status = "done"
+    job.bandit_version = policy.policy_version
+    db.commit()
+
+
+def build_policy(db: Session, user_id: str, origin: str, experiment_version: str) -> BanditVersion:
+    """Rebuild from remaining sessions, inside the caller's transaction."""
     sessions = (
         db.query(SessionRecord)
         .filter(
-            SessionRecord.user_id == job.user_id,
-            SessionRecord.origin == job.origin,
-            SessionRecord.experiment_version == job.experiment_version,
+            SessionRecord.user_id == user_id,
+            SessionRecord.origin == origin,
+            SessionRecord.experiment_version == experiment_version,
         )
         .all()
     )
@@ -39,38 +52,36 @@ def process_job(db: Session, job: TrainingJob) -> None:
         if used:
             included.append(session.id)
     previous = (
-        db.query(BanditVersion)
+        db.query(BanditVersion.policy_version)
         .filter(
-            BanditVersion.user_id == job.user_id,
-            BanditVersion.origin == job.origin,
-            BanditVersion.experiment_version == job.experiment_version,
+            BanditVersion.user_id == user_id,
+            BanditVersion.origin == origin,
+            BanditVersion.experiment_version == experiment_version,
         )
-        .count()
+        .all()
     )
-    policy_version = f"v{previous + 1}"
+    versions = [int(row.policy_version[1:]) for row in previous if row.policy_version.startswith("v") and row.policy_version[1:].isdigit()]
+    policy_version = f"v{max(versions, default=0) + 1}"
     body = {
         "policy_version": policy_version,
-        "experiment_version": job.experiment_version,
-        "data_origin": job.origin,
+        "experiment_version": experiment_version,
+        "data_origin": origin,
         "epsilon": 0.2,
         "actions": stats,
         "included_session_ids": included,
         "created_at_iso": datetime.now(UTC).isoformat(),
     }
-    db.add(
-        BanditVersion(
-            id=str(uuid.uuid4()),
-            user_id=job.user_id,
-            policy_version=policy_version,
-            origin=job.origin,
-            experiment_version=job.experiment_version,
-            body=json.dumps(body),
-            created_at=datetime.now(UTC),
-        )
+    policy = BanditVersion(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        policy_version=policy_version,
+        origin=origin,
+        experiment_version=experiment_version,
+        body=json.dumps(body),
+        created_at=datetime.now(UTC),
     )
-    job.status = "done"
-    job.bandit_version = policy_version
-    db.commit()
+    db.add(policy)
+    return policy
 
 
 def run_once(db: Session) -> int:

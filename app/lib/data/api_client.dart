@@ -165,6 +165,20 @@ class ApiClient {
     return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
   }
 
+  Future<void> deleteSessions(List<String> sessionIds) async {
+    final response = await _send('POST', '/v1/sessions/delete', {
+      'session_ids': sessionIds,
+    });
+    _expect(response);
+    final confirmed =
+        (jsonDecode(response.body)
+                as Map<String, dynamic>)['deleted_session_ids']
+            as List;
+    if (!sessionIds.every(confirmed.contains)) {
+      throw StateError('Backenden bekräftade inte alla raderingar.');
+    }
+  }
+
   Future<http.Response> _send(
     String method,
     String path, [
