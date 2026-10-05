@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import com.choosemuse.libmuse.Accelerometer
+import com.choosemuse.libmuse.Battery
 import com.choosemuse.libmuse.ConnectionState
 import com.choosemuse.libmuse.Eeg
 import com.choosemuse.libmuse.Gyro
@@ -38,6 +39,9 @@ class MuseBridge(private val activity: FlutterActivity) {
     private var startResult: MethodChannel.Result? = null
     private var eegSink: EventChannel.EventSink? = null
     private var opticsSink: EventChannel.EventSink? = null
+    private var batterySink: EventChannel.EventSink? = null
+    private var batteryPercent: Int? = null
+    private var connected = false
     /// Set by the first packet the bridge ever sees and never reset, so the
     /// timeline keeps running across reconnects. A session rebases this clock
     /// to its own start, which is later than the contact preview's.
@@ -78,6 +82,10 @@ class MuseBridge(private val activity: FlutterActivity) {
         }
         EventChannel(messenger, "dev.neurotune/muse_eeg").setStreamHandler(sinkHandler { eegSink = it })
         EventChannel(messenger, "dev.neurotune/muse_optics").setStreamHandler(sinkHandler { opticsSink = it })
+        EventChannel(messenger, "dev.neurotune/muse_battery").setStreamHandler(sinkHandler {
+            batterySink = it
+            it?.success(batteryPercent)
+        })
     }
 
     fun onPermissions(grantResults: IntArray) {
@@ -175,6 +183,7 @@ class MuseBridge(private val activity: FlutterActivity) {
         headband.registerDataListener(listener, MuseDataPacketType.GYRO)
         headband.registerDataListener(listener, MuseDataPacketType.HSI_PRECISION)
         headband.registerDataListener(listener, MuseDataPacketType.OPTICS)
+        headband.registerDataListener(listener, MuseDataPacketType.BATTERY)
         headband.setPreset(MusePreset.PRESET_1034)
         headband.runAsynchronously()
         handler.postDelayed(startTimeout, CONNECT_TIMEOUT_MS)
@@ -183,10 +192,14 @@ class MuseBridge(private val activity: FlutterActivity) {
     private fun onConnection(packet: MuseConnectionPacket) {
         when (packet.currentConnectionState) {
             ConnectionState.CONNECTED -> {
+                connected = true
                 handler.removeCallbacks(startTimeout)
                 finishStart(null, null)
             }
             ConnectionState.DISCONNECTED -> {
+                connected = false
+                batteryPercent = null
+                batterySink?.success(null)
                 if (startResult != null) {
                     teardown()
                     finishStart("MUSE_DISCONNECTED", "Muse kopplades från innan sessionen började.")
@@ -208,6 +221,17 @@ class MuseBridge(private val activity: FlutterActivity) {
 
             override fun receiveMuseDataPacket(packet: MuseDataPacket, muse: Muse) {
                 when (packet.packetType()) {
+                    MuseDataPacketType.BATTERY -> {
+                        val percentage = packet.getBatteryValue(Battery.CHARGE_PERCENTAGE_REMAINING)
+                        if (percentage.isFinite() && percentage in 0.0..100.0) {
+                            handler.post {
+                                if (connected && muse === this@MuseBridge.muse) {
+                                    batteryPercent = kotlin.math.round(percentage).toInt()
+                                    batterySink?.success(batteryPercent)
+                                }
+                            }
+                        }
+                    }
                     MuseDataPacketType.EEG -> {
                         val values = DoubleArray(4) { index ->
                             packet.getEegChannelValue(EEG_CHANNELS[index])
@@ -323,6 +347,9 @@ class MuseBridge(private val activity: FlutterActivity) {
     /// running, no pending timeout, no headband holding a BLE link and no
     /// samples left over from the previous session. The clock origin stays.
     private fun teardown() {
+        connected = false
+        batteryPercent = null
+        batterySink?.success(null)
         startPhase = null
         handler.removeCallbacks(startTimeout)
         handler.removeCallbacks(scanPoll)

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+
+import 'muse_battery_indicator.dart';
 
 class SessionView {
   const SessionView({
@@ -37,6 +40,7 @@ class SessionPage extends StatelessWidget {
     required this.onStop,
     required this.onContinue,
     required this.onFinish,
+    this.batteryPercent,
   });
 
   final SessionView view;
@@ -45,11 +49,18 @@ class SessionPage extends StatelessWidget {
 
   /// Null while the session is being saved.
   final VoidCallback? onFinish;
+  final ValueListenable<int?>? batteryPercent;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Session')),
+      appBar: AppBar(
+        title: const Text('Session'),
+        actions: [
+          if (batteryPercent != null)
+            MuseBatteryIndicator(batteryPercent: batteryPercent!),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [

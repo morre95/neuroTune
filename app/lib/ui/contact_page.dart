@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:neurotune_core/neurotune_core.dart';
+
+import 'muse_battery_indicator.dart';
 
 class ContactPage extends StatelessWidget {
   const ContactPage({
@@ -12,6 +15,7 @@ class ContactPage extends StatelessWidget {
     required this.stereoTestBusy,
     this.note,
     this.error,
+    this.batteryPercent,
   });
 
   final EegBatch? batch;
@@ -22,12 +26,19 @@ class ContactPage extends StatelessWidget {
   final bool stereoTestBusy;
   final String? note;
   final String? error;
+  final ValueListenable<int?>? batteryPercent;
 
   @override
   Widget build(BuildContext context) {
     final names = batch?.channelNames ?? simulatorChannels;
     return Scaffold(
-      appBar: AppBar(title: const Text('Kontakt')),
+      appBar: AppBar(
+        title: const Text('Kontakt'),
+        actions: [
+          if (batteryPercent != null)
+            MuseBatteryIndicator(batteryPercent: batteryPercent!),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [

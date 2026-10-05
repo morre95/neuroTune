@@ -487,6 +487,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         message: _error,
       ),
       _Screen.contact => ContactPage(
+        batteryPercent: _usingMuse ? widget.muse.batteryPercent : null,
         batch: _contactBatch,
         onStereoTest: _toggleStereoTest,
         stereoTestPlaying: _stereoTestPlaying,
@@ -512,6 +513,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         },
       ),
       _Screen.session => SessionPage(
+        batteryPercent: _usingMuse ? widget.muse.batteryPercent : null,
         view: _session!.view,
         onStop: () => _session?.interrupt(StopReason.manual),
         onContinue: () => _session?.continueSession(),

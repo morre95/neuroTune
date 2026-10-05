@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart' hide Uint8List;
+import 'package:flutter/foundation.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -66,37 +66,64 @@ class MuseChannel {
   static const _methods = MethodChannel('dev.neurotune/muse');
   static const _eegEvents = EventChannel('dev.neurotune/muse_eeg');
   static const _opticsEvents = EventChannel('dev.neurotune/muse_optics');
+  static const _batteryEvents = EventChannel('dev.neurotune/muse_battery');
+
+  final _batteryPercent = ValueNotifier<int?>(null);
+  ValueListenable<int?> get batteryPercent => _batteryPercent;
 
   final _eeg = StreamController<EegBatch>.broadcast();
   final _optics = StreamController<OpticsBatch>.broadcast();
   final _lost = StreamController<void>.broadcast();
   StreamSubscription<dynamic>? _eegPlatform;
   StreamSubscription<dynamic>? _opticsPlatform;
+  StreamSubscription<dynamic>? _batteryPlatform;
 
   Stream<EegBatch> get eeg => _eeg.stream;
   Stream<OpticsBatch> get optics => _optics.stream;
   Stream<void> get disconnected => _lost.stream;
 
   Future<void> start() async {
+    _batteryPercent.value = null;
+    _batteryPlatform ??= _batteryEvents.receiveBroadcastStream().listen((
+      event,
+    ) {
+      _batteryPercent.value =
+          event is num && event.isFinite && event >= 0 && event <= 100
+          ? event.round()
+          : null;
+    }, onError: (_) => _batteryPercent.value = null);
     _eegPlatform ??= _eegEvents.receiveBroadcastStream().listen(
       (event) =>
           _eeg.add(EegBatch.fromJson(Map<String, dynamic>.from(event as Map))),
-      onError: (_) => _lost.add(null),
+      onError: (_) => _disconnected(),
     );
     _opticsPlatform ??= _opticsEvents.receiveBroadcastStream().listen(
       (event) => _optics.add(
         OpticsBatch.fromJson(Map<String, dynamic>.from(event as Map)),
       ),
-      onError: (_) => _lost.add(null),
+      onError: (_) => _disconnected(),
     );
-    await _methods.invokeMethod<void>('start');
+    try {
+      await _methods.invokeMethod<void>('start');
+    } catch (_) {
+      _batteryPercent.value = null;
+      rethrow;
+    }
+  }
+
+  void _disconnected() {
+    _batteryPercent.value = null;
+    _lost.add(null);
   }
 
   Future<void> stop() async {
+    _batteryPercent.value = null;
     await _methods.invokeMethod<void>('stop');
     await _eegPlatform?.cancel();
     await _opticsPlatform?.cancel();
+    await _batteryPlatform?.cancel();
     _eegPlatform = null;
     _opticsPlatform = null;
+    _batteryPlatform = null;
   }
 }
