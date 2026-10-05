@@ -108,7 +108,9 @@ void main() {
   });
 
   test('a rejected baseline records why the session ended', () {
-    final config = ExperimentConfig.defaults().withProtocol(baselineSeconds: 12);
+    final config = ExperimentConfig.defaults().withProtocol(
+      baselineSeconds: 12,
+    );
     final engine = SessionEngine(
       config: config,
       snapshot: BanditSnapshot.empty(

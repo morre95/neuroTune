@@ -223,6 +223,60 @@ void main() {
     expect(full.first.reasons, contains('saturation'));
   });
 
+  group('frame and optics alignment', () {
+    final config = ExperimentConfig.defaults();
+
+    OpticsBatch opticsChunk(double start) => OpticsBatch(
+      channelNames: config.outerNirChannels,
+      unit: 'uA',
+      sampleRateHz: 64,
+      timeSeconds: start,
+      values: [
+        for (final _ in config.outerNirChannels)
+          [for (var i = 0; i < 32; i++) 20 + 0.01 * (i % 5)],
+      ],
+    );
+
+    FeatureFrame eegFrame(double time) => FeatureFrame(
+      timeSeconds: time,
+      sampleRateHz: 256,
+      channels: const [],
+      rejected: false,
+      reasons: const [],
+    );
+
+    test('waits for optics that arrive after the frame', () {
+      // Recorded Muse timing: optics chunks start on whole half seconds and
+      // EEG frames end 0.262 s later, so each frame lands before its optics.
+      final optics = OpticsAccumulator();
+      final scored = <FeatureFrame>[];
+      for (var second = 0; second < 10; second++) {
+        optics.addBatch(opticsChunk(second - 0.5));
+        if (second >= 2) optics.addFrame(eegFrame(second + 0.262));
+        scored.addAll(optics.takeReady(config));
+        optics.addBatch(opticsChunk(second.toDouble()));
+        scored.addAll(optics.takeReady(config));
+      }
+
+      expect(scored, hasLength(8));
+      for (final name in config.outerNirChannels) {
+        expect(scored.every((frame) => frame.opticsValid(name)), isTrue);
+      }
+    });
+
+    test('scores a frame as a gap once optics stay away too long', () {
+      final optics = OpticsAccumulator()..addBatch(opticsChunk(0));
+      optics.addFrame(eegFrame(2));
+      expect(optics.takeReady(config), isEmpty);
+
+      optics.addFrame(eegFrame(2 + OpticsAccumulator.maxOpticsLagSeconds));
+      final released = optics.takeReady(config);
+
+      expect(released, hasLength(1));
+      expect(released.single.optics.first.reasons, contains('gap'));
+    });
+  });
+
   test('Muse stays unavailable until hardware is approved', () async {
     final source = MuseSource(ExperimentConfig.defaults());
     expect(source.start, throwsA(isA<MuseUnavailable>()));

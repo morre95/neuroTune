@@ -7,23 +7,58 @@ import 'models.dart';
 /// LibMuse 8.0.9 names the 850 nm outer channels `OPTICS3` (left) and
 /// `OPTICS4` (right) and reports them in microamps. That SDK does not publish
 /// a numeric full scale, so a non-finite sample is saturation.
+///
+/// EEG and optics arrive as separate chunked streams, so the optics for a
+/// frame's hop can land after the frame. Frames wait in [addFrame] until
+/// optics reach their end time and are then released by [takeReady].
 class OpticsAccumulator {
+  /// How far a newer frame may run ahead before a waiting frame is scored
+  /// with the optics it has, which marks a real dropout as a gap.
+  static const maxOpticsLagSeconds = 2.0;
+
   final List<_OpticsSample> _pending = [];
+  final List<FeatureFrame> _waiting = [];
+  var _coveredUntil = double.negativeInfinity;
 
   void addBatch(OpticsBatch batch) {
     final step = 1 / batch.sampleRateHz;
+    _coveredUntil = max(
+      _coveredUntil,
+      batch.timeSeconds + batch.sampleCount * step,
+    );
     for (var sample = 0; sample < batch.sampleCount; sample++) {
       _pending.add(
-        _OpticsSample(
-          batch.timeSeconds + sample * step,
-          {
-            for (var channel = 0; channel < batch.channelNames.length; channel++)
-              batch.channelNames[channel]: batch.values[channel][sample],
-          },
-          batch.sampleRateHz,
+        _OpticsSample(batch.timeSeconds + sample * step, {
+          for (var channel = 0; channel < batch.channelNames.length; channel++)
+            batch.channelNames[channel]: batch.values[channel][sample],
+        }, batch.sampleRateHz),
+      );
+    }
+  }
+
+  void addFrame(FeatureFrame frame) => _waiting.add(frame);
+
+  /// Waiting frames with their optics hop scored, oldest first.
+  List<FeatureFrame> takeReady(ExperimentConfig config) {
+    final ready = <FeatureFrame>[];
+    while (_waiting.isNotEmpty) {
+      final frame = _waiting.first;
+      final covered = _coveredUntil >= frame.timeSeconds;
+      final overdue =
+          _waiting.last.timeSeconds - frame.timeSeconds >= maxOpticsLagSeconds;
+      if (!covered && !overdue) break;
+      _waiting.removeAt(0);
+      ready.add(
+        frame.withOptics(
+          consumeUntil(
+            frame.timeSeconds,
+            config,
+            motion: frame.reasons.contains('motion'),
+          ),
         ),
       );
     }
+    return ready;
   }
 
   List<OpticsFeature> consumeUntil(
@@ -38,11 +73,7 @@ class OpticsAccumulator {
           sample,
     ];
     _pending.removeWhere((sample) => sample.timeSeconds <= endSeconds);
-    return _scoreOpticsHop(
-      config: config,
-      samples: window,
-      motion: motion,
-    );
+    return _scoreOpticsHop(config: config, samples: window, motion: motion);
   }
 }
 

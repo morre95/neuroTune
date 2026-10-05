@@ -136,6 +136,7 @@ class SessionController extends ChangeNotifier {
         final batch = bridged.shifted(-_sessionOrigin(bridged.timeSeconds));
         _opticsRaw.add(batch);
         _optics.addBatch(batch);
+        _releaseFrames();
       });
       _lost = _muse!.disconnected.listen((_) {
         interrupt(StopReason.sourceDisconnected);
@@ -306,23 +307,25 @@ class SessionController extends ChangeNotifier {
   }
 
   void _onFrame(FeatureFrame frame) {
+    _optics.addFrame(frame);
+    _releaseFrames();
+  }
+
+  void _releaseFrames() {
     final current = engine;
     if (current == null || _closed || _finishing) return;
-    final scored = frame.withOptics(
-      _optics.consumeUntil(
-        frame.timeSeconds,
-        config,
-        motion: frame.reasons.contains('motion'),
-      ),
-    );
-    current.onFrame(scored);
-    _synth?.setAction(current.currentAction);
-    latest = scored;
-    if (current.terminal) {
-      _finishInBackground();
-    } else if (!_closed) {
-      notifyListeners();
+    final ready = _optics.takeReady(config);
+    if (ready.isEmpty) return;
+    for (final scored in ready) {
+      current.onFrame(scored);
+      _synth?.setAction(current.currentAction);
+      latest = scored;
+      if (current.terminal) {
+        _finishInBackground();
+        return;
+      }
     }
+    if (!_closed) notifyListeners();
   }
 
   void _writeAudio() {

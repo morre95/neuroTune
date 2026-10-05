@@ -84,9 +84,7 @@ class SimulatorSource {
   OpticsBatch _optics(double start, double duration) {
     final count = max(1, (duration * opticsSampleRateHz).round());
     final names = config.outerNirChannels;
-    final values = [
-      for (final _ in names) List<double>.filled(count, 0),
-    ];
+    final values = [for (final _ in names) List<double>.filled(count, 0)];
     for (var sample = 0; sample < count; sample++) {
       final time = start + sample / opticsSampleRateHz;
       final level = _opticsLevel(time);
@@ -190,16 +188,8 @@ List<FeatureFrame> pullFrames({
   final batch = source.pull();
   final opticsBatch = source.lastOptics;
   if (opticsBatch != null) optics.addBatch(opticsBatch);
-  return [
-    for (final frame in pipeline.addBatch(batch))
-      frame.withOptics(
-        optics.consumeUntil(
-          frame.timeSeconds,
-          source.config,
-          motion: frame.reasons.contains('motion'),
-        ),
-      ),
-  ];
+  pipeline.addBatch(batch).forEach(optics.addFrame);
+  return optics.takeReady(source.config);
 }
 
 class PlaybackSource {
