@@ -19,7 +19,7 @@ class HomePage extends StatelessWidget {
     required this.policyVersion,
     required this.hardwareApproved,
     required this.offline,
-    required this.eyeState,
+    this.eyeState = EyeState.closed,
     required this.mode,
     required this.onEyeState,
     required this.onMode,
@@ -67,16 +67,16 @@ class HomePage extends StatelessWidget {
           Text('Experiment $experimentVersion'),
           Text('Policy $policyVersion'),
           const SizedBox(height: 16),
-          const Text('Ögonläge under hela sessionen'),
+          const Text('Öppna eller stängda ögon under meditationen'),
           SegmentedButton<EyeState>(
             segments: const [
               ButtonSegment(
                 value: EyeState.closed,
-                label: Text('Stängda'),
+                label: Text('Stängda ögon'),
               ),
               ButtonSegment(
                 value: EyeState.open, 
-                label: Text('Öppna')
+                label: Text('Öppna ögon')
               ),
             ],
             selected: {eyeState},

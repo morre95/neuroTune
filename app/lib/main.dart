@@ -78,7 +78,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   String? _error;
   var _offline = false;
   var _ready = false;
-  EyeState _eyes = EyeState.open;
+  EyeState _eyes = EyeState.closed;
   SessionMode _mode = SessionMode.personal;
   EegBatch? _contactBatch;
   SimulatorSource? _preview;
