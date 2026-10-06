@@ -12,16 +12,21 @@ from app.routers import auth, bandit, experiments, sessions, training
 
 
 def seed_experiment() -> None:
+    """Make the contracts file's version the only active experiment."""
     path = Path(settings.contracts_path)
     if not path.exists():
         return
     body = json.loads(path.read_text())
     db = SessionLocal()
     try:
+        db.query(Experiment).filter(Experiment.version != body["version"]).update({Experiment.active: False})
+        db.flush()
         existing = db.query(Experiment).filter(Experiment.version == body["version"]).one_or_none()
         if existing is None:
             db.add(Experiment(id=str(uuid.uuid4()), version=body["version"], body=json.dumps(body), active=True))
-            db.commit()
+        else:
+            existing.active = True
+        db.commit()
     finally:
         db.close()
 

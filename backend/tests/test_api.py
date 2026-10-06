@@ -15,6 +15,7 @@ os.environ.setdefault(
 
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.main import app, seed_experiment
 from app.worker import run_once
@@ -90,7 +91,7 @@ def test_register_login_refresh_logout():
     tokens = register("person@example.com")
     me = client.get("/v1/experiments/active", headers=auth(tokens["access_token"]))
     assert me.status_code == 200
-    assert me.json()["version"] == "2026.2"
+    assert me.json()["version"] == "2026.3"
     refreshed = client.post("/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert refreshed.status_code == 200
     old = client.post("/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
@@ -245,3 +246,20 @@ def test_delete_retries_raw_file_cleanup_without_restoring_session(monkeypatch):
     monkeypatch.setattr(Path, "unlink", original)
     assert client.post("/v1/sessions/delete", json={"session_ids": ["delete-cleanup"]}, headers=auth(token)).status_code == 200
     assert not path.exists()
+
+
+def test_seeding_a_new_version_leaves_one_active_experiment(monkeypatch, tmp_path):
+    original = Path(settings.contracts_path)
+    body = json.loads(original.read_text())
+    newer = tmp_path / "experiment.json"
+    newer.write_text(json.dumps({**body, "version": "test-newer"}))
+    tokens = register("seed@example.com")
+
+    monkeypatch.setattr(settings, "contracts_path", str(newer))
+    seed_experiment()
+    active = client.get("/v1/experiments/active", headers=auth(tokens["access_token"]))
+    monkeypatch.setattr(settings, "contracts_path", str(original))
+    seed_experiment()
+
+    assert active.status_code == 200
+    assert active.json()["version"] == "test-newer"

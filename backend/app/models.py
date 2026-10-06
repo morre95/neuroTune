@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -27,6 +27,15 @@ class RefreshToken(Base):
 
 class Experiment(Base):
     __tablename__ = "experiments"
+    __table_args__ = (
+        Index(
+            "uq_experiments_one_active",
+            "active",
+            unique=True,
+            postgresql_where=text("active"),
+            sqlite_where=text("active"),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     version: Mapped[str] = mapped_column(String(64), unique=True)
