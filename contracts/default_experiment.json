@@ -1,6 +1,6 @@
 {
-  "version": "2026.2",
-  "quality_version": "2026.2-unverified",
+  "version": "2026.3",
+  "quality_version": "2026.3-unverified",
   "hardware_approved": true,
   "notch_hz": 50.0,
   "notch_q": 30.0,
