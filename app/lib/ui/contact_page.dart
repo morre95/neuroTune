@@ -13,6 +13,7 @@ class ContactPage extends StatelessWidget {
     required this.onStereoTest,
     required this.stereoTestPlaying,
     required this.stereoTestBusy,
+    required this.startingSession,
     this.note,
     this.error,
     this.batteryPercent,
@@ -24,6 +25,10 @@ class ContactPage extends StatelessWidget {
   final VoidCallback onStereoTest;
   final bool stereoTestPlaying;
   final bool stereoTestBusy;
+
+  /// Locks the page while a session starts, so it cannot start twice or lose
+  /// the headband it is starting with.
+  final bool startingSession;
   final String? note;
   final String? error;
   final ValueListenable<int?>? batteryPercent;
@@ -57,7 +62,7 @@ class ContactPage extends StatelessWidget {
           const Text('Testa att vänster och höger kanal hörs i dina hörlurar.'),
           const SizedBox(height: 8),
           OutlinedButton(
-            onPressed: stereoTestBusy ? null : onStereoTest,
+            onPressed: stereoTestBusy || startingSession ? null : onStereoTest,
             child: Text(
               stereoTestPlaying ? 'Stoppa hörlurstest' : 'Testa hörlurar',
             ),
@@ -66,13 +71,17 @@ class ContactPage extends StatelessWidget {
             const Text('Testljudet upprepas tills du stoppar det.'),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: batch == null || stereoTestBusy || stereoTestPlaying
+            onPressed:
+                batch == null ||
+                    stereoTestBusy ||
+                    stereoTestPlaying ||
+                    startingSession
                 ? null
                 : onStart,
-            child: const Text('Starta baslinje'),
+            child: Text(startingSession ? 'Startar…' : 'Starta baslinje'),
           ),
           TextButton(
-            onPressed: stereoTestBusy ? null : onBack,
+            onPressed: stereoTestBusy || startingSession ? null : onBack,
             child: const Text('Tillbaka'),
           ),
         ],

@@ -225,8 +225,7 @@ class SessionController extends ChangeNotifier {
       amplitude: config.amplitude,
       fadeSeconds: config.fadeMs / 1000,
     );
-    await _startAudio();
-    _source?.start();
+    if (await _startAudio()) _source?.start();
   }
 
   SessionView get view {
@@ -288,7 +287,7 @@ class SessionController extends ChangeNotifier {
         _museConnected = true;
         _recordDiagnostic('connection', {'state': 'connected'});
       }
-      await _startAudio();
+      if (!await _startAudio()) return;
       engine?.resume();
       waitingForUser = false;
       _lastInterruption = null;
@@ -417,14 +416,20 @@ class SessionController extends ChangeNotifier {
     if (!_closed) notifyListeners();
   }
 
-  Future<void> _startAudio() async {
+  /// Returns false when an interruption paused the outputs while the output
+  /// started. Writing then would hit the stopped output and end the session as
+  /// lost audio instead of waiting for the user to continue.
+  Future<bool> _startAudio() async {
+    final generation = _audioGeneration;
     latencyMs = await audio.start(config.audioSampleRateHz);
+    if (generation != _audioGeneration) return false;
     _audioFramesWritten = 0;
     _audioClock
       ..reset()
       ..start();
     _writeAudio();
     _audioTimer ??= Timer.periodic(_audioTick, (_) => _writeAudio());
+    return true;
   }
 
   /// Keep one packet in flight and drop stale backlog after a long delay.

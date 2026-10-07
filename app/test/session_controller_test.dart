@@ -30,6 +30,22 @@ class _Audio implements PcmOutput {
   Future<void> stop() async => playing = false;
 }
 
+/// Holds the next start open, as a slow platform channel does.
+class _HeldStartAudio extends _Audio {
+  Completer<void>? holdStart;
+  final started = Completer<void>();
+
+  @override
+  Future<double?> start(int sampleRate) async {
+    final hold = holdStart;
+    if (hold != null) {
+      if (!started.isCompleted) started.complete();
+      await hold.future;
+    }
+    return super.start(sampleRate);
+  }
+}
+
 /// Holds each write until the output has room, as a full AudioTrack does.
 class _SlowAudio extends _Audio {
   final packets = <int>[];
@@ -599,6 +615,43 @@ void main() {
       expect(session.engine!.frames.length, greaterThanOrEqualTo(9));
       expect(session.error, isNull);
       await session.finish();
+    },
+  );
+
+  test(
+    'a disconnect while audio restarts waits for the user instead of aborting',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final muse = _Muse();
+      final audio = _HeldStartAudio();
+      final session = await _startMuseSession(database, muse, audio: audio);
+      addTearDown(session.dispose);
+      muse.stream(
+        SimulatorSource(config: shortProtocol, sampleRateHz: 256, seed: 1),
+        12,
+        300,
+      );
+      await until(() => session.engine?.phase == SessionPhase.sound);
+      muse.lost.add(null);
+      await until(() => session.waitingForUser);
+
+      audio.holdStart = Completer<void>();
+      final resuming = session.continueSession();
+      await audio.started.future;
+      final interruptions = session.engine!.interruptions;
+      muse.lost.add(null);
+      await until(() => session.engine!.interruptions > interruptions);
+      final written = audio.bytesWritten;
+      audio.holdStart!.complete();
+      await resuming;
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+
+      expect(session.waitingForUser, isTrue);
+      expect(session.engine!.phase, SessionPhase.waitingStable);
+      expect(session.engine!.stopReason, isNull);
+      expect(session.error, isNull);
+      expect(audio.bytesWritten, written);
     },
   );
 }

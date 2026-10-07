@@ -92,6 +92,11 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   Future<void>? _stereoTestStart;
   SessionController? _session;
   var _endingSession = false;
+
+  /// Starting waits on the network, the DSP isolate and the foreground
+  /// service. A second tap meanwhile would start a second session on the same
+  /// audio output and headband, so the contact page is locked until it ends.
+  var _startingSession = false;
   List<SavedSession> _history = [];
   bool _deletingSessions = false;
   String? _historyMessage;
@@ -352,6 +357,16 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _startSession() async {
+    if (_startingSession) return;
+    setState(() => _startingSession = true);
+    try {
+      await _openSession();
+    } finally {
+      if (mounted) setState(() => _startingSession = false);
+    }
+  }
+
+  Future<void> _openSession() async {
     final origin = _usingMuse ? DataOrigin.muse : DataOrigin.simulator;
     await _stopStereoTest();
     if (_usingMuse) {
@@ -537,6 +552,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         onStereoTest: _toggleStereoTest,
         stereoTestPlaying: _stereoTestPlaying,
         stereoTestBusy: _stereoTestBusy,
+        startingSession: _startingSession,
         note: _usingMuse
             ? 'Kvalitetsgränserna är inte verifierade mot en inspelning från Athena.'
             : null,

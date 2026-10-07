@@ -100,6 +100,7 @@ void main() {
           onStereoTest: () => taps++,
           stereoTestPlaying: playing,
           stereoTestBusy: false,
+          startingSession: false,
         ),
       );
 
@@ -122,6 +123,42 @@ void main() {
       expect(taps, 2);
     },
   );
+
+  testWidgets('contact page is locked while a session starts', (tester) async {
+    tester.view.physicalSize = const Size(1080, 3200);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ContactPage(
+          batch: SimulatorSource(
+            config: ExperimentConfig.defaults(),
+            sampleRateHz: 256,
+            seed: 1,
+          ).pull(),
+          onStart: () {},
+          onBack: () {},
+          onStereoTest: () {},
+          stereoTestPlaying: false,
+          stereoTestBusy: false,
+          startingSession: true,
+        ),
+      ),
+    );
+
+    for (final button in [
+      tester.widget<ButtonStyleButton>(
+        find.widgetWithText(FilledButton, 'Startar…'),
+      ),
+      tester.widget<ButtonStyleButton>(
+        find.widgetWithText(TextButton, 'Tillbaka'),
+      ),
+      tester.widget<ButtonStyleButton>(
+        find.widgetWithText(OutlinedButton, 'Testa hörlurar'),
+      ),
+    ]) {
+      expect(button.onPressed, isNull);
+    }
+  });
 
   testWidgets('session shows theta, alpha, beta, quality and the action', (
     tester,
