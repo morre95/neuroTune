@@ -1,13 +1,16 @@
 # Adaptivt meditationsljud i neuroTune
 
-Målet är att skapa binaurala toner direkt i neuroTune, blanda dem med egen
-musik eller egna naturljud och på sikt anpassa tonerna efter personliga
-EEG-mönster. Den önskade upplevelsen är mindre upptagenhet av tankar och mer
+Målet är att skapa och organisera bakgrundsljud i en webbapp som är ansluten
+till backenden och välja ljudprofiler från en lista i neuroTune. Mobilappen
+genererar binaurala toner, blandar dem med den nedladdade bakgrunden och ska
+på sikt anpassa tonerna efter personliga EEG-mönster. Den önskade upplevelsen
+är mindre upptagenhet av tankar och mer
 avslappning. Personliga samband undersöks genom kalibrering och återkoppling
 efter meditationen.
 
 Detta är den överenskomna målbilden från samtalet den 7 oktober 2026.
-Kalibrering, bakgrundsmix och personlig EEG-styrning är planerad utveckling.
+Webbeditor, ljudbibliotek, kalibrering, bakgrundsmix och personlig
+EEG-styrning är planerad utveckling.
 
 ## Beslut för första versionen
 
@@ -15,6 +18,11 @@ Kalibrering, bakgrundsmix och personlig EEG-styrning är planerad utveckling.
 | --- | --- |
 | Ljudgenerering | Tonerna skapas direkt i neuroTune. |
 | Bakgrund | Användarens egna musikfiler eller naturljudsfiler. |
+| Ljudskapande | En webbeditor för uppladdning, blandning och provlyssning. |
+| Ljudbibliotek | Backenden lagrar bakgrundsfiler och versionerade ljudprofiler. |
+| Val i mobilappen | Lista med ljudprofiler, förhandslyssning och nedladdning. |
+| Profilens innehåll | Bakgrundsljud plus ett separat tonrecept. |
+| Uppspelning | Lokal uppspelning och tonblandning efter nedladdning, även utan nät. |
 | Volymer | Fast tonvolym och fast bakgrundsvolym under sessionen. |
 | Kalibrering | Tio sessioner på cirka tio minuter vardera. |
 | Toninställningar | Frekvensskillnaderna 0, 6, 8, 10 och 12 Hz. |
@@ -25,6 +33,46 @@ Kalibrering, bakgrundsmix och personlig EEG-styrning är planerad utveckling.
 | Senare anpassning | Utvärdering ungefär varje minut och mjuka frekvensövergångar. |
 | Osäkert underlag | Behåll den föredragna fasta toninställningen och samla mer data. |
 | Dålig EEG-kvalitet | Behåll ljudinställningen och avstå från inlärning för perioden. |
+
+## Webbeditor och ljudbibliotek
+
+Webbappen används för att ladda upp egen musik och egna naturljud, blanda
+dem till ett bakgrundsljud, provlyssna och spara en ljudprofil. Backenden
+lagrar bakgrundsfilen, profilens inställningar och versioner i ett personligt
+ljudbibliotek.
+
+Varje profil består av en bakgrundsfil och ett separat tonrecept. Tonreceptet
+anger bland annat bärfrekvens och tonvolym; profilen innehåller också
+bakgrundsvolym. Frekvensskillnaden väljs av kalibreringsprotokollet eller
+den senare personliga EEG-styrningen.
+
+En profil kan exempelvis heta ”Regn och ambientmusik” och innehålla en
+blandning av dessa bakgrundsljud, fasta volymnivåer och bärfrekvens 220 Hz.
+Tonerna genereras och blandas in i mobilappen under sessionen.
+
+En färdig ljudfil med inbakade toner låser frekvensskillnaden. För att ändra
+den under uppspelning skulle flera synkroniserade filversioner och övergångar
+mellan dem behövas. Separat bakgrund och tonrecept låter samma bakgrund
+fortsätta medan neuroTune ändrar tonerna mjukt.
+
+| Del | Ansvar |
+| --- | --- |
+| Webbappen | Uppladdning av musik och naturljud, bakgrundsmix, provlyssning och skapande av ljudprofiler. |
+| Backenden | Personligt ljudbibliotek, bakgrundsfiler, profilinställningar och versioner. |
+| neuroTune | Lista, förhandslyssning, nedladdning, lokal uppspelning, tonblandning och EEG-styrt frekvensval. |
+
+Mobilappen laddar ned vald bakgrund före sessionen och spelar den lokalt.
+Pågående uppspelning och ljudanpassning ska fungera utan nätanslutning.
+
+```text
+Egen musik och naturljud → webbeditor → bakgrundsfil och tonrecept
+                                                ↓
+                                  ljudbibliotek i backenden
+                                                ↓
+                              profilval och nedladdning i neuroTune
+                                                ↓
+                       lokal bakgrund + genererade toner → hörlurar
+```
 
 ## Binaurala toner och frekvensskillnad
 
@@ -144,7 +192,15 @@ pekats ut som generellt bäst för meditation.
   EEG-mått loggas, men styr inte den nuvarande belöningen. Den önskade
   personliga EEG-styrningen kräver därför en ändring av styrmått och inlärning.
 
-Nästa pedagogiska och tekniska steg är att fördjupa stereomixern och därefter
-bestämma hur EEG ska kopplas till efterbedömningarna. Filformat, import,
-loopning av bakgrundsljud och eventuell baslinjemätning inom sessionens
-tio minuter återstår att specificera.
+## Fortsatt utveckling
+
+Första upplägget är att bygga en enkel webbeditor, ett personligt
+ljudbibliotek i backenden och profilval med förhandslyssning och nedladdning
+i mobilen. Lokal uppspelning och stereomix behöver kopplas till den
+befintliga tongeneratorn.
+
+Filformat, import i webbeditor, profilens exakta datamodell, loopning av
+bakgrundsljud och eventuell baslinjemätning inom sessionens tio minuter
+återstår att specificera. EEG-måtten och deras koppling till
+efterbedömningarna behöver också bestämmas innan personlig EEG-styrning
+aktiveras.
