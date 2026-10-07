@@ -14,6 +14,7 @@ class ContactPage extends StatelessWidget {
     required this.stereoTestPlaying,
     required this.stereoTestBusy,
     required this.startingSession,
+    required this.openingSession,
     this.note,
     this.error,
     this.batteryPercent,
@@ -26,9 +27,12 @@ class ContactPage extends StatelessWidget {
   final bool stereoTestPlaying;
   final bool stereoTestBusy;
 
-  /// Locks the page while a session starts, so it cannot start twice or lose
-  /// the headband it is starting with.
+  /// Locks starting while a session starts, so it cannot start twice.
   final bool startingSession;
+
+  /// Locks leaving once the session holds the output and the headband.
+  /// Before that, leaving cancels the start.
+  final bool openingSession;
   final String? note;
   final String? error;
   final ValueListenable<int?>? batteryPercent;
@@ -36,6 +40,7 @@ class ContactPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final names = batch?.channelNames ?? simulatorChannels;
+    final locked = stereoTestBusy || startingSession;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Kontakt'),
@@ -62,7 +67,7 @@ class ContactPage extends StatelessWidget {
           const Text('Testa att vänster och höger kanal hörs i dina hörlurar.'),
           const SizedBox(height: 8),
           OutlinedButton(
-            onPressed: stereoTestBusy || startingSession ? null : onStereoTest,
+            onPressed: locked ? null : onStereoTest,
             child: Text(
               stereoTestPlaying ? 'Stoppa hörlurstest' : 'Testa hörlurar',
             ),
@@ -71,17 +76,13 @@ class ContactPage extends StatelessWidget {
             const Text('Testljudet upprepas tills du stoppar det.'),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed:
-                batch == null ||
-                    stereoTestBusy ||
-                    stereoTestPlaying ||
-                    startingSession
+            onPressed: batch == null || locked || stereoTestPlaying
                 ? null
                 : onStart,
             child: Text(startingSession ? 'Startar…' : 'Starta baslinje'),
           ),
           TextButton(
-            onPressed: stereoTestBusy || startingSession ? null : onBack,
+            onPressed: stereoTestBusy || openingSession ? null : onBack,
             child: const Text('Tillbaka'),
           ),
         ],

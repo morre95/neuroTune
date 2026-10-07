@@ -97,12 +97,33 @@ class _RefreshApi extends ApiClient {
   );
 }
 
-class _KeepAlive implements SessionKeepAlive {
+/// Holds the experiment request of a session start open, as a slow network
+/// does. The first request, at login, answers at once.
+class _SlowStartApi extends _AuthApi {
+  var experimentRequests = 0;
+  Completer<void>? hold;
+
   @override
-  Future<void> start() async {}
+  Future<ExperimentConfig> activeExperiment() async {
+    experimentRequests++;
+    await hold?.future;
+    return super.activeExperiment();
+  }
+}
+
+class _KeepAlive implements SessionKeepAlive {
+  var starts = 0;
+
+  @override
+  Future<void> start() async => starts++;
 
   @override
   Future<void> stop() async {}
+}
+
+class _FailingKeepAlive extends _KeepAlive {
+  @override
+  Future<void> start() async => throw StateError('foreground service refused');
 }
 
 class _Audio implements PcmOutput {
@@ -116,14 +137,38 @@ class _Audio implements PcmOutput {
   Future<void> stop() async {}
 }
 
-Widget app(AppDatabase database, ApiClient api) => NeuroTuneApp(
+Widget app(
+  AppDatabase database,
+  ApiClient api, {
+  SessionKeepAlive? keepAlive,
+}) => NeuroTuneApp(
   database: database,
   authStore: AuthStore(),
   api: api,
   audio: _Audio(),
-  keepAlive: _KeepAlive(),
+  keepAlive: keepAlive ?? _KeepAlive(),
   muse: MuseChannel(),
 );
+
+/// A start cancels the contact preview's stream subscription, and that
+/// completes on the real event loop, which fake time does not run.
+Future<void> letStartRun(WidgetTester tester) async {
+  await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+  await tester.pump();
+}
+
+/// Logs in and opens the simulator contact page with a signal on it.
+Future<void> openSimulatorContact(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(1080, 3200);
+  addTearDown(tester.view.reset);
+  await tester.pumpAndSettle();
+  await tester.enterText(find.byType(TextField).at(0), 'person@example.com');
+  await tester.enterText(find.byType(TextField).at(1), 'password');
+  await tester.tap(find.text('Logga in'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Simulator'));
+  await tester.pump(const Duration(seconds: 1));
+}
 
 /// A saved session whose manifest no longer parses.
 Future<void> saveBrokenSession(AppDatabase database) => database
@@ -312,5 +357,58 @@ void main() {
 
     expect(find.textContaining('Säker anslutning'), findsOneWidget);
     expect(find.textContaining('svarade inte som väntat'), findsNothing);
+  });
+
+  testWidgets('a start waiting on the network runs once and can be left', (
+    tester,
+  ) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final api = _SlowStartApi();
+    final keepAlive = _KeepAlive();
+    await tester.pumpWidget(app(database, api, keepAlive: keepAlive));
+    await openSimulatorContact(tester);
+    api.hold = Completer<void>();
+
+    // The second tap lands before the page rebuilds with the lock.
+    await tester.tap(find.text('Starta baslinje'));
+    await tester.tap(find.text('Starta baslinje'));
+    await letStartRun(tester);
+    expect(find.text('Startar…'), findsOneWidget);
+    expect(api.experimentRequests, 2);
+
+    await tester.tap(find.text('Tillbaka'));
+    await tester.pump();
+    api.hold!.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Simulator'), findsOneWidget);
+    expect(find.text('Session'), findsNothing);
+    expect(keepAlive.starts, 0);
+  });
+
+  testWidgets('a failed start shows why and can be retried', (tester) async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    await tester.pumpWidget(
+      app(database, _AuthApi(), keepAlive: _FailingKeepAlive()),
+    );
+    await openSimulatorContact(tester);
+
+    await tester.tap(find.text('Starta baslinje'));
+    await letStartRun(tester);
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.textContaining('kunde inte starta'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Starta baslinje'),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.text('Tillbaka'));
+    await tester.pumpAndSettle();
   });
 }

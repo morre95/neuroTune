@@ -225,7 +225,7 @@ class SessionController extends ChangeNotifier {
       amplitude: config.amplitude,
       fadeSeconds: config.fadeMs / 1000,
     );
-    if (await _startAudio()) _source?.start();
+    await _startOutputs();
   }
 
   SessionView get view {
@@ -287,11 +287,10 @@ class SessionController extends ChangeNotifier {
         _museConnected = true;
         _recordDiagnostic('connection', {'state': 'connected'});
       }
-      if (!await _startAudio()) return;
+      if (!await _startOutputs()) return;
       engine?.resume();
       waitingForUser = false;
       _lastInterruption = null;
-      _source?.start();
       error = null;
     } catch (failure) {
       error = 'Sessionen kunde inte fortsätta: $failure';
@@ -416,19 +415,27 @@ class SessionController extends ChangeNotifier {
     if (!_closed) notifyListeners();
   }
 
-  /// Returns false when an interruption paused the outputs while the output
-  /// started. Writing then would hit the stopped output and end the session as
-  /// lost audio instead of waiting for the user to continue.
-  Future<bool> _startAudio() async {
+  /// Starts the audio and the simulator; the counterpart of [_pauseOutputs].
+  /// Returns false when an interruption paused the outputs while the audio
+  /// started. That start is stopped again, since [PcmOutput] does not promise
+  /// that the earlier stop ran after it, and its latency is not kept. Writing
+  /// would hit the stopped output and end the session as lost audio instead
+  /// of waiting for the user to continue.
+  Future<bool> _startOutputs() async {
     final generation = _audioGeneration;
-    latencyMs = await audio.start(config.audioSampleRateHz);
-    if (generation != _audioGeneration) return false;
+    final latency = await audio.start(config.audioSampleRateHz);
+    if (generation != _audioGeneration) {
+      unawaited(audio.stop());
+      return false;
+    }
+    latencyMs = latency;
     _audioFramesWritten = 0;
     _audioClock
       ..reset()
       ..start();
     _writeAudio();
     _audioTimer ??= Timer.periodic(_audioTick, (_) => _writeAudio());
+    _source?.start();
     return true;
   }
 

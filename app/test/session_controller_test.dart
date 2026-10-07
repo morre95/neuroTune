@@ -30,7 +30,9 @@ class _Audio implements PcmOutput {
   Future<void> stop() async => playing = false;
 }
 
-/// Holds the next start open, as a slow platform channel does.
+/// Holds the next start open, as a slow platform channel does. A held start
+/// opens the output after any stop sent meanwhile and reports no latency, as
+/// the Android bridge does once its track is gone.
 class _HeldStartAudio extends _Audio {
   Completer<void>? holdStart;
   final started = Completer<void>();
@@ -38,11 +40,11 @@ class _HeldStartAudio extends _Audio {
   @override
   Future<double?> start(int sampleRate) async {
     final hold = holdStart;
-    if (hold != null) {
-      if (!started.isCompleted) started.complete();
-      await hold.future;
-    }
-    return super.start(sampleRate);
+    if (hold == null) return super.start(sampleRate);
+    if (!started.isCompleted) started.complete();
+    await hold.future;
+    playing = true;
+    return null;
   }
 }
 
@@ -652,6 +654,8 @@ void main() {
       expect(session.engine!.stopReason, isNull);
       expect(session.error, isNull);
       expect(audio.bytesWritten, written);
+      expect(audio.playing, isFalse);
+      expect(session.latencyMs, 0);
     },
   );
 }

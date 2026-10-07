@@ -101,6 +101,7 @@ void main() {
           stereoTestPlaying: playing,
           stereoTestBusy: false,
           startingSession: false,
+          openingSession: false,
         ),
       );
 
@@ -124,40 +125,40 @@ void main() {
     },
   );
 
-  testWidgets('contact page is locked while a session starts', (tester) async {
+  testWidgets('contact page locks starting, then leaving, during a start', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1080, 3200);
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ContactPage(
-          batch: SimulatorSource(
-            config: ExperimentConfig.defaults(),
-            sampleRateHz: 256,
-            seed: 1,
-          ).pull(),
-          onStart: () {},
-          onBack: () {},
-          onStereoTest: () {},
-          stereoTestPlaying: false,
-          stereoTestBusy: false,
-          startingSession: true,
-        ),
+    Widget page({required bool opening}) => MaterialApp(
+      home: ContactPage(
+        batch: SimulatorSource(
+          config: ExperimentConfig.defaults(),
+          sampleRateHz: 256,
+          seed: 1,
+        ).pull(),
+        onStart: () {},
+        onBack: () {},
+        onStereoTest: () {},
+        stereoTestPlaying: false,
+        stereoTestBusy: false,
+        startingSession: true,
+        openingSession: opening,
       ),
     );
+    VoidCallback? pressed(Finder finder) =>
+        tester.widget<ButtonStyleButton>(finder).onPressed;
+    final start = find.widgetWithText(FilledButton, 'Startar…');
+    final headphones = find.widgetWithText(OutlinedButton, 'Testa hörlurar');
+    final back = find.widgetWithText(TextButton, 'Tillbaka');
 
-    for (final button in [
-      tester.widget<ButtonStyleButton>(
-        find.widgetWithText(FilledButton, 'Startar…'),
-      ),
-      tester.widget<ButtonStyleButton>(
-        find.widgetWithText(TextButton, 'Tillbaka'),
-      ),
-      tester.widget<ButtonStyleButton>(
-        find.widgetWithText(OutlinedButton, 'Testa hörlurar'),
-      ),
-    ]) {
-      expect(button.onPressed, isNull);
-    }
+    await tester.pumpWidget(page(opening: false));
+    expect(pressed(start), isNull);
+    expect(pressed(headphones), isNull);
+    expect(pressed(back), isNotNull);
+
+    await tester.pumpWidget(page(opening: true));
+    expect(pressed(back), isNull);
   });
 
   testWidgets('session shows theta, alpha, beta, quality and the action', (

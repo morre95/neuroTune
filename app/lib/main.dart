@@ -42,6 +42,12 @@ void main() {
 
 enum _Screen { auth, home, contact, session, history, playback }
 
+typedef _Remote = ({
+  ExperimentConfig config,
+  BanditSnapshot snapshot,
+  bool offline,
+});
+
 class NeuroTuneApp extends StatefulWidget {
   const NeuroTuneApp({
     super.key,
@@ -95,8 +101,17 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
 
   /// Starting waits on the network, the DSP isolate and the foreground
   /// service. A second tap meanwhile would start a second session on the same
-  /// audio output and headband, so the contact page is locked until it ends.
+  /// audio output and headband, so starting is locked until it ends.
   var _startingSession = false;
+
+  /// Set once the controller acquires the output, the service and the
+  /// headband. Leaving then would race its cleanup against the next start, so
+  /// the back button is locked too; until then leaving cancels the start.
+  var _openingSession = false;
+
+  /// Moves on when the user leaves the contact page, so a start still waiting
+  /// on the network sees that it was cancelled.
+  var _startAttempt = 0;
   List<SavedSession> _history = [];
   bool _deletingSessions = false;
   String? _historyMessage;
@@ -172,13 +187,13 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     widget.api.refreshToken = _auth?.refreshToken;
   }
 
-  /// [_refreshRemote] already falls back to the cache when the server is
+  /// [_loadRemote] already falls back to the cache when the server is
   /// unreachable, so a failure here is local data that logging in again cannot
   /// repair. The user stays on the login page with the cause.
   Future<void> _enterHome() async {
     try {
       await _repository.claimLegacyUploads(_auth!.email);
-      await _refreshRemote();
+      _applyRemote(await _loadRemote(DataOrigin.simulator));
     } catch (failure, stack) {
       log('Local data could not be read', error: failure, stackTrace: stack);
       if (mounted) {
@@ -213,30 +228,43 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     }
   }
 
-  Future<void> _refreshRemote({
-    DataOrigin origin = DataOrigin.simulator,
-  }) async {
+  /// Fetches the active experiment and the policy for [origin], falling back
+  /// to the cache offline. It returns them instead of storing them, so a start
+  /// the user has left cannot overwrite what a newer one loaded.
+  Future<_Remote> _loadRemote(DataOrigin origin) async {
+    var config = _config;
+    BanditSnapshot snapshot;
+    var offline = false;
     try {
-      _config = await widget.api.activeExperiment();
-      await _repository.saveConfig(_config);
-      _snapshot = await widget.api.latestBandit(
+      config = await widget.api.activeExperiment();
+      await _repository.saveConfig(config);
+      snapshot = await widget.api.latestBandit(
         origin: origin.name,
-        experimentVersion: _config.version,
+        experimentVersion: config.version,
       );
-      await _repository.saveBandit(_snapshot!);
-      _offline = false;
+      await _repository.saveBandit(snapshot);
     } catch (_) {
-      _snapshot =
+      snapshot =
           await _repository.loadBandit(origin.name) ??
           BanditSnapshot.empty(
-            experimentVersion: _config.version,
+            experimentVersion: config.version,
             origin: origin,
-            epsilon: _config.epsilon,
+            epsilon: config.epsilon,
           );
-      _offline = true;
+      offline = true;
     }
-    final local = await _repository.localRewards(origin.name, _config.version);
-    _snapshot = overlayLocalRewards(server: _snapshot!, local: local);
+    final local = await _repository.localRewards(origin.name, config.version);
+    return (
+      config: config,
+      snapshot: overlayLocalRewards(server: snapshot, local: local),
+      offline: offline,
+    );
+  }
+
+  void _applyRemote(_Remote remote) {
+    _config = remote.config;
+    _snapshot = remote.snapshot;
+    _offline = remote.offline;
   }
 
   Future<void> _submitAuth(String email, String password, bool register) async {
@@ -312,6 +340,11 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
 
   void _openContact() {
     _usingMuse = false;
+    _startSimulatorPreview();
+    setState(() => _screen = _Screen.contact);
+  }
+
+  void _startSimulatorPreview() {
     _preview?.stop();
     _previewSub?.cancel();
     _preview = SimulatorSource(config: _config, sampleRateHz: 256, seed: 1);
@@ -319,7 +352,6 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       if (mounted) setState(() => _contactBatch = batch);
     });
     _preview!.start();
-    setState(() => _screen = _Screen.contact);
   }
 
   Future<void> _toggleStereoTest() async {
@@ -358,15 +390,26 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
 
   Future<void> _startSession() async {
     if (_startingSession) return;
+    final attempt = ++_startAttempt;
     setState(() => _startingSession = true);
     try {
-      await _openSession();
+      await _openSession(attempt);
+    } catch (failure, stack) {
+      log('Session could not start', error: failure, stackTrace: stack);
+      if (attempt == _startAttempt) {
+        _showStartFailure('Sessionen kunde inte starta: $failure');
+      }
     } finally {
-      if (mounted) setState(() => _startingSession = false);
+      if (attempt == _startAttempt && mounted) {
+        setState(() {
+          _startingSession = false;
+          _openingSession = false;
+        });
+      }
     }
   }
 
-  Future<void> _openSession() async {
+  Future<void> _openSession(int attempt) async {
     final origin = _usingMuse ? DataOrigin.muse : DataOrigin.simulator;
     await _stopStereoTest();
     if (_usingMuse) {
@@ -376,7 +419,12 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       await _preview?.stop();
       await _previewSub?.cancel();
     }
-    await _refreshRemote(origin: origin);
+    final remote = await _loadRemote(origin);
+    if (attempt != _startAttempt) return;
+    setState(() {
+      _applyRemote(remote);
+      _openingSession = true;
+    });
     final controller = SessionController(
       repository: _repository,
       ownerEmail: _auth!.email,
@@ -392,9 +440,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       muse: _usingMuse ? widget.muse : null,
     );
     if (!started) {
-      if (_usingMuse) _listenToMuse();
-      setState(() => _error = controller.error);
       controller.dispose();
+      _showStartFailure(controller.error);
       return;
     }
     controller.addListener(() {
@@ -407,7 +454,37 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     });
   }
 
+  /// The start tore the contact preview down, so it is brought back for the
+  /// user to retry from the contact page.
+  void _showStartFailure(String? message) {
+    if (_usingMuse) {
+      _listenToMuse();
+    } else {
+      _startSimulatorPreview();
+    }
+    setState(() => _error = message);
+  }
+
+  /// Leaving while a start waits on the network cancels it.
+  Future<void> _leaveContact() async {
+    _startAttempt += 1;
+    setState(() => _startingSession = false);
+    await _stopStereoTest();
+    if (_usingMuse) {
+      _musePreview?.cancel();
+      widget.muse.stop();
+      _usingMuse = false;
+    } else {
+      _preview?.stop();
+    }
+    setState(() {
+      _error = null;
+      _screen = _Screen.home;
+    });
+  }
+
   void _listenToMuse() {
+    _musePreview?.cancel();
     _musePreview = widget.muse.eeg.listen((batch) {
       if (mounted) setState(() => _contactBatch = batch);
     });
@@ -423,7 +500,6 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       _error = 'Söker efter Muse S Athena.';
     });
     try {
-      await _musePreview?.cancel();
       _listenToMuse();
       await widget.muse.start();
       if (!mounted) return;
@@ -553,25 +629,13 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         stereoTestPlaying: _stereoTestPlaying,
         stereoTestBusy: _stereoTestBusy,
         startingSession: _startingSession,
+        openingSession: _openingSession,
         note: _usingMuse
             ? 'Kvalitetsgränserna är inte verifierade mot en inspelning från Athena.'
             : null,
         error: _error,
         onStart: _startSession,
-        onBack: () async {
-          await _stopStereoTest();
-          if (_usingMuse) {
-            _musePreview?.cancel();
-            widget.muse.stop();
-            _usingMuse = false;
-          } else {
-            _preview?.stop();
-          }
-          setState(() {
-            _error = null;
-            _screen = _Screen.home;
-          });
-        },
+        onBack: _leaveContact,
       ),
       _Screen.session => SessionPage(
         batteryPercent: _usingMuse ? widget.muse.batteryPercent : null,
