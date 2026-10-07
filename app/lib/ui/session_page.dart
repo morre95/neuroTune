@@ -53,47 +53,55 @@ class SessionPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Session'),
-        actions: [
-          if (batteryPercent != null)
-            MuseBatteryIndicator(batteryPercent: batteryPercent!),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Text(view.phase, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(view.message),
-          const SizedBox(height: 16),
-          Text('Block ${view.blockLabel}'),
-          Text('Åtgärd: ${view.actionLabel}'),
-          const SizedBox(height: 16),
-          Text('Theta ${view.theta}'),
-          Text('Alpha ${view.alpha}'),
-          Text('Beta ${view.beta}'),
-          Text('Yttre NIR ${view.outerNir} µA'),
-          Text('NIR-z ${view.nirZ}'),
-          Text('Signalkvalitet ${view.quality}'),
-          const SizedBox(height: 16),
-          const Text(
-            'Belöningen är z-score av rå yttre NIR, 850 nm. Inte syresättning, avslappning, fokus eller behandling.',
-          ),
-          const Text(
-            'Theta, alpha och beta visas som spektrala mått och uppdaterar inte banditen.',
-          ),
-          const SizedBox(height: 24),
-          if (view.canContinue)
-            FilledButton(onPressed: onContinue, child: const Text('Fortsätt'))
-          else if (view.canStop)
-            OutlinedButton(onPressed: onStop, child: const Text('Stoppa')),
-          TextButton(
-            onPressed: onFinish,
-            child: Text(onFinish == null ? 'Sparar…' : 'Avsluta session'),
-          ),
-        ],
+    // Leaving with the back button ends the session like the finish button,
+    // instead of closing the app with the audio still playing.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) onFinish?.call();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Session'),
+          actions: [
+            if (batteryPercent != null)
+              MuseBatteryIndicator(batteryPercent: batteryPercent!),
+          ],
+        ),
+        body: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Text(view.phase, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Text(view.message),
+            const SizedBox(height: 16),
+            Text('Block ${view.blockLabel}'),
+            Text('Åtgärd: ${view.actionLabel}'),
+            const SizedBox(height: 16),
+            Text('Theta ${view.theta}'),
+            Text('Alpha ${view.alpha}'),
+            Text('Beta ${view.beta}'),
+            Text('Yttre NIR ${view.outerNir} µA'),
+            Text('NIR-z ${view.nirZ}'),
+            Text('Signalkvalitet ${view.quality}'),
+            const SizedBox(height: 16),
+            const Text(
+              'Belöningen är z-score av rå yttre NIR, 850 nm. Inte syresättning, avslappning, fokus eller behandling.',
+            ),
+            const Text(
+              'Theta, alpha och beta visas som spektrala mått och uppdaterar inte banditen.',
+            ),
+            const SizedBox(height: 24),
+            if (view.canContinue)
+              FilledButton(onPressed: onContinue, child: const Text('Fortsätt'))
+            else if (view.canStop)
+              OutlinedButton(onPressed: onStop, child: const Text('Stoppa')),
+            TextButton(
+              onPressed: onFinish,
+              child: Text(onFinish == null ? 'Sparar…' : 'Avsluta session'),
+            ),
+          ],
+        ),
       ),
     );
   }

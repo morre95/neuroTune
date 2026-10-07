@@ -21,8 +21,10 @@ class _Audio implements PcmOutput {
     return 0;
   }
 
+  var bytesWritten = 0;
+
   @override
-  Future<void> write(Uint8List pcm16) async {}
+  Future<void> write(Uint8List pcm16) async => bytesWritten += pcm16.length;
 
   @override
   Future<void> stop() async => playing = false;
@@ -435,5 +437,23 @@ void main() {
 
     expect(session.saved, isTrue);
     expect(audio.playing, isFalse);
+  });
+
+  test('audio starts written ahead of playback and stops on finish', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final audio = _Audio();
+    final session = await _startMuseSession(database, _Muse(), audio: audio);
+    addTearDown(session.dispose);
+    const bytesPerSecond = 48000 * 4;
+
+    expect(audio.bytesWritten, greaterThanOrEqualTo(0.15 * bytesPerSecond));
+
+    await session.finish();
+    final written = audio.bytesWritten;
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+
+    expect(audio.playing, isFalse);
+    expect(audio.bytesWritten, written);
   });
 }

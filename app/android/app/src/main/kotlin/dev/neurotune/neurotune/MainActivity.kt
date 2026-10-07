@@ -5,13 +5,23 @@ import io.flutter.embedding.engine.FlutterEngine
 
 class MainActivity : FlutterActivity() {
     private var museBridge: MuseBridge? = null
+    private var audioBridge: AudioBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
-        AudioBridge(this).register(messenger)
+        audioBridge = AudioBridge(this).also { it.register(messenger) }
         SessionBridge(this).register(messenger)
         museBridge = MuseBridge(this).also { it.register(messenger) }
+    }
+
+    /// The session lives in the engine, so the playback and the foreground
+    /// service it holds open end with it.
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        audioBridge?.dispose()
+        audioBridge = null
+        SessionService.stop(this)
+        super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onRequestPermissionsResult(

@@ -10,6 +10,13 @@ import '../dsp/dsp_isolate.dart';
 import '../platform/channels.dart';
 import '../ui/session_page.dart';
 
+/// How far ahead of playback the output is kept filled. The writes come from
+/// a timer on the UI isolate, which runs late whenever the isolate is busy
+/// with headband data; anything less than that delay empties the buffer and
+/// every gap is heard as a click.
+const _audioLeadSeconds = 0.15;
+const _audioTick = Duration(milliseconds: 50);
+
 class SessionController extends ChangeNotifier {
   SessionController({
     required this.repository,
@@ -58,6 +65,8 @@ class SessionController extends ChangeNotifier {
   StreamSubscription<void>? _lost;
   StreamSubscription<FeatureFrame>? _frames;
   Timer? _audioTimer;
+  final Stopwatch _audioClock = Stopwatch();
+  var _audioFramesWritten = 0;
   BinauralSynth? _synth;
   Future<void>? _finish;
   Future<void>? _resuming;
@@ -211,11 +220,7 @@ class SessionController extends ChangeNotifier {
       amplitude: config.amplitude,
       fadeSeconds: config.fadeMs / 1000,
     );
-    latencyMs = await audio.start(config.audioSampleRateHz);
-    _audioTimer = Timer.periodic(
-      const Duration(milliseconds: 50),
-      (_) => _writeAudio(),
-    );
+    await _startAudio();
     _source?.start();
   }
 
@@ -278,14 +283,10 @@ class SessionController extends ChangeNotifier {
         _museConnected = true;
         _recordDiagnostic('connection', {'state': 'connected'});
       }
-      latencyMs = await audio.start(config.audioSampleRateHz);
+      await _startAudio();
       engine?.resume();
       waitingForUser = false;
       _lastInterruption = null;
-      _audioTimer ??= Timer.periodic(
-        const Duration(milliseconds: 50),
-        (_) => _writeAudio(),
-      );
       _source?.start();
       error = null;
     } catch (failure) {
@@ -409,16 +410,35 @@ class SessionController extends ChangeNotifier {
     if (!_closed) notifyListeners();
   }
 
+  Future<void> _startAudio() async {
+    latencyMs = await audio.start(config.audioSampleRateHz);
+    _audioFramesWritten = 0;
+    _audioClock
+      ..reset()
+      ..start();
+    _writeAudio();
+    _audioTimer ??= Timer.periodic(_audioTick, (_) => _writeAudio());
+  }
+
+  /// Writes what playback has consumed since the output started, so a late
+  /// or skipped timer tick is made up on the next one instead of being lost.
   void _writeAudio() {
     final synth = _synth;
     if (synth == null || _finishing) return;
-    final frames = (0.05 * config.audioSampleRateHz).round();
+    final rate = config.audioSampleRateHz;
+    final due =
+        ((_audioLeadSeconds + _audioClock.elapsedMicroseconds / 1e6) * rate)
+            .round();
+    final frames = due - _audioFramesWritten;
+    if (frames <= 0) return;
+    _audioFramesWritten = due;
     audio.write(encodePcm16(synth.render(frames)));
   }
 
   void _pauseOutputs() {
     _audioTimer?.cancel();
     _audioTimer = null;
+    _audioClock.stop();
     _synth?.setAction(null);
     _source?.stop();
     audio.stop();

@@ -6,6 +6,7 @@ import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
@@ -28,10 +29,17 @@ class AudioBridge(private val activity: FlutterActivity) {
                 "start" -> start(call.argument<Int>("sampleRate") ?: 48000, result)
                 "write" -> {
                     val bytes = call.arguments as ByteArray
-                    handler.post { track?.write(bytes, 0, bytes.size) }
+                    handler.postAtTime(
+                        { track?.write(bytes, 0, bytes.size) },
+                        PENDING_WRITES,
+                        SystemClock.uptimeMillis(),
+                    )
                     result.success(null)
                 }
                 "stop" -> {
+                    // Audio still queued for the track would otherwise play
+                    // out, one blocking write at a time, before the stop.
+                    handler.removeCallbacksAndMessages(PENDING_WRITES)
                     handler.post { stopTrack() }
                     result.success(null)
                 }
@@ -74,7 +82,7 @@ class AudioBridge(private val activity: FlutterActivity) {
                         .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
                         .build(),
                 )
-                .setBufferSizeInBytes(minBuffer * 2)
+                .setBufferSizeInBytes(maxOf(minBuffer, rate * BYTES_PER_FRAME * BUFFER_MS / 1000))
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
             created.play()
@@ -125,4 +133,22 @@ class AudioBridge(private val activity: FlutterActivity) {
         track = null
     }
 
+    /// Called when the Flutter engine goes away. Nothing will write or stop
+    /// the track after that, so it is released here.
+    fun dispose() {
+        handler.removeCallbacksAndMessages(null)
+        handler.post {
+            stopTest()
+            stopTrack()
+        }
+        thread.quitSafely()
+    }
+
+    private companion object {
+        val PENDING_WRITES = Any()
+        const val BYTES_PER_FRAME = 4
+
+        /// Holds the controller's 150 ms lead plus one 50 ms write.
+        const val BUFFER_MS = 250
+    }
 }
