@@ -16,6 +16,9 @@ import '../ui/session_page.dart';
 /// every gap is heard as a click.
 const _audioLeadSeconds = 0.15;
 const _audioTick = Duration(milliseconds: 50);
+// A full buffer should drain within a few audio ticks. Also bound the wait
+// if the platform channel never replies, so recording cannot run silently.
+const _audioWriteTimeout = Duration(seconds: 2);
 
 class SessionController extends ChangeNotifier {
   SessionController({
@@ -397,7 +400,9 @@ class SessionController extends ChangeNotifier {
 
   void _releaseFrames() {
     final current = engine;
-    if (current == null || _closed || _finishing) return;
+    // Do not advance or score the protocol while audio acceptance is unknown.
+    // Frames stay queued until the packet succeeds or the watchdog aborts.
+    if (current == null || _closed || _finishing || _audioWritePending) return;
     final ready = _optics.takeReady(config);
     if (ready.isEmpty) return;
     for (final scored in ready) {
@@ -445,7 +450,9 @@ class SessionController extends ChangeNotifier {
     int generation,
   ) async {
     try {
-      await audio.write(encodePcm16(synth.render(frames)));
+      await audio
+          .write(encodePcm16(synth.render(frames)))
+          .timeout(_audioWriteTimeout);
     } catch (failure) {
       if (generation != _audioGeneration || _closed || _finishing) return;
       engine?.abort(StopReason.audioLost, 'Ljudutgången slutade fungera.');
@@ -453,6 +460,7 @@ class SessionController extends ChangeNotifier {
       _finishInBackground();
     } finally {
       _audioWritePending = false;
+      if (generation == _audioGeneration) _releaseFrames();
     }
   }
 

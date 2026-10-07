@@ -6,6 +6,7 @@ import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
@@ -28,6 +29,7 @@ class AudioBridge(private val activity: FlutterActivity) {
 
     private class PendingWrite(val bytes: ByteArray, val result: MethodChannel.Result) {
         var offset = 0
+        var lastProgressMs = SystemClock.elapsedRealtime()
     }
 
     fun register(messenger: BinaryMessenger) {
@@ -123,13 +125,19 @@ class AudioBridge(private val activity: FlutterActivity) {
                     AudioTrack.WRITE_NON_BLOCKING,
                 )
                 check(written >= 0) { "AudioTrack.write failed: $written" }
-                pending.offset += written
+                if (written > 0) {
+                    pending.offset += written
+                    pending.lastProgressMs = SystemClock.elapsedRealtime()
+                }
             }
             if (pending.offset == pending.bytes.size) {
                 pendingWrite = null
                 // Backpressure: acknowledge only after AudioTrack accepts the packet.
                 activity.runOnUiThread { pending.result.success(null) }
             } else {
+                check(SystemClock.elapsedRealtime() - pending.lastProgressMs < WRITE_STALL_MS) {
+                    "Audio output stopped accepting PCM data"
+                }
                 // A full output buffer must not prevent stop/dispose from running.
                 handler.postDelayed(drain, 10)
             }
@@ -200,6 +208,7 @@ class AudioBridge(private val activity: FlutterActivity) {
 
     private companion object {
         const val BYTES_PER_FRAME = 4
+        const val WRITE_STALL_MS = 1000L
 
         /// Holds the controller's 150 ms lead plus one 50 ms write.
         const val BUFFER_MS = 250

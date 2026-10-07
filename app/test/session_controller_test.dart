@@ -533,4 +533,72 @@ void main() {
       );
     },
   );
+
+  test(
+    'a stalled audio write aborts and saves instead of completing',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final audio = _SlowAudio();
+      final muse = _Muse();
+      final session = await _startMuseSession(database, muse, audio: audio);
+      addTearDown(session.dispose);
+      final source = SimulatorSource(
+        config: shortProtocol,
+        sampleRateHz: 256,
+        seed: 1,
+      );
+      // EEG keeps arriving while the platform never acknowledges the first
+      // silent packet. The watchdog must abort before any block can complete.
+      muse.stream(source, 40, 300);
+      await until(() => session.saved);
+
+      expect(session.engine!.phase, SessionPhase.stopped);
+      expect(session.engine!.stopReason, StopReason.audioLost);
+      expect(session.error, contains('Ljudutgången slutade fungera'));
+      expect(audio.packets, hasLength(1));
+      expect(audio.pending, isNull);
+      expect(audio.playing, isFalse);
+      final saved = (await session.repository.listSessions()).single;
+      expect(saved.status, 'stopped');
+      expect(saved.manifest.stopReason, 'audioLost');
+      expect(
+        saved.decisions.every((decision) => !decision.updatedBandit),
+        isTrue,
+      );
+
+      // Late data cannot turn the aborted session into a completed one.
+      muse.stream(source, 28, 300);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(session.engine!.phase, SessionPhase.stopped);
+      expect(audio.packets, hasLength(1));
+    },
+  );
+  test(
+    'frames wait for audio and resume scoring when it accepts data',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final audio = _SlowAudio();
+      final muse = _Muse();
+      final session = await _startMuseSession(database, muse, audio: audio);
+      addTearDown(session.dispose);
+      muse.stream(
+        SimulatorSource(config: shortProtocol, sampleRateHz: 256, seed: 1),
+        12,
+        300,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+      expect(session.engine!.frames, isEmpty);
+      expect(session.engine!.phase, SessionPhase.baseline);
+
+      await until(() {
+        if (audio.pending != null) audio.accept();
+        return session.engine!.phase == SessionPhase.sound;
+      });
+      expect(session.engine!.frames.length, greaterThanOrEqualTo(9));
+      expect(session.error, isNull);
+      await session.finish();
+    },
+  );
 }
