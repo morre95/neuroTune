@@ -6,7 +6,6 @@ import android.media.AudioTrack
 import android.media.MediaPlayer
 import android.os.Handler
 import android.os.HandlerThread
-import android.os.SystemClock
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
@@ -22,6 +21,14 @@ class AudioBridge(private val activity: FlutterActivity) {
     private val handler = Handler(thread.looper)
     private var track: AudioTrack? = null
     private var testPlayer: MediaPlayer? = null
+    // Confined to the audio handler. Only one bounded packet may be pending.
+    private var pendingWrite: PendingWrite? = null
+    private var maxWriteBytes = 0
+    private val drain = Runnable { drainWrite() }
+
+    private class PendingWrite(val bytes: ByteArray, val result: MethodChannel.Result) {
+        var offset = 0
+    }
 
     fun register(messenger: BinaryMessenger) {
         MethodChannel(messenger, "dev.neurotune/audio").setMethodCallHandler { call, result ->
@@ -29,19 +36,13 @@ class AudioBridge(private val activity: FlutterActivity) {
                 "start" -> start(call.argument<Int>("sampleRate") ?: 48000, result)
                 "write" -> {
                     val bytes = call.arguments as ByteArray
-                    handler.postAtTime(
-                        { track?.write(bytes, 0, bytes.size) },
-                        PENDING_WRITES,
-                        SystemClock.uptimeMillis(),
-                    )
-                    result.success(null)
+                    handler.post { enqueueWrite(bytes, result) }
                 }
                 "stop" -> {
-                    // Audio still queued for the track would otherwise play
-                    // out, one blocking write at a time, before the stop.
-                    handler.removeCallbacksAndMessages(PENDING_WRITES)
-                    handler.post { stopTrack() }
-                    result.success(null)
+                    handler.post {
+                        stopTrack()
+                        activity.runOnUiThread { result.success(null) }
+                    }
                 }
                 "startTest" -> startTest(call.argument<String>("path"), result)
                 "stopTest" -> {
@@ -65,29 +66,76 @@ class AudioBridge(private val activity: FlutterActivity) {
 
     private fun start(rate: Int, result: MethodChannel.Result) {
         handler.post {
-            stopTest()
-            stopTrack()
-            val minBuffer = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT)
-            val created = AudioTrack.Builder()
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_MEDIA)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build(),
+            try {
+                stopTest()
+                stopTrack()
+                val minBuffer = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT)
+                val created = AudioTrack.Builder()
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build(),
+                    )
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(rate)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                            .build(),
+                    )
+                    .setBufferSizeInBytes(maxOf(minBuffer, rate * BYTES_PER_FRAME * BUFFER_MS / 1000))
+                    .setTransferMode(AudioTrack.MODE_STREAM)
+                    .build()
+                track = created
+                created.play()
+                maxWriteBytes = rate * BYTES_PER_FRAME / 5 // At most 200 ms.
+                activity.runOnUiThread { result.success(null) }
+            } catch (error: Exception) {
+                runCatching { stopTrack() }
+                activity.runOnUiThread { result.error("AUDIO_START_FAILED", error.message, null) }
+            }
+        }
+    }
+
+    private fun enqueueWrite(bytes: ByteArray, result: MethodChannel.Result) {
+        val error = when {
+            track == null -> "Audio output is stopped"
+            bytes.size > maxWriteBytes || bytes.size % BYTES_PER_FRAME != 0 -> "Invalid PCM packet size"
+            pendingWrite != null -> "Audio output already has a pending packet"
+            else -> null
+        }
+        if (error != null) {
+            activity.runOnUiThread { result.error("AUDIO_WRITE_FAILED", error, null) }
+            return
+        }
+        pendingWrite = PendingWrite(bytes, result)
+        drainWrite()
+    }
+
+    private fun drainWrite() {
+        val pending = pendingWrite ?: return
+        try {
+            val current = checkNotNull(track)
+            if (pending.offset < pending.bytes.size) {
+                val written = current.write(
+                    pending.bytes, pending.offset, pending.bytes.size - pending.offset,
+                    AudioTrack.WRITE_NON_BLOCKING,
                 )
-                .setAudioFormat(
-                    AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(rate)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
-                        .build(),
-                )
-                .setBufferSizeInBytes(maxOf(minBuffer, rate * BYTES_PER_FRAME * BUFFER_MS / 1000))
-                .setTransferMode(AudioTrack.MODE_STREAM)
-                .build()
-            created.play()
-            track = created
-            activity.runOnUiThread { result.success(null) }
+                check(written >= 0) { "AudioTrack.write failed: $written" }
+                pending.offset += written
+            }
+            if (pending.offset == pending.bytes.size) {
+                pendingWrite = null
+                // Backpressure: acknowledge only after AudioTrack accepts the packet.
+                activity.runOnUiThread { pending.result.success(null) }
+            } else {
+                // A full output buffer must not prevent stop/dispose from running.
+                handler.postDelayed(drain, 10)
+            }
+        } catch (error: Exception) {
+            pendingWrite = null
+            activity.runOnUiThread { pending.result.error("AUDIO_WRITE_FAILED", error.message, null) }
         }
     }
 
@@ -127,6 +175,12 @@ class AudioBridge(private val activity: FlutterActivity) {
     }
 
     private fun stopTrack() {
+        handler.removeCallbacks(drain)
+        val pending = pendingWrite
+        pendingWrite = null
+        if (pending != null) {
+            activity.runOnUiThread { pending.result.success(null) }
+        }
         track?.pause()
         track?.flush()
         track?.release()
@@ -145,7 +199,6 @@ class AudioBridge(private val activity: FlutterActivity) {
     }
 
     private companion object {
-        val PENDING_WRITES = Any()
         const val BYTES_PER_FRAME = 4
 
         /// Holds the controller's 150 ms lead plus one 50 ms write.

@@ -30,6 +30,38 @@ class _Audio implements PcmOutput {
   Future<void> stop() async => playing = false;
 }
 
+/// Holds each write until the output has room, as a full AudioTrack does.
+class _SlowAudio extends _Audio {
+  final packets = <int>[];
+  Completer<void>? pending;
+
+  @override
+  Future<void> write(Uint8List pcm16) {
+    if (pending != null) throw StateError('concurrent audio writes');
+    packets.add(pcm16.length);
+    pending = Completer<void>();
+    return pending!.future;
+  }
+
+  void accept() {
+    final write = pending!;
+    pending = null;
+    write.complete();
+  }
+
+  void fail() {
+    final write = pending!;
+    pending = null;
+    write.completeError(StateError('audio device failed'));
+  }
+
+  @override
+  Future<void> stop() async {
+    if (pending != null) accept();
+    await super.stop();
+  }
+}
+
 class _FailingKeepAlive implements SessionKeepAlive {
   @override
   Future<void> start() async => throw StateError('foreground service refused');
@@ -456,4 +488,49 @@ void main() {
     expect(audio.playing, isFalse);
     expect(audio.bytesWritten, written);
   });
+
+  test('slow audio stays bounded and does not replay a long backlog', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final audio = _SlowAudio();
+    final session = await _startMuseSession(database, _Muse(), audio: audio);
+    addTearDown(session.dispose);
+
+    // Several timer ticks pass while the native buffer cannot accept data.
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    expect(audio.packets, hasLength(1));
+    audio.accept();
+    await until(() => audio.packets.length == 2);
+    // Even after a long stall, each packet is at most 200 ms of stereo PCM.
+    expect(audio.packets.every((bytes) => bytes <= 48000 * 4 ~/ 5), isTrue);
+    expect(audio.packets.last, 48000 * 4 ~/ 5);
+
+    // Stopping releases the outstanding write and produces no more packets.
+    await session.finish();
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    expect(audio.pending, isNull);
+    expect(audio.packets, hasLength(2));
+    expect(audio.playing, isFalse);
+  });
+
+  test(
+    'audio write failure ends and saves the session without escaping',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final audio = _SlowAudio();
+      final session = await _startMuseSession(database, _Muse(), audio: audio);
+      addTearDown(session.dispose);
+
+      audio.fail();
+      await until(() => session.saved);
+      expect(session.engine!.stopReason, StopReason.audioLost);
+      expect(session.error, contains('Ljudutgången slutade fungera'));
+      expect(audio.playing, isFalse);
+      expect(
+        (await session.repository.listSessions()).single.manifest.stopReason,
+        'audioLost',
+      );
+    },
+  );
 }

@@ -12,6 +12,9 @@ const _sessionMethods = MethodChannel('dev.neurotune/session');
 /// Plays stereo PCM for a session.
 abstract class PcmOutput {
   Future<double?> start(int sampleRate);
+
+  /// Completes when the output accepts the packet, providing backpressure.
+  /// Only one write may be in flight; stop must release a pending write.
   Future<void> write(Uint8List pcm16);
   Future<void> stop();
 }

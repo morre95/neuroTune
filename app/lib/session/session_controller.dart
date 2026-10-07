@@ -67,6 +67,8 @@ class SessionController extends ChangeNotifier {
   Timer? _audioTimer;
   final Stopwatch _audioClock = Stopwatch();
   var _audioFramesWritten = 0;
+  var _audioWritePending = false;
+  var _audioGeneration = 0;
   BinauralSynth? _synth;
   Future<void>? _finish;
   Future<void>? _resuming;
@@ -420,22 +422,42 @@ class SessionController extends ChangeNotifier {
     _audioTimer ??= Timer.periodic(_audioTick, (_) => _writeAudio());
   }
 
-  /// Writes what playback has consumed since the output started, so a late
-  /// or skipped timer tick is made up on the next one instead of being lost.
+  /// Keep one packet in flight and drop stale backlog after a long delay.
+  /// The native output completes write only once its buffer accepts the data.
   void _writeAudio() {
     final synth = _synth;
-    if (synth == null || _finishing) return;
+    if (synth == null || _finishing || _closed || _audioWritePending) return;
     final rate = config.audioSampleRateHz;
     final due =
         ((_audioLeadSeconds + _audioClock.elapsedMicroseconds / 1e6) * rate)
             .round();
-    final frames = due - _audioFramesWritten;
+    final frames = min(due - _audioFramesWritten, (rate * 0.2).round());
     if (frames <= 0) return;
     _audioFramesWritten = due;
-    audio.write(encodePcm16(synth.render(frames)));
+    final generation = _audioGeneration;
+    _audioWritePending = true;
+    unawaited(_sendAudio(synth, frames, generation));
+  }
+
+  Future<void> _sendAudio(
+    BinauralSynth synth,
+    int frames,
+    int generation,
+  ) async {
+    try {
+      await audio.write(encodePcm16(synth.render(frames)));
+    } catch (failure) {
+      if (generation != _audioGeneration || _closed || _finishing) return;
+      engine?.abort(StopReason.audioLost, 'Ljudutgången slutade fungera.');
+      error = 'Ljudutgången slutade fungera: $failure';
+      _finishInBackground();
+    } finally {
+      _audioWritePending = false;
+    }
   }
 
   void _pauseOutputs() {
+    _audioGeneration += 1;
     _audioTimer?.cancel();
     _audioTimer = null;
     _audioClock.stop();
