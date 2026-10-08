@@ -46,8 +46,41 @@ class ApiClient {
   final String baseUrl;
   final http.Client _http;
   final Duration requestTimeout;
-  String? accessToken;
+  String? _accessToken;
   String? refreshToken;
+  int _authGeneration = 0;
+  int get authGeneration => _authGeneration;
+  String? get accessToken => _accessToken;
+  set accessToken(String? value) {
+    if (_accessToken != value) {
+      _authGeneration++;
+      _refreshing = null;
+    }
+    _accessToken = value;
+  }
+
+  String? get accountId {
+    try {
+      final payload =
+          jsonDecode(
+                utf8.decode(
+                  base64Url.decode(
+                    base64Url.normalize(accessToken!.split('.')[1]),
+                  ),
+                ),
+              )
+              as Map;
+      final sub = payload['sub'];
+      return sub is String && isAccountUuid(sub) ? sub : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _checkGeneration(int generation) {
+    if (_authGeneration != generation) throw StateError('Account changed');
+  }
+
   Future<void> Function(String access, String refresh)? onTokensRefreshed;
   Future<void>? _refreshing;
 
@@ -58,6 +91,8 @@ class ApiClient {
       _tokens('/v1/auth/login', email, password);
 
   Future<AuthTokens> _tokens(String path, String email, String password) async {
+    final generation = ++_authGeneration;
+    _refreshing = null;
     final response = await _http
         .post(
           Uri.parse('$baseUrl$path'),
@@ -67,7 +102,8 @@ class ApiClient {
         .timeout(requestTimeout);
     _expect(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    accessToken = json['access_token'] as String;
+    _checkGeneration(generation);
+    _accessToken = json['access_token'] as String;
     refreshToken = json['refresh_token'] as String;
     return AuthTokens(
       accessToken: accessToken!,
@@ -77,6 +113,7 @@ class ApiClient {
   }
 
   Future<void> refresh() async {
+    final generation = _authGeneration;
     final currentRefresh = refreshToken;
     if (currentRefresh == null) throw StateError('No refresh token');
     final response = await _http
@@ -88,9 +125,10 @@ class ApiClient {
         .timeout(requestTimeout);
     _expect(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
+    _checkGeneration(generation);
     final nextAccess = json['access_token'] as String;
     final nextRefresh = json['refresh_token'] as String;
-    accessToken = nextAccess;
+    _accessToken = nextAccess;
     refreshToken = nextRefresh;
     await onTokensRefreshed?.call(nextAccess, nextRefresh);
   }
@@ -100,7 +138,9 @@ class ApiClient {
     if (active != null) return active;
     final next = refresh();
     _refreshing = next;
-    return next.whenComplete(() => _refreshing = null);
+    return next.whenComplete(() {
+      if (identical(_refreshing, next)) _refreshing = null;
+    });
   }
 
   Future<void> logout() async {
@@ -110,6 +150,56 @@ class ApiClient {
     _expect(response);
     accessToken = null;
     refreshToken = null;
+  }
+
+  Future<List<AudioProfileVersion>> audioProfiles() async {
+    final response = await _send('GET', '/v1/audio/profiles');
+    _expect(response);
+    return [
+      for (final json in jsonDecode(response.body) as List)
+        AudioProfileVersion.fromJson(Map<String, dynamic>.from(json as Map)),
+    ];
+  }
+
+  Future<http.StreamedResponse> audioProfileStream(
+    String versionId, {
+    bool preview = false,
+    required Future<void> abortTrigger,
+  }) async {
+    if (!isAccountUuid(versionId)) throw ArgumentError('Invalid version');
+    final generation = _authGeneration;
+    final usedAccess = accessToken;
+    Future<http.StreamedResponse> request() {
+      final req = http.AbortableRequest(
+        'GET',
+        Uri.parse(
+          '$baseUrl/v1/audio/profiles/versions/$versionId/${preview ? 'preview' : 'download'}',
+        ),
+        abortTrigger: abortTrigger,
+      );
+      if (accessToken != null) {
+        req.headers['authorization'] = 'Bearer $accessToken';
+      }
+      return _http.send(req).timeout(requestTimeout);
+    }
+
+    var response = await request();
+    _checkGeneration(generation);
+    if (response.statusCode == 401 &&
+        usedAccess != null &&
+        refreshToken != null) {
+      await response.stream.drain<void>();
+      if (accessToken == usedAccess) await _refreshOnce();
+      _checkGeneration(generation);
+      response = await request();
+      _checkGeneration(generation);
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final status = response.statusCode;
+      await response.stream.drain<void>();
+      throw ApiException(status, 'Audio unavailable');
+    }
+    return response;
   }
 
   Future<ExperimentConfig> activeExperiment() async {
@@ -184,13 +274,17 @@ class ApiClient {
     String path, [
     Map<String, dynamic>? body,
   ]) async {
+    final generation = _authGeneration;
     final usedAccess = accessToken;
     var response = await _request(method, path, body);
+    _checkGeneration(generation);
     if (response.statusCode == 401 &&
         usedAccess != null &&
         refreshToken != null) {
       if (accessToken == usedAccess) await _refreshOnce();
+      _checkGeneration(generation);
       response = await _request(method, path, body);
+      _checkGeneration(generation);
     }
     return response;
   }

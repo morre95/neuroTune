@@ -27,6 +27,7 @@ class HomePage extends StatelessWidget {
     required this.onMuse,
     required this.connectingMuse,
     required this.onHistory,
+    this.onProfiles,
     required this.onLogout,
     this.message,
   });
@@ -43,6 +44,7 @@ class HomePage extends StatelessWidget {
   final VoidCallback onMuse;
   final bool connectingMuse;
   final VoidCallback onHistory;
+  final VoidCallback? onProfiles;
   final VoidCallback onLogout;
   final String? message;
 
@@ -74,10 +76,7 @@ class HomePage extends StatelessWidget {
                 value: EyeState.closed,
                 label: Text('Stängda ögon'),
               ),
-              ButtonSegment(
-                value: EyeState.open, 
-                label: Text('Öppna ögon')
-              ),
+              ButtonSegment(value: EyeState.open, label: Text('Öppna ögon')),
             ],
             selected: {eyeState},
             onSelectionChanged: (value) => onEyeState(value.single),
@@ -122,6 +121,11 @@ class HomePage extends StatelessWidget {
               ),
             ),
           const SizedBox(height: 16),
+          if (onProfiles != null)
+            TextButton(
+              onPressed: onProfiles,
+              child: const Text('Ljudprofiler'),
+            ),
           TextButton(
             onPressed: onHistory,
             child: const Text('Sessionshistorik'),

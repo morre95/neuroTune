@@ -1298,12 +1298,347 @@ class KvStoreCompanion extends UpdateCompanion<KvStoreData> {
   }
 }
 
+class $CachedAudioProfilesTable extends CachedAudioProfiles
+    with TableInfo<$CachedAudioProfilesTable, CachedAudioProfile> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedAudioProfilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerAccountIdMeta = const VerificationMeta(
+    'ownerAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerAccountId = GeneratedColumn<String>(
+    'owner_account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _versionIdMeta = const VerificationMeta(
+    'versionId',
+  );
+  @override
+  late final GeneratedColumn<String> versionId = GeneratedColumn<String>(
+    'version_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _metadataJsonMeta = const VerificationMeta(
+    'metadataJson',
+  );
+  @override
+  late final GeneratedColumn<String> metadataJson = GeneratedColumn<String>(
+    'metadata_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _readyPathMeta = const VerificationMeta(
+    'readyPath',
+  );
+  @override
+  late final GeneratedColumn<String> readyPath = GeneratedColumn<String>(
+    'ready_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerAccountId,
+    versionId,
+    metadataJson,
+    readyPath,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_audio_profiles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CachedAudioProfile> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_account_id')) {
+      context.handle(
+        _ownerAccountIdMeta,
+        ownerAccountId.isAcceptableOrUnknown(
+          data['owner_account_id']!,
+          _ownerAccountIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerAccountIdMeta);
+    }
+    if (data.containsKey('version_id')) {
+      context.handle(
+        _versionIdMeta,
+        versionId.isAcceptableOrUnknown(data['version_id']!, _versionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_versionIdMeta);
+    }
+    if (data.containsKey('metadata_json')) {
+      context.handle(
+        _metadataJsonMeta,
+        metadataJson.isAcceptableOrUnknown(
+          data['metadata_json']!,
+          _metadataJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_metadataJsonMeta);
+    }
+    if (data.containsKey('ready_path')) {
+      context.handle(
+        _readyPathMeta,
+        readyPath.isAcceptableOrUnknown(data['ready_path']!, _readyPathMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerAccountId, versionId};
+  @override
+  CachedAudioProfile map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedAudioProfile(
+      ownerAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_account_id'],
+      )!,
+      versionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}version_id'],
+      )!,
+      metadataJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}metadata_json'],
+      )!,
+      readyPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}ready_path'],
+      ),
+    );
+  }
+
+  @override
+  $CachedAudioProfilesTable createAlias(String alias) {
+    return $CachedAudioProfilesTable(attachedDatabase, alias);
+  }
+}
+
+class CachedAudioProfile extends DataClass
+    implements Insertable<CachedAudioProfile> {
+  final String ownerAccountId;
+  final String versionId;
+  final String metadataJson;
+  final String? readyPath;
+  const CachedAudioProfile({
+    required this.ownerAccountId,
+    required this.versionId,
+    required this.metadataJson,
+    this.readyPath,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_account_id'] = Variable<String>(ownerAccountId);
+    map['version_id'] = Variable<String>(versionId);
+    map['metadata_json'] = Variable<String>(metadataJson);
+    if (!nullToAbsent || readyPath != null) {
+      map['ready_path'] = Variable<String>(readyPath);
+    }
+    return map;
+  }
+
+  CachedAudioProfilesCompanion toCompanion(bool nullToAbsent) {
+    return CachedAudioProfilesCompanion(
+      ownerAccountId: Value(ownerAccountId),
+      versionId: Value(versionId),
+      metadataJson: Value(metadataJson),
+      readyPath: readyPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(readyPath),
+    );
+  }
+
+  factory CachedAudioProfile.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedAudioProfile(
+      ownerAccountId: serializer.fromJson<String>(json['ownerAccountId']),
+      versionId: serializer.fromJson<String>(json['versionId']),
+      metadataJson: serializer.fromJson<String>(json['metadataJson']),
+      readyPath: serializer.fromJson<String?>(json['readyPath']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerAccountId': serializer.toJson<String>(ownerAccountId),
+      'versionId': serializer.toJson<String>(versionId),
+      'metadataJson': serializer.toJson<String>(metadataJson),
+      'readyPath': serializer.toJson<String?>(readyPath),
+    };
+  }
+
+  CachedAudioProfile copyWith({
+    String? ownerAccountId,
+    String? versionId,
+    String? metadataJson,
+    Value<String?> readyPath = const Value.absent(),
+  }) => CachedAudioProfile(
+    ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+    versionId: versionId ?? this.versionId,
+    metadataJson: metadataJson ?? this.metadataJson,
+    readyPath: readyPath.present ? readyPath.value : this.readyPath,
+  );
+  CachedAudioProfile copyWithCompanion(CachedAudioProfilesCompanion data) {
+    return CachedAudioProfile(
+      ownerAccountId: data.ownerAccountId.present
+          ? data.ownerAccountId.value
+          : this.ownerAccountId,
+      versionId: data.versionId.present ? data.versionId.value : this.versionId,
+      metadataJson: data.metadataJson.present
+          ? data.metadataJson.value
+          : this.metadataJson,
+      readyPath: data.readyPath.present ? data.readyPath.value : this.readyPath,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedAudioProfile(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('versionId: $versionId, ')
+          ..write('metadataJson: $metadataJson, ')
+          ..write('readyPath: $readyPath')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(ownerAccountId, versionId, metadataJson, readyPath);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedAudioProfile &&
+          other.ownerAccountId == this.ownerAccountId &&
+          other.versionId == this.versionId &&
+          other.metadataJson == this.metadataJson &&
+          other.readyPath == this.readyPath);
+}
+
+class CachedAudioProfilesCompanion extends UpdateCompanion<CachedAudioProfile> {
+  final Value<String> ownerAccountId;
+  final Value<String> versionId;
+  final Value<String> metadataJson;
+  final Value<String?> readyPath;
+  final Value<int> rowid;
+  const CachedAudioProfilesCompanion({
+    this.ownerAccountId = const Value.absent(),
+    this.versionId = const Value.absent(),
+    this.metadataJson = const Value.absent(),
+    this.readyPath = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedAudioProfilesCompanion.insert({
+    required String ownerAccountId,
+    required String versionId,
+    required String metadataJson,
+    this.readyPath = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerAccountId = Value(ownerAccountId),
+       versionId = Value(versionId),
+       metadataJson = Value(metadataJson);
+  static Insertable<CachedAudioProfile> custom({
+    Expression<String>? ownerAccountId,
+    Expression<String>? versionId,
+    Expression<String>? metadataJson,
+    Expression<String>? readyPath,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerAccountId != null) 'owner_account_id': ownerAccountId,
+      if (versionId != null) 'version_id': versionId,
+      if (metadataJson != null) 'metadata_json': metadataJson,
+      if (readyPath != null) 'ready_path': readyPath,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedAudioProfilesCompanion copyWith({
+    Value<String>? ownerAccountId,
+    Value<String>? versionId,
+    Value<String>? metadataJson,
+    Value<String?>? readyPath,
+    Value<int>? rowid,
+  }) {
+    return CachedAudioProfilesCompanion(
+      ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+      versionId: versionId ?? this.versionId,
+      metadataJson: metadataJson ?? this.metadataJson,
+      readyPath: readyPath ?? this.readyPath,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerAccountId.present) {
+      map['owner_account_id'] = Variable<String>(ownerAccountId.value);
+    }
+    if (versionId.present) {
+      map['version_id'] = Variable<String>(versionId.value);
+    }
+    if (metadataJson.present) {
+      map['metadata_json'] = Variable<String>(metadataJson.value);
+    }
+    if (readyPath.present) {
+      map['ready_path'] = Variable<String>(readyPath.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedAudioProfilesCompanion(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('versionId: $versionId, ')
+          ..write('metadataJson: $metadataJson, ')
+          ..write('readyPath: $readyPath, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $StoredSessionsTable storedSessions = $StoredSessionsTable(this);
   late final $UploadJobsTable uploadJobs = $UploadJobsTable(this);
   late final $KvStoreTable kvStore = $KvStoreTable(this);
+  late final $CachedAudioProfilesTable cachedAudioProfiles =
+      $CachedAudioProfilesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1312,6 +1647,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     storedSessions,
     uploadJobs,
     kvStore,
+    cachedAudioProfiles,
   ];
 }
 
@@ -1990,6 +2326,207 @@ typedef $$KvStoreTableProcessedTableManager =
       KvStoreData,
       PrefetchHooks Function()
     >;
+typedef $$CachedAudioProfilesTableCreateCompanionBuilder =
+    CachedAudioProfilesCompanion Function({
+      required String ownerAccountId,
+      required String versionId,
+      required String metadataJson,
+      Value<String?> readyPath,
+      Value<int> rowid,
+    });
+typedef $$CachedAudioProfilesTableUpdateCompanionBuilder =
+    CachedAudioProfilesCompanion Function({
+      Value<String> ownerAccountId,
+      Value<String> versionId,
+      Value<String> metadataJson,
+      Value<String?> readyPath,
+      Value<int> rowid,
+    });
+
+class $$CachedAudioProfilesTableFilterComposer
+    extends Composer<_$AppDatabase, $CachedAudioProfilesTable> {
+  $$CachedAudioProfilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get versionId => $composableBuilder(
+    column: $table.versionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get metadataJson => $composableBuilder(
+    column: $table.metadataJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get readyPath => $composableBuilder(
+    column: $table.readyPath,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CachedAudioProfilesTableOrderingComposer
+    extends Composer<_$AppDatabase, $CachedAudioProfilesTable> {
+  $$CachedAudioProfilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get versionId => $composableBuilder(
+    column: $table.versionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get metadataJson => $composableBuilder(
+    column: $table.metadataJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get readyPath => $composableBuilder(
+    column: $table.readyPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CachedAudioProfilesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CachedAudioProfilesTable> {
+  $$CachedAudioProfilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get versionId =>
+      $composableBuilder(column: $table.versionId, builder: (column) => column);
+
+  GeneratedColumn<String> get metadataJson => $composableBuilder(
+    column: $table.metadataJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get readyPath =>
+      $composableBuilder(column: $table.readyPath, builder: (column) => column);
+}
+
+class $$CachedAudioProfilesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CachedAudioProfilesTable,
+          CachedAudioProfile,
+          $$CachedAudioProfilesTableFilterComposer,
+          $$CachedAudioProfilesTableOrderingComposer,
+          $$CachedAudioProfilesTableAnnotationComposer,
+          $$CachedAudioProfilesTableCreateCompanionBuilder,
+          $$CachedAudioProfilesTableUpdateCompanionBuilder,
+          (
+            CachedAudioProfile,
+            BaseReferences<
+              _$AppDatabase,
+              $CachedAudioProfilesTable,
+              CachedAudioProfile
+            >,
+          ),
+          CachedAudioProfile,
+          PrefetchHooks Function()
+        > {
+  $$CachedAudioProfilesTableTableManager(
+    _$AppDatabase db,
+    $CachedAudioProfilesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedAudioProfilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CachedAudioProfilesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CachedAudioProfilesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerAccountId = const Value.absent(),
+                Value<String> versionId = const Value.absent(),
+                Value<String> metadataJson = const Value.absent(),
+                Value<String?> readyPath = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedAudioProfilesCompanion(
+                ownerAccountId: ownerAccountId,
+                versionId: versionId,
+                metadataJson: metadataJson,
+                readyPath: readyPath,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerAccountId,
+                required String versionId,
+                required String metadataJson,
+                Value<String?> readyPath = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedAudioProfilesCompanion.insert(
+                ownerAccountId: ownerAccountId,
+                versionId: versionId,
+                metadataJson: metadataJson,
+                readyPath: readyPath,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CachedAudioProfilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CachedAudioProfilesTable,
+      CachedAudioProfile,
+      $$CachedAudioProfilesTableFilterComposer,
+      $$CachedAudioProfilesTableOrderingComposer,
+      $$CachedAudioProfilesTableAnnotationComposer,
+      $$CachedAudioProfilesTableCreateCompanionBuilder,
+      $$CachedAudioProfilesTableUpdateCompanionBuilder,
+      (
+        CachedAudioProfile,
+        BaseReferences<
+          _$AppDatabase,
+          $CachedAudioProfilesTable,
+          CachedAudioProfile
+        >,
+      ),
+      CachedAudioProfile,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2000,4 +2537,6 @@ class $AppDatabaseManager {
       $$UploadJobsTableTableManager(_db, _db.uploadJobs);
   $$KvStoreTableTableManager get kvStore =>
       $$KvStoreTableTableManager(_db, _db.kvStore);
+  $$CachedAudioProfilesTableTableManager get cachedAudioProfiles =>
+      $$CachedAudioProfilesTableTableManager(_db, _db.cachedAudioProfiles);
 }

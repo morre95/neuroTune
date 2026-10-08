@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 
 import 'data/api_client.dart';
@@ -13,6 +14,8 @@ import 'data/auth_store.dart';
 import 'data/database.dart';
 import 'data/repository.dart';
 import 'data/upload_sync.dart';
+import 'data/profile_library.dart';
+import 'ui/profiles_page.dart';
 import 'platform/channels.dart';
 import 'session/session_controller.dart';
 import 'ui/auth_page.dart';
@@ -40,7 +43,7 @@ void main() {
   );
 }
 
-enum _Screen { auth, home, contact, session, history, playback }
+enum _Screen { auth, home, contact, session, history, playback, profiles }
 
 typedef _Remote = ({
   ExperimentConfig config,
@@ -97,6 +100,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   var _stereoTestBusy = false;
   Future<void>? _stereoTestStart;
   SessionController? _session;
+  ProfileLibrary? _profileLibrary;
   var _endingSession = false;
 
   /// Starting waits on the network, the DSP isolate and the foreground
@@ -322,6 +326,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _logout() async {
+    await _profileLibrary?.close();
+    _profileLibrary = null;
     _uploadRetryTimer?.cancel();
     _uploadRetryTimer = null;
     _uploadSync.cancel();
@@ -336,6 +342,41 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     widget.api.accessToken = null;
     widget.api.refreshToken = null;
     setState(() => _screen = _Screen.auth);
+  }
+
+  Future<void> _openProfiles() async {
+    final owner = widget.api.accountId;
+    if (owner == null) {
+      setState(() => _error = 'Kontot kunde inte identifieras. Logga in igen.');
+      return;
+    }
+    final generation = widget.api.authGeneration;
+    await _stopStereoTest();
+    final dir = await getApplicationSupportDirectory();
+    if (!mounted ||
+        generation != widget.api.authGeneration ||
+        _screen != _Screen.home) {
+      return;
+    }
+    _profileLibrary ??= ProfileLibrary(
+      database: widget.database,
+      api: widget.api,
+      directory: dir,
+      ownerAccountId: owner,
+      audio: widget.audio,
+      audioBusy: () =>
+          _session != null ||
+          _startingSession ||
+          _stereoTestPlaying ||
+          _stereoTestBusy,
+    );
+    setState(() => _screen = _Screen.profiles);
+    await _profileLibrary!.refresh();
+  }
+
+  Future<void> _leaveProfiles() async {
+    await _profileLibrary?.stopPreview();
+    if (mounted) setState(() => _screen = _Screen.home);
   }
 
   void _openContact() {
@@ -582,10 +623,13 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     _uploadSync.cancel();
     widget.api.onTokensRefreshed = null;
     unawaited(_stereoTest.stop());
+    unawaited(() async {
+      await _profileLibrary?.close();
+      await widget.database.close();
+    }());
     _previewSub?.cancel();
     _preview?.stop();
     _session?.dispose();
-    widget.database.close();
     super.dispose();
   }
 
@@ -597,9 +641,17 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1F6F6A)),
         useMaterial3: true,
       ),
-      home: !_ready
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : _page(),
+      home: PopScope(
+        canPop: _screen != _Screen.profiles,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop && _screen == _Screen.profiles) {
+            unawaited(_leaveProfiles());
+          }
+        },
+        child: !_ready
+            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+            : _page(),
+      ),
     );
   }
 
@@ -619,6 +671,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         onMuse: _muse,
         connectingMuse: _connectingMuse,
         onHistory: _openHistory,
+        onProfiles: _openProfiles,
         onLogout: _logout,
         message: _error,
       ),
@@ -653,6 +706,15 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
           _screen = _Screen.playback;
         }),
         onBack: () => setState(() => _screen = _Screen.home),
+      ),
+      _Screen.profiles => ProfilesPage(
+        library: _profileLibrary!,
+        onBack: _leaveProfiles,
+        audioBusy:
+            _session != null ||
+            _startingSession ||
+            _stereoTestPlaying ||
+            _stereoTestBusy,
       ),
       _Screen.playback => PlaybackPage(
         session: _playback!,

@@ -8,6 +8,33 @@ import 'package:neurotune/data/api_client.dart';
 
 void main() {
   test(
+    'obsolete refresh cannot install tokens into a different account',
+    () async {
+      final pending = Completer<http.Response>();
+      final api =
+          ApiClient(
+              baseUrl: 'http://unused',
+              httpClient: MockClient((_) => pending.future),
+            )
+            ..accessToken = 'old-access'
+            ..refreshToken = 'old-refresh';
+      final refresh = api.refresh();
+      final failure = expectLater(refresh, throwsStateError);
+      api.accessToken = 'new-account-access';
+      api.refreshToken = 'new-account-refresh';
+      pending.complete(
+        http.Response(
+          '{"access_token":"obsolete","refresh_token":"obsolete-refresh"}',
+          200,
+        ),
+      );
+      await failure;
+      expect(api.accessToken, 'new-account-access');
+      expect(api.refreshToken, 'new-account-refresh');
+    },
+  );
+
+  test(
     'bulk deletion sends selected IDs and requires complete confirmation',
     () async {
       var complete = true;

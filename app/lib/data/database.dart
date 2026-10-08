@@ -40,19 +40,31 @@ class KvStore extends Table {
   Set<Column<Object>> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [StoredSessions, UploadJobs, KvStore])
+class CachedAudioProfiles extends Table {
+  TextColumn get ownerAccountId => text()();
+  TextColumn get versionId => text()();
+  TextColumn get metadataJson => text()();
+  TextColumn get readyPath => text().nullable()();
+  @override
+  Set<Column<Object>> get primaryKey => {ownerAccountId, versionId};
+}
+
+@DriftDatabase(
+  tables: [StoredSessions, UploadJobs, KvStore, CachedAudioProfiles],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(executor ?? driftDatabase(name: 'neurotune'));
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async => m.createAll(),
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.addColumn(uploadJobs, uploadJobs.ownerEmail);
+      if (from < 3) await m.createTable(cachedAudioProfiles);
     },
   );
 
