@@ -165,6 +165,9 @@ void main() {
             (session_id, checksum, payload_path, state)
             VALUES ('legacy', 'checksum', '/tmp/legacy.bin', 'pending')
           ''');
+          sqlite.execute(
+            'CREATE TABLE kv_store (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL)',
+          );
           sqlite.execute('PRAGMA user_version = 1');
         },
       ),

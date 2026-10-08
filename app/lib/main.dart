@@ -267,12 +267,34 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _syncSessions() async {
-    final owner = _auth!.email;
-    await _uploadSync.flush(owner);
-    if (!mounted || _auth?.email != owner || _screen != _Screen.history) return;
-    final pending = await _repository.pendingDeletions(owner);
-    if (!mounted) return;
+    final email = _auth?.email;
+    if (email == null) return;
+    final owner = widget.api.accountId;
+    final authentication = widget.api.authGeneration;
+    bool authenticated() =>
+        mounted &&
+        _auth?.email == email &&
+        widget.api.accountId == owner &&
+        widget.api.authGeneration == authentication;
+    await _uploadSync.flush(email);
+    if (!authenticated() || _screen != _Screen.history) return;
+    final navigation = _experimentNavigationGeneration;
+    bool current() =>
+        authenticated() &&
+        _screen == _Screen.history &&
+        _experimentNavigationGeneration == navigation;
+    // A server tombstone may have retired evidence while this page was open.
+    await _loadCalibration(stillCurrent: current);
+    if (!current()) return;
+    final history = await _repository.listOwnedSessions(email);
+    if (!current()) return;
+    final pending = await _repository.pendingDeletions(
+      email,
+      ownerAccountId: owner,
+    );
+    if (!current()) return;
     setState(() {
+      _history = history;
       if (pending.isNotEmpty) {
         _historyMessage =
             '${pending.length} raderingar väntar på synk med backenden.';
@@ -1212,21 +1234,43 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _deleteSessions(List<String> ids) async {
-    if (_deletingSessions) return;
+    final email = _auth?.email, owner = widget.api.accountId;
+    if (_deletingSessions || email == null) return;
+    final authentication = widget.api.authGeneration;
+    final navigation = _experimentNavigationGeneration;
+    bool current() =>
+        mounted &&
+        _auth?.email == email &&
+        widget.api.accountId == owner &&
+        widget.api.authGeneration == authentication &&
+        _experimentNavigationGeneration == navigation &&
+        _screen == _Screen.history;
     _deletingSessions = true;
     try {
-      // Let any in-flight upload finish before changing its persistent job.
+      // Join uploads before changing their durable jobs, then guard the queued
+      // database transaction against an account or navigation change.
       _uploadSync.cancel();
       await _uploadSync.waitForIdle();
-      await _repository.deleteSessions(ids, _auth!.email);
+      if (!current()) return;
+      await _repository.deleteSessions(
+        ids,
+        email,
+        ownerAccountId: owner,
+        isCurrent: current,
+      );
+      if (!current()) return;
       _snapshot = null;
-      _history = await _repository.listOwnedSessions(_auth!.email);
-      if (mounted) {
-        setState(
-          () => _historyMessage =
-              'Sessionerna är raderade på mobilen. Raderingen synkas med backenden.',
-        );
-      }
+      await _loadCalibration(stillCurrent: current);
+      if (!current()) return;
+      final history = await _repository.listOwnedSessions(email);
+      if (!current()) return;
+      setState(() {
+        _history = history;
+        _preferenceChoice = null;
+        _preferenceResults = [];
+        _historyMessage =
+            'Sessionerna är raderade på mobilen. Raderingen synkas med backenden.';
+      });
       await _syncSessions();
     } finally {
       _deletingSessions = false;

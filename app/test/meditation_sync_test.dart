@@ -30,7 +30,7 @@ Future<
     String,
   )
 >
-fixture() async {
+fixture({NativeDatabase Function(File)? openDatabase}) async {
   final dir = await Directory.systemTemp.createTemp('meditation-sync');
   addTearDown(() => dir.delete(recursive: true));
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -38,7 +38,8 @@ fixture() async {
         const MethodChannel('plugins.flutter.io/path_provider'),
         (_) async => dir.path,
       );
-  final db = AppDatabase(NativeDatabase(File('${dir.path}/local.sqlite')));
+  final file = File('${dir.path}/local.sqlite');
+  final db = AppDatabase(openDatabase?.call(file) ?? NativeDatabase(file));
   addTearDown(db.close);
   final repo = SessionRepository(db);
   final calibration = CalibrationRepository(db, repo);
@@ -310,10 +311,8 @@ void main() {
       await sync.flush('owner@test');
       await sync.flush('owner@test');
       expect(calls, 1);
-      expect(
-        (await db.select(db.meditationFeedbackRows).get()).single.syncState,
-        'deleted',
-      );
+      expect(await db.select(db.meditationFeedbackRows).get(), isEmpty);
+      expect(await repo.listSessions(), isEmpty);
       expect(await db.select(db.meditationTrainingOutbox).get(), isEmpty);
     },
   );
@@ -372,6 +371,7 @@ void main() {
       final file = (await db.customSelect('PRAGMA database_list').get()).first
           .read<String>('file');
       await db.customStatement('DROP TABLE meditation_training_outbox');
+      await db.customStatement('DROP TABLE session_tombstones');
       await db.customStatement('PRAGMA user_version = 4');
       await db.close();
       final reopened = AppDatabase(NativeDatabase(File(file)));
@@ -401,7 +401,7 @@ void main() {
       expect(
         (await reopened.customSelect('PRAGMA user_version').get()).single
             .read<int>('user_version'),
-        5,
+        6,
       );
     },
   );
@@ -425,10 +425,8 @@ void main() {
       await sync.flush('owner@test');
       await sync.flush('owner@test');
       expect(calls, 1);
-      expect(
-        (await db.select(db.meditationFeedbackRows).get()).single.syncState,
-        'deleted',
-      );
+      expect(await db.select(db.meditationFeedbackRows).get(), isEmpty);
+      expect(await repo.listSessions(), isEmpty);
       expect(await db.select(db.meditationTrainingOutbox).get(), isEmpty);
     },
   );
