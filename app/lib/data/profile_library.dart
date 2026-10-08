@@ -41,8 +41,9 @@ class ProfileLibrary extends ChangeNotifier {
     this.audioBusy,
   }) : _generation = api.authGeneration {
     if (!isAccountUuid(ownerAccountId) ||
-        (api.accountId != null && api.accountId != ownerAccountId))
+        (api.accountId != null && api.accountId != ownerAccountId)) {
       throw ArgumentError('Invalid account');
+    }
   }
   final AppDatabase database;
   final ApiClient api;

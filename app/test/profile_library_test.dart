@@ -167,10 +167,11 @@ void main() {
         await tester.tap(find.text('Ladda ned'));
         final deadline = DateTime.now().add(const Duration(seconds: 5));
         while (library.progress.isNotEmpty) {
-          if (DateTime.now().isAfter(deadline))
+          if (DateTime.now().isAfter(deadline)) {
             throw StateError(
               'Download pending: ${library.progress} ${library.error}',
             );
+          }
           await Future<void>.delayed(const Duration(milliseconds: 10));
         }
       });
