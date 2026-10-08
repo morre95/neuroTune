@@ -11,11 +11,8 @@ export function mountProfiles(hooks:Hooks) {
   container.innerHTML=`<h2>Your profiles</h2><ul id="profile-list"></ul>
   <form id="profile-editor" hidden><h2>Profile settings</h2>
   <label>Profile name<input name="name" required maxlength="120"></label>
-  <label>Source recording<select name="asset" required></select></label>
-  <label>Trim start (seconds)<input name="start" type="number" min="0" step="0.001" value="0" required></label>
-  <label>Trim end (seconds)<input name="end" type="number" min="0.001" step="0.001" required></label>
-  <label>Track gain<input name="gain" type="number" min="0" max="4" step="0.01" value="1" required></label>
-  <label><input name="track-loop" type="checkbox" checked> Loop source recording</label>
+  <div id="mix-tracks"></div><button type="button" id="add-track">Add track</button>
+  <p>Balance up to four recordings. All tracks start together.</p>
   <label>Background duration (seconds)<input name="duration" type="number" min="30" max="600" step="1" value="600" required></label>
   <label>Carrier frequency (Hz)<input name="carrier" type="number" min="100" max="400" step="1" value="220" required></label>
   <label>Tone gain<input name="tone" type="number" min="0" max="0.95" step="any" value="0.2" required></label>
@@ -28,7 +25,8 @@ export function mountProfiles(hooks:Hooks) {
   document.querySelector('#library')!.append(container);
   const form=container.querySelector<HTMLFormElement>('form')!;
   const list=container.querySelector('#profile-list')!;
-  const select=form.elements.namedItem('asset') as HTMLSelectElement;
+  const tracksContainer=container.querySelector<HTMLElement>('#mix-tracks')!;
+  const addButton=container.querySelector<HTMLButtonElement>('#add-track')!;
   const renderButton=container.querySelector<HTMLButtonElement>('#render-background')!;
   const previewButton=container.querySelector<HTMLButtonElement>('#preview-background')!;
   const saveButton=container.querySelector<HTMLButtonElement>('#save-profile')!;
@@ -40,24 +38,59 @@ export function mountProfiles(hooks:Hooks) {
   let timer:number|undefined;
   let revision=0;
   function invalidate() {revision++;clearTimeout(timer);render=null;saveButton.disabled=true;previewButton.disabled=true;status.textContent='';renderButton.disabled=false;}
-  function clear() {invalidate();profileId=null;assets=[];select.replaceChildren();list.replaceChildren();form.reset();form.hidden=true;}
+  function trackFields(row:HTMLElement) {
+    return {select:row.querySelector<HTMLSelectElement>('select')!,input:(name:string)=>row.querySelector<HTMLInputElement>(`[name="${name}"]`)!};
+  }
+  function populate(select:HTMLSelectElement, selected:string) {
+    select.replaceChildren();
+    for(const asset of assets) {const option=document.createElement('option');option.value=asset.id;option.textContent=asset.filename;select.append(option);}
+    if(selected && !assets.some(asset=>asset.id===selected)) {const missing=document.createElement('option');missing.value=selected;missing.textContent='Recording unavailable — choose another source';missing.disabled=true;select.append(missing);}
+    if(selected) select.value=selected;
+  }
+  function updateTrackButtons() {
+    const rows=Array.from(tracksContainer.querySelectorAll<HTMLElement>('.mix-track'));
+    addButton.disabled=rows.length>=4 || !assets.length;
+    rows.forEach((row,index)=> {row.querySelector('legend')!.textContent=`Track ${index+1}`;row.querySelector<HTMLButtonElement>('button')!.disabled=rows.length===1;});
+  }
+  function appendTrack(track?:Track) {
+    const row=document.createElement('fieldset');row.className='mix-track';
+    row.innerHTML=`<legend></legend>
+      <label>Source recording<select required aria-label="Source recording"></select></label>
+      <label>Trim start (seconds)<input name="start" type="number" min="0" step="0.001" required></label>
+      <label>Trim end (seconds)<input name="end" type="number" min="0.001" step="0.001" required></label>
+      <label>Track gain<input name="gain" type="number" min="0" max="4" step="any" required></label>
+      <label><input name="track-loop" type="checkbox"> Loop source recording</label>
+      <button type="button">Remove track</button>`;
+    const fields=trackFields(row);
+    const selected=track?.asset_id??assets[0]?.id??'';
+    populate(fields.select,selected);
+    fields.input('start').value=String(track?.trim_start_seconds??0);
+    fields.input('end').value=String(track?.trim_end_seconds??assets.find(a=>a.id===selected)?.duration_seconds??0);
+    fields.input('gain').value=String(track?.gain??1);
+    fields.input('track-loop').checked=track?.loop??true;
+    fields.select.onchange=()=> {invalidate();fields.input('start').value='0';fields.input('end').value=String(assets.find(a=>a.id===fields.select.value)?.duration_seconds??0);};
+    row.oninput=invalidate;
+    row.querySelector<HTMLButtonElement>('button')!.onclick=()=> {invalidate();row.remove();updateTrackButtons();};
+    tracksContainer.append(row);updateTrackButtons();
+  }
+  addButton.onclick=()=> {invalidate();appendTrack();};
+  function clear() {invalidate();profileId=null;assets=[];tracksContainer.replaceChildren();list.replaceChildren();form.reset();form.hidden=true;updateTrackButtons();}
   function choose(asset:AudioAsset) {
-    invalidate();profileId=null;form.reset();form.hidden=false;select.value=asset.id;
-    input('end').value=String(asset.duration_seconds??0);saveButton.textContent='Save profile';
+    invalidate();profileId=null;form.reset();form.hidden=false;tracksContainer.replaceChildren();
+    appendTrack({asset_id:asset.id,trim_start_seconds:0,trim_end_seconds:asset.duration_seconds??0,gain:1,loop:true});saveButton.textContent='Save profile';
     form.scrollIntoView({behavior:'smooth',block:'start'});
   }
   function edit(version:AudioProfileVersion) {
     invalidate();profileId=version.profile_id;form.hidden=false;
-    const track=version.recipe.tracks[0];select.value=track.asset_id;
-    for(const [name,value] of Object.entries({name:version.name,start:track.trim_start_seconds,end:track.trim_end_seconds,gain:track.gain,duration:version.duration_seconds,carrier:version.carrier_hz,tone:version.tone_gain,background:version.background_gain})) input(name).value=String(value);
-    input('track-loop').checked=track.loop;input('background-loop').checked=version.loop;
+    tracksContainer.replaceChildren();version.recipe.tracks.forEach(appendTrack);
+    for(const [name,value] of Object.entries({name:version.name,duration:version.duration_seconds,carrier:version.carrier_hz,tone:version.tone_gain,background:version.background_gain})) input(name).value=String(value);
+    input('background-loop').checked=version.loop;
     saveButton.textContent='Save new version';
   }
   async function refresh(currentAssets:AudioAsset[]) {
     assets=currentAssets.filter(asset=>asset.status==='ready');
-    const selected=select.value;select.replaceChildren();
-    for(const asset of assets) {const option=document.createElement('option');option.value=asset.id;option.textContent=asset.filename;select.append(option);}
-    if(assets.some(asset=>asset.id===selected)) select.value=selected;
+    for(const select of Array.from(tracksContainer.querySelectorAll('select'))) populate(select,select.value);
+    updateTrackButtons();
     const epoch=hooks.generation();
     const versions:AudioProfileVersion[]=await (await hooks.api('/audio/profiles')).json();
     if(epoch!==hooks.generation()) return;
@@ -79,13 +112,12 @@ export function mountProfiles(hooks:Hooks) {
       if(next.status==='pending') timer=window.setTimeout(()=>follow(renderId,epoch,currentRevision),1000);
     } catch(error) {if(epoch===hooks.generation() && currentRevision===revision) {status.textContent=(error as Error).message;renderButton.disabled=false;}}
   }
-  for(const name of ['start','end','gain','track-loop','duration']) input(name).oninput=invalidate;
-  select.onchange=()=>{invalidate();input('start').value='0';input('end').value=String(assets.find(a=>a.id===select.value)?.duration_seconds??0);};
+  input('duration').oninput=invalidate;
   renderButton.onclick=async()=> {
     if(!form.reportValidity()) return;
     invalidate();renderButton.disabled=true;
     const epoch=hooks.generation(), currentRevision=revision;
-    const recipe:Recipe={schema_version:1,duration_seconds:Number(input('duration').value),tracks:[{asset_id:select.value,trim_start_seconds:Number(input('start').value),trim_end_seconds:Number(input('end').value),gain:Number(input('gain').value),loop:input('track-loop').checked}]};
+    const recipe:Recipe={schema_version:1,duration_seconds:Number(input('duration').value),tracks:Array.from(tracksContainer.querySelectorAll<HTMLElement>('.mix-track')).map(row=> {const fields=trackFields(row);return {asset_id:fields.select.value,trim_start_seconds:Number(fields.input('start').value),trim_end_seconds:Number(fields.input('end').value),gain:Number(fields.input('gain').value),loop:fields.input('track-loop').checked};})};
     try {
       const created:Render=await (await hooks.api('/audio/renders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(recipe)})).json();
       if(epoch!==hooks.generation() || currentRevision!==revision) return;

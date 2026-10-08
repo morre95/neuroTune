@@ -37,7 +37,7 @@ class MixRecipe(BaseModel):
     model_config = ConfigDict(extra='forbid', allow_inf_nan=False)
     schema_version: Literal[1] = 1
     duration_seconds: int = Field(default=600, ge=30, le=600, strict=True)
-    tracks: list[TrackRecipe] = Field(min_length=1, max_length=1)
+    tracks: list[TrackRecipe] = Field(min_length=1, max_length=4)
 
 
 class ProfileSettings(BaseModel):
@@ -122,18 +122,27 @@ def run_render_jobs(db: Session) -> int:
         values = {}
         try:
             recipe = MixRecipe.model_validate_json(render.recipe_json)
-            track = recipe.tracks[0]
-            start, end = round(track.trim_start_seconds * 48000), round(track.trim_end_seconds * 48000)
-            filters = [f'atrim=start_sample={start}:end_sample={end}', 'asetpts=PTS-STARTPTS']
-            if track.loop:
-                filters.append(f'aloop=loop=-1:size={end-start}')
-            filters += [f'volume={track.gain}:precision=double', f'apad=whole_len={recipe.duration_seconds*48000}']
-            _command(['ffmpeg', '-nostdin', '-v', 'error', '-threads', '1', '-i',
-                str(asset_path(render.user_id, str(track.asset_id), 'canonical.wav')), '-af', ','.join(filters),
+            inputs, graph = [], []
+            for index, track in enumerate(recipe.tracks):
+                inputs += ['-threads', '1', '-i', str(asset_path(render.user_id, str(track.asset_id), 'canonical.wav'))]
+                start, end = round(track.trim_start_seconds * 48000), round(track.trim_end_seconds * 48000)
+                filters = [f'atrim=start_sample={start}:end_sample={end}', 'asetpts=PTS-STARTPTS']
+                if track.loop:
+                    filters.append(f'aloop=loop=-1:size={end-start}')
+                filters += [f'volume={track.gain}:precision=double', f'apad=whole_len={recipe.duration_seconds*48000}']
+                graph.append(f'[{index}:a]' + ','.join(filters) + f'[track{index}]')
+            # amix defaults to dynamic normalization; explicitly sum fixed gains instead.
+            graph.append(''.join(f'[track{index}]' for index in range(len(recipe.tracks))) +
+                         f'amix=inputs={len(recipe.tracks)}:duration=longest:normalize=0:dropout_transition=0[mix]')
+            _command(['ffmpeg', '-nostdin', '-v', 'error', '-filter_complex_threads', '1', *inputs,
+                '-filter_complex', ';'.join(graph), '-map', '[mix]',
                 '-t', str(recipe.duration_seconds), '-ar', '48000', '-ac', '2', '-threads', '1',
                 '-f', 'f32le', '-y', str(raw)])
             if raw.stat().st_size != recipe.duration_seconds * 48000 * 8:
                 raise ValueError('Rendered background has an invalid duration.')
+            db.execute(update(AudioRender).where(AudioRender.id == render.id, AudioRender.lease_token == token)
+                       .values(progress=.5))
+            db.commit()
             peak = 0.0
             with raw.open('rb') as audio:
                 while chunk := audio.read(65536):
@@ -142,6 +151,9 @@ def run_render_jobs(db: Session) -> int:
             _command(['ffmpeg', '-nostdin', '-v', 'error', '-f', 'f32le', '-ar', '48000', '-ac', '2',
                 '-threads', '1', '-i', str(raw), '-af', f'volume={factor}:precision=double',
                 '-c:a', 'pcm_s16le', '-threads', '1', '-y', str(saved)])
+            db.execute(update(AudioRender).where(AudioRender.id == render.id, AudioRender.lease_token == token)
+                       .values(progress=.8))
+            db.commit()
             # Preview is the first thirty seconds of this exact normalized render.
             with wave.open(str(saved), 'rb') as source, wave.open(str(preview), 'wb') as target:
                 if (source.getnchannels(), source.getsampwidth(), source.getframerate(), source.getnframes()) != (2, 2, 48000, recipe.duration_seconds * 48000):
