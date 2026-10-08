@@ -1311,6 +1311,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
                       ])
                         PersonalModelStatus(
                           model: _cachedModels[origin],
+                          eegConfig: _config,
                           profile: _modelProfile,
                           eyeState: _eyes,
                           origin: origin,

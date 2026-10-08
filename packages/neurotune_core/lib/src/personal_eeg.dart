@@ -4,6 +4,14 @@ import 'models.dart';
 const meditationEegPreprocessing = 'meditation-eeg-1';
 const meditationEegQuality = '2026.3-unverified';
 
+bool isCompatibleMeditationEegConfig(ExperimentConfig config) =>
+    config.qualityVersion == meditationEegQuality &&
+    config.welchWindowSeconds == 4 &&
+    config.welchHopSeconds == 1 &&
+    config.thetaHz == (4.0, 8.0) &&
+    config.alphaHz == (8.0, 13.0) &&
+    config.betaHz == (13.0, 30.0);
+
 class MeditationMinute {
   MeditationMinute(this.minute, this.features, this.coverage);
   final int minute;
@@ -295,7 +303,11 @@ class PersonalEegModel {
     required double carrierHz,
     required double toneGain,
     required double backgroundGain,
+    ExperimentConfig? eegConfig,
   }) {
+    if (eegConfig != null && !isCompatibleMeditationEegConfig(eegConfig)) {
+      return 'The EEG preprocessing configuration is unsupported';
+    }
     if (status != 'ready') {
       return reasons.isEmpty
           ? 'More rated fixed sessions are needed'
@@ -332,6 +344,7 @@ class PersonalEegModel {
     required double carrierHz,
     required double toneGain,
     required double backgroundGain,
+    ExperimentConfig? eegConfig,
   }) {
     final reason = unsupportedReason(
       backgroundAssetId: backgroundAssetId,
@@ -339,6 +352,7 @@ class PersonalEegModel {
       carrierHz: carrierHz,
       toneGain: toneGain,
       backgroundGain: backgroundGain,
+      eegConfig: eegConfig,
     );
     if (reason != null ||
         features.length != 2 ||

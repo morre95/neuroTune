@@ -12,6 +12,7 @@ class PersonalModelStatus extends StatelessWidget {
     required this.onRefresh,
     this.busy = false,
     this.message,
+    this.eegConfig,
   });
   final PersonalEegModel? model;
   final AudioProfileVersion? profile;
@@ -20,6 +21,7 @@ class PersonalModelStatus extends StatelessWidget {
   final VoidCallback? onRefresh;
   final bool busy;
   final String? message;
+  final ExperimentConfig? eegConfig;
   @override
   Widget build(BuildContext context) {
     final p = profile;
@@ -33,6 +35,7 @@ class PersonalModelStatus extends StatelessWidget {
             carrierHz: p.carrierHz,
             toneGain: p.toneGain,
             backgroundGain: p.backgroundGain,
+            eegConfig: eegConfig,
           );
     final validation = model?.validation;
     return Card(

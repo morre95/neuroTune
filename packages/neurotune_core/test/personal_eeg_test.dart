@@ -234,4 +234,24 @@ void main() {
       );
     },
   );
+  test('readiness rejects a changed recorded EEG preprocessing config', () {
+    final model = PersonalEegModel.fromJson(
+      Map<String, dynamic>.from(fixture['model'] as Map),
+    );
+    final changed = ExperimentConfig.fromJson({
+      ...ExperimentConfig.defaults().toJson(),
+      'quality_version': 'future',
+    });
+    expect(
+      model.unsupportedReason(
+        backgroundAssetId: model.backgrounds.single,
+        eyeState: 'closed',
+        carrierHz: 220,
+        toneGain: .2,
+        backgroundGain: .6,
+        eegConfig: changed,
+      ),
+      isNotNull,
+    );
+  });
 }
