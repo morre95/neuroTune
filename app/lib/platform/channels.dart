@@ -19,7 +19,16 @@ abstract class PcmOutput {
   Future<void> stop();
 }
 
-class AndroidPcmOutput implements PcmOutput {
+/// Monotonic frames actually played since the most recent start; acceptance
+/// alone cannot prove the buffered final tail drained.
+abstract interface class PcmPlaybackProgress {
+  Future<int> playedFrames();
+}
+
+class AndroidPcmOutput implements PcmOutput, PcmPlaybackProgress {
+  @override
+  Future<int> playedFrames() async =>
+      (await _audioMethods.invokeMethod<num>('playedFrames'))!.toInt();
   @override
   Future<double?> start(int sampleRate) async {
     await _audioMethods.invokeMethod<void>('start', {'sampleRate': sampleRate});

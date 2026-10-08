@@ -530,6 +530,8 @@ class FeatureFrame {
     required this.rejected,
     required this.reasons,
     this.optics = const [],
+    this.activeTimeSeconds,
+    this.playbackActive,
   });
 
   final double timeSeconds;
@@ -538,6 +540,21 @@ class FeatureFrame {
   final bool rejected;
   final List<String> reasons;
   final List<OpticsFeature> optics;
+
+  /// Optional meditation clock. Raw timeSeconds always remains the source clock.
+  final double? activeTimeSeconds;
+  final bool? playbackActive;
+
+  FeatureFrame withPlayback(double? seconds, bool active) => FeatureFrame(
+    timeSeconds: timeSeconds,
+    sampleRateHz: sampleRateHz,
+    channels: channels,
+    rejected: rejected,
+    reasons: reasons,
+    optics: optics,
+    activeTimeSeconds: seconds,
+    playbackActive: active,
+  );
 
   bool channelValid(String name) {
     if (rejected) return false;
@@ -560,6 +577,8 @@ class FeatureFrame {
       rejected: rejected,
       reasons: reasons,
       optics: optics,
+      activeTimeSeconds: activeTimeSeconds,
+      playbackActive: playbackActive,
     );
   }
 
@@ -570,9 +589,13 @@ class FeatureFrame {
     'rejected': rejected,
     'reasons': reasons,
     'optics': optics.map((channel) => channel.toJson()).toList(),
+    if (playbackActive != null) 'playback_active': playbackActive,
+    if (playbackActive != null) 'active_time_seconds': activeTimeSeconds,
   };
 
   factory FeatureFrame.fromJson(Map<String, dynamic> json) => FeatureFrame(
+    activeTimeSeconds: (json['active_time_seconds'] as num?)?.toDouble(),
+    playbackActive: json['playback_active'] as bool?,
     timeSeconds: (json['time_seconds'] as num).toDouble(),
     sampleRateHz: (json['sample_rate_hz'] as num).toDouble(),
     channels: [
@@ -695,6 +718,7 @@ class SessionManifest {
     this.lastInterruptReason,
     this.diagnostics = const [],
     this.diagnosticsVersion = 0,
+    this.meditation,
   });
 
   final String sessionId;
@@ -733,8 +757,10 @@ class SessionManifest {
   final String? lastInterruptReason;
   final List<SessionDiagnostic> diagnostics;
   final int diagnosticsVersion;
+  final Map<String, dynamic>? meditation;
 
   Map<String, dynamic> toJson() => {
+    if (meditation != null) 'meditation': meditation,
     'session_id': sessionId,
     'user_id': userId,
     'experiment_version': experimentVersion,
@@ -762,6 +788,9 @@ class SessionManifest {
 
   factory SessionManifest.fromJson(Map<String, dynamic> json) =>
       SessionManifest(
+        meditation: json['meditation'] == null
+            ? null
+            : Map<String, dynamic>.from(json['meditation'] as Map),
         sessionId: json['session_id'] as String,
         userId: json['user_id'] as String?,
         experimentVersion: json['experiment_version'] as String,

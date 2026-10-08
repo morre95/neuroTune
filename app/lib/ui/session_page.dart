@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 import 'muse_battery_indicator.dart';
+import 'package:neurotune_core/neurotune_core.dart';
 
 class SessionView {
   const SessionView({
@@ -17,6 +18,8 @@ class SessionView {
     required this.quality,
     required this.canContinue,
     required this.canStop,
+    this.meditation = false,
+    this.activeSeconds,
   });
 
   final String message;
@@ -31,6 +34,8 @@ class SessionView {
   final String quality;
   final bool canContinue;
   final bool canStop;
+  final bool meditation;
+  final double? activeSeconds;
 }
 
 class SessionPage extends StatelessWidget {
@@ -75,22 +80,29 @@ class SessionPage extends StatelessWidget {
             const SizedBox(height: 8),
             Text(view.message),
             const SizedBox(height: 16),
-            Text('Block ${view.blockLabel}'),
+            if (view.meditation)
+              Text(
+                'Aktiv tid ${view.activeSeconds?.toStringAsFixed(0) ?? 0}/600 s',
+              )
+            else
+              Text('Block ${view.blockLabel}'),
             Text('Åtgärd: ${view.actionLabel}'),
             const SizedBox(height: 16),
             Text('Theta ${view.theta}'),
             Text('Alpha ${view.alpha}'),
             Text('Beta ${view.beta}'),
-            Text('Yttre NIR ${view.outerNir} µA'),
-            Text('NIR-z ${view.nirZ}'),
+            if (!view.meditation) Text('Yttre NIR ${view.outerNir} µA'),
+            if (!view.meditation) Text('NIR-z ${view.nirZ}'),
             Text('Signalkvalitet ${view.quality}'),
             const SizedBox(height: 16),
-            const Text(
-              'Belöningen är z-score av rå yttre NIR, 850 nm. Inte syresättning, avslappning, fokus eller behandling.',
-            ),
-            const Text(
-              'Theta, alpha och beta visas som spektrala mått och uppdaterar inte banditen.',
-            ),
+            if (!view.meditation)
+              const Text(
+                'Belöningen är z-score av rå yttre NIR, 850 nm. Inte syresättning, avslappning, fokus eller behandling.',
+              ),
+            if (!view.meditation)
+              const Text(
+                'Theta, alpha och beta visas som spektrala mått och uppdaterar inte banditen.',
+              ),
             const SizedBox(height: 24),
             if (view.canContinue)
               FilledButton(onPressed: onContinue, child: const Text('Fortsätt'))
@@ -117,3 +129,7 @@ String actionLabel(String? action) {
     _ => 'Tystnad',
   };
 }
+
+/// Central presentation seam for fixed, calibration and adaptive sessions.
+String meditationActionLabel(SessionManifest manifest) =>
+    actionLabel(manifest.meditation?['fixed_action'] as String?);

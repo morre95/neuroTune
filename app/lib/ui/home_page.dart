@@ -30,6 +30,7 @@ class HomePage extends StatelessWidget {
     this.onProfiles,
     required this.onLogout,
     this.message,
+    this.onBack,
   });
 
   final String experimentVersion;
@@ -47,12 +48,16 @@ class HomePage extends StatelessWidget {
   final VoidCallback? onProfiles;
   final VoidCallback onLogout;
   final String? message;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('neuroTune'),
+        title: Text(onBack == null ? 'neuroTune' : 'Experiments'),
+        leading: onBack == null
+            ? null
+            : IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back)),
         actions: [
           TextButton(onPressed: onLogout, child: const Text('Logga ut')),
         ],

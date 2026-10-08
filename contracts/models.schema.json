@@ -33,7 +33,11 @@
     },
     "featureFrame": {
       "type": "object",
-      "required": ["time_seconds", "sample_rate_hz", "channels", "rejected", "reasons"]
+      "required": ["time_seconds", "sample_rate_hz", "channels", "rejected", "reasons"],
+      "properties": {
+        "active_time_seconds": {"type": ["number", "null"], "minimum": 0},
+        "playback_active": {"type": "boolean", "description": "Full source window has confirmed historical continuous PCM coverage; EEG quality remains independent."}
+      }
     },
     "decisionEvent": {
       "type": "object",
@@ -45,8 +49,107 @@
       "properties": {
         "timeline": {"const": "monotonic_session_seconds"},
         "audio_latency_source": {"const": "audiotrack_buffer_frames"},
+        "meditation": {"$ref": "#/$defs/meditationMetadata"},
         "diagnostics_version": {"type": "integer", "minimum": 0},
         "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/sessionDiagnostic"}}
+      }
+    },
+    "meditationMetadata": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "protocol_version",
+        "mode",
+        "profile_version_id",
+        "fixed_action",
+        "eye_state",
+        "origin",
+        "played_frames",
+        "playback_timeline_version",
+        "playback_timeline"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "protocol_version": {
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "fixed",
+            "calibration",
+            "adaptive"
+          ]
+        },
+        "profile_version_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "fixed_action": {
+          "enum": [
+            "control",
+            "binaural_6",
+            "binaural_8",
+            "binaural_10",
+            "binaural_12"
+          ]
+        },
+        "eye_state": {
+          "enum": [
+            "open",
+            "closed"
+          ]
+        },
+        "origin": {
+          "enum": [
+            "muse",
+            "simulator",
+            "playback"
+          ]
+        },
+        "quality_version": {
+          "type": "string"
+        },
+        "played_frames": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 28800000
+        },
+        "playback_timeline_version": {
+          "const": 1
+        },
+        "source_observed_offset_seconds": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "playback_timeline": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "observed_seconds",
+              "played_frames",
+              "playback_active"
+            ],
+            "properties": {
+              "observed_seconds": {
+                "type": "number",
+                "minimum": 0
+              },
+              "played_frames": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 28800000
+              },
+              "playback_active": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
       }
     },
     "sessionDiagnostic": {

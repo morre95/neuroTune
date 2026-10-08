@@ -9,6 +9,8 @@ class ContactPage extends StatelessWidget {
     super.key,
     required this.batch,
     required this.onStart,
+    this.startLabel = 'Starta baslinje',
+    this.requireSignal = true,
     required this.onBack,
     required this.onStereoTest,
     required this.stereoTestPlaying,
@@ -22,6 +24,8 @@ class ContactPage extends StatelessWidget {
 
   final EegBatch? batch;
   final VoidCallback onStart;
+  final String startLabel;
+  final bool requireSignal;
   final VoidCallback onBack;
   final VoidCallback onStereoTest;
   final bool stereoTestPlaying;
@@ -52,8 +56,10 @@ class ContactPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Text(
-            'Kontrollera att signalen är stabil innan baslinjen. Samma ögonläge gäller hela sessionen.',
+          Text(
+            requireSignal
+                ? 'Kontrollera att signalen är stabil innan baslinjen. Samma ögonläge gäller hela sessionen.'
+                : 'Samma ögonläge gäller hela meditationen. Dålig eller saknad EEG stoppar inte ljudet.',
           ),
           if (note != null) ...[const SizedBox(height: 12), Text(note!)],
           if (error != null) ...[const SizedBox(height: 12), Text(error!)],
@@ -76,10 +82,11 @@ class ContactPage extends StatelessWidget {
             const Text('Testljudet upprepas tills du stoppar det.'),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: batch == null || locked || stereoTestPlaying
+            onPressed:
+                (requireSignal && batch == null) || locked || stereoTestPlaying
                 ? null
                 : onStart,
-            child: Text(startingSession ? 'Startar…' : 'Starta baslinje'),
+            child: Text(startingSession ? 'Startar…' : startLabel),
           ),
           TextButton(
             onPressed: stereoTestBusy || openingSession ? null : onBack,

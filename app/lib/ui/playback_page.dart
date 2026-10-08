@@ -37,11 +37,14 @@ class _PlaybackPageState extends State<PlaybackPage> {
         padding: const EdgeInsets.all(24),
         children: [
           Text('Tid ${frame?.timeSeconds.toStringAsFixed(0) ?? '-'} s'),
-          Text('Åtgärd: ${actionLabel(decision?.action)}'),
+          Text(
+            'Åtgärd: ${widget.session.manifest.meditation == null ? actionLabel(decision?.action) : meditationActionLabel(widget.session.manifest)}',
+          ),
           Text('Theta ${_mean(frame, (channel) => channel.relativeTheta)}'),
           Text('Alpha ${_mean(frame, (channel) => channel.relativeAlpha)}'),
           Text('Beta ${_mean(frame, (channel) => channel.relativeBeta)}'),
-          Text('Yttre NIR ${_outerNir(frame)} µA'),
+          if (widget.session.manifest.meditation == null)
+            Text('Yttre NIR ${_outerNir(frame)} µA'),
           Text('Signalkvalitet $valid/$total kanaler'),
           if (frame != null)
             for (final channel in frame.channels)

@@ -22,6 +22,7 @@ import 'ui/auth_page.dart';
 import 'ui/contact_page.dart';
 import 'ui/history_page.dart';
 import 'ui/home_page.dart';
+import 'ui/meditation_home_page.dart';
 import 'ui/playback_page.dart';
 import 'ui/session_page.dart';
 
@@ -60,6 +61,10 @@ class NeuroTuneApp extends StatefulWidget {
     required this.audio,
     required this.keepAlive,
     required this.muse,
+    this.meditationEnabled = const bool.fromEnvironment(
+      'MEDITATION_ENABLED',
+      defaultValue: false,
+    ),
   });
 
   final AppDatabase database;
@@ -68,6 +73,7 @@ class NeuroTuneApp extends StatefulWidget {
   final PcmOutput audio;
   final SessionKeepAlive keepAlive;
   final MuseChannel muse;
+  final bool meditationEnabled;
 
   @override
   State<NeuroTuneApp> createState() => _NeuroTuneAppState();
@@ -101,7 +107,13 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   Future<void>? _stereoTestStart;
   SessionController? _session;
   ProfileLibrary? _profileLibrary;
+  final _emptyLibrary = ChangeNotifier();
   var _endingSession = false;
+  var _inExperiments = false;
+  var _networkQuiet = false;
+  String? _selectedProfileId;
+  StimulusAction _fixedAction = StimulusAction.control;
+  bool get _meditating => widget.meditationEnabled && !_inExperiments;
 
   /// Starting waits on the network, the DSP isolate and the foreground
   /// service. A second tap meanwhile would start a second session on the same
@@ -146,7 +158,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   void _retryUploads() {
-    if (_auth == null || _deletingSessions) return;
+    if (_auth == null || _deletingSessions || _networkQuiet) return;
     unawaited(_syncSessions().catchError((Object _) {}));
   }
 
@@ -197,7 +209,17 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   Future<void> _enterHome() async {
     try {
       await _repository.claimLegacyUploads(_auth!.email);
-      _applyRemote(await _loadRemote(DataOrigin.simulator));
+      if (widget.meditationEnabled) {
+        _snapshot = BanditSnapshot.empty(
+          experimentVersion: _config.version,
+          origin: DataOrigin.simulator,
+        );
+        await _ensureProfileLibrary();
+        await _profileLibrary?.loadCached();
+        _chooseReadyProfile();
+      } else {
+        _applyRemote(await _loadRemote(DataOrigin.simulator));
+      }
     } catch (failure, stack) {
       log('Local data could not be read', error: failure, stackTrace: stack);
       if (mounted) {
@@ -328,6 +350,9 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   Future<void> _logout() async {
     await _profileLibrary?.close();
     _profileLibrary = null;
+    _selectedProfileId = null;
+    _networkQuiet = false;
+    _inExperiments = false;
     _uploadRetryTimer?.cancel();
     _uploadRetryTimer = null;
     _uploadSync.cancel();
@@ -344,20 +369,14 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     setState(() => _screen = _Screen.auth);
   }
 
-  Future<void> _openProfiles() async {
+  Future<void> _ensureProfileLibrary() async {
     final owner = widget.api.accountId;
     if (owner == null) {
-      setState(() => _error = 'Kontot kunde inte identifieras. Logga in igen.');
-      return;
+      throw StateError('Kontot kunde inte identifieras. Logga in igen.');
     }
     final generation = widget.api.authGeneration;
-    await _stopStereoTest();
     final dir = await getApplicationSupportDirectory();
-    if (!mounted ||
-        generation != widget.api.authGeneration ||
-        _screen != _Screen.home) {
-      return;
-    }
+    if (!mounted || generation != widget.api.authGeneration) return;
     _profileLibrary ??= ProfileLibrary(
       database: widget.database,
       api: widget.api,
@@ -370,12 +389,48 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
           _stereoTestPlaying ||
           _stereoTestBusy,
     );
+  }
+
+  void _chooseReadyProfile() {
+    final ready =
+        _profileLibrary?.profiles.where((p) => p.downloaded).toList() ?? [];
+    if (!ready.any((p) => p.profile.id == _selectedProfileId)) {
+      _selectedProfileId = ready.isEmpty ? null : ready.first.profile.id;
+    }
+  }
+
+  Future<void> _openExperiments() async {
+    final owner = _auth?.email;
+    final generation = widget.api.authGeneration;
+    final remote = await _loadRemote(DataOrigin.simulator);
+    if (!mounted ||
+        _auth?.email != owner ||
+        widget.api.authGeneration != generation ||
+        _screen != _Screen.home ||
+        _startingSession ||
+        _session != null) {
+      return;
+    }
+    _applyRemote(remote);
+    setState(() => _inExperiments = true);
+  }
+
+  Future<void> _openProfiles() async {
+    await _stopStereoTest();
+    try {
+      await _ensureProfileLibrary();
+    } catch (e) {
+      if (mounted) setState(() => _error = '$e');
+      return;
+    }
+    if (!mounted || _screen != _Screen.home || _profileLibrary == null) return;
     setState(() => _screen = _Screen.profiles);
     await _profileLibrary!.refresh();
   }
 
   Future<void> _leaveProfiles() async {
     await _profileLibrary?.stopPreview();
+    _chooseReadyProfile();
     if (mounted) setState(() => _screen = _Screen.home);
   }
 
@@ -433,6 +488,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     if (_startingSession) return;
     final attempt = ++_startAttempt;
     setState(() => _startingSession = true);
+    if (_meditating) _networkQuiet = true;
     try {
       await _openSession(attempt);
     } catch (failure, stack) {
@@ -445,6 +501,11 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         setState(() {
           _startingSession = false;
           _openingSession = false;
+          if (_session == null && _networkQuiet) {
+            _networkQuiet = false;
+            _profileLibrary?.resumeNetwork();
+            _retryUploads();
+          }
         });
       }
     }
@@ -460,14 +521,40 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       await _preview?.stop();
       await _previewSub?.cancel();
     }
-    final remote = await _loadRemote(origin);
-    if (attempt != _startAttempt) return;
-    setState(() {
+    MeditationSetup? meditation;
+    if (_meditating) {
+      _uploadSync.cancel();
+      try {
+        await _uploadSync.waitForIdle();
+      } catch (_) {}
+      await _profileLibrary!.suspendNetwork();
+      if (attempt != _startAttempt) return;
+      final id = _selectedProfileId;
+      if (id == null) throw StateError('Välj en nedladdad profil');
+      final file = await _profileLibrary!.playableFile(id);
+      if (file == null) throw StateError('Profilen är inte verifierad lokalt');
+      final profile = _profileLibrary!.profiles
+          .firstWhere((p) => p.profile.id == id)
+          .profile;
+      meditation = MeditationSetup(
+        profile: profile,
+        file: file,
+        action: _fixedAction,
+      );
+      _snapshot = BanditSnapshot.empty(
+        experimentVersion: _config.version,
+        origin: origin,
+      );
+    } else {
+      final remote = await _loadRemote(origin);
+      if (attempt != _startAttempt) return;
       _applyRemote(remote);
-      _openingSession = true;
-    });
+    }
+    if (!mounted || attempt != _startAttempt) return;
+    setState(() => _openingSession = true);
     final controller = SessionController(
       repository: _repository,
+      meditation: meditation,
       ownerEmail: _auth!.email,
       audio: widget.audio,
       keepAlive: widget.keepAlive,
@@ -509,6 +596,9 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   /// Leaving while a start waits on the network cancels it.
   Future<void> _leaveContact() async {
     _startAttempt += 1;
+    _networkQuiet = false;
+    _profileLibrary?.resumeNetwork();
+    _retryUploads();
     setState(() => _startingSession = false);
     await _stopStereoTest();
     if (_usingMuse) {
@@ -576,6 +666,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     _session = null;
     _usingMuse = false;
     _endingSession = false;
+    _networkQuiet = false;
+    _profileLibrary?.resumeNetwork();
     _retryUploads();
     if (mounted) {
       setState(() {
@@ -619,6 +711,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
 
   @override
   void dispose() {
+    _emptyLibrary.dispose();
     _uploadRetryTimer?.cancel();
     _uploadSync.cancel();
     widget.api.onTokensRefreshed = null;
@@ -658,24 +751,51 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   Widget _page() {
     return switch (_screen) {
       _Screen.auth => AuthPage(onSubmit: _submitAuth, error: _error),
-      _Screen.home => HomePage(
-        experimentVersion: _config.version,
-        policyVersion: _snapshot?.policyVersion ?? '0',
-        hardwareApproved: _config.hardwareApproved,
-        offline: _offline,
-        eyeState: _eyes,
-        mode: _mode,
-        onEyeState: (value) => setState(() => _eyes = value),
-        onMode: (value) => setState(() => _mode = value),
-        onStartSimulator: _openContact,
-        onMuse: _muse,
-        connectingMuse: _connectingMuse,
-        onHistory: _openHistory,
-        onProfiles: _openProfiles,
-        onLogout: _logout,
-        message: _error,
-      ),
+      _Screen.home =>
+        _meditating
+            ? ListenableBuilder(
+                listenable: _profileLibrary ?? _emptyLibrary,
+                builder: (context, _) => MeditationHomePage(
+                  profiles: _profileLibrary?.profiles ?? [],
+                  selectedProfileId: _selectedProfileId,
+                  action: _fixedAction,
+                  eyeState: _eyes,
+                  onProfile: (id) => setState(() => _selectedProfileId = id),
+                  onAction: (a) => setState(() => _fixedAction = a),
+                  onEyeState: (e) => setState(() => _eyes = e),
+                  onSimulator: _openContact,
+                  onMuse: _muse,
+                  connectingMuse: _connectingMuse,
+                  onProfiles: _openProfiles,
+                  onExperiments: _openExperiments,
+                  onHistory: _openHistory,
+                  onLogout: _logout,
+                  message: _error,
+                ),
+              )
+            : HomePage(
+                onBack: widget.meditationEnabled
+                    ? () => setState(() => _inExperiments = false)
+                    : null,
+                experimentVersion: _config.version,
+                policyVersion: _snapshot?.policyVersion ?? '0',
+                hardwareApproved: _config.hardwareApproved,
+                offline: _offline,
+                eyeState: _eyes,
+                mode: _mode,
+                onEyeState: (value) => setState(() => _eyes = value),
+                onMode: (value) => setState(() => _mode = value),
+                onStartSimulator: _openContact,
+                onMuse: _muse,
+                connectingMuse: _connectingMuse,
+                onHistory: _openHistory,
+                onProfiles: _openProfiles,
+                onLogout: _logout,
+                message: _error,
+              ),
       _Screen.contact => ContactPage(
+        requireSignal: !_meditating,
+        startLabel: _meditating ? 'Starta meditation' : 'Starta baslinje',
         batteryPercent: _usingMuse ? widget.muse.batteryPercent : null,
         batch: _contactBatch,
         onStereoTest: _toggleStereoTest,

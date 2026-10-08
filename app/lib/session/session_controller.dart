@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 
 import '../data/api_client.dart';
+import '../data/canonical_wave.dart';
+import '../audio/meditation_renderer.dart';
 import '../data/repository.dart';
 import '../dsp/dsp_isolate.dart';
 import '../platform/channels.dart';
@@ -20,6 +23,21 @@ const _audioTick = Duration(milliseconds: 50);
 // if the platform channel never replies, so recording cannot run silently.
 const _audioWriteTimeout = Duration(seconds: 2);
 
+/// Verified immutable setup. Additional metadata and a reserved ID let durable
+/// calibration attempts attach to the same lifecycle before audio acquisition.
+class MeditationSetup {
+  const MeditationSetup({
+    required this.profile,
+    required this.file,
+    required this.action,
+    this.metadata = const {},
+  });
+  final AudioProfileVersion profile;
+  final File file;
+  final StimulusAction action;
+  final Map<String, dynamic> metadata;
+}
+
 class SessionController extends ChangeNotifier {
   SessionController({
     required this.repository,
@@ -33,6 +51,10 @@ class SessionController extends ChangeNotifier {
     required this.origin,
     this.sampleRateHz = 256,
     this.protocolFactory,
+    this.meditation,
+    this.reservedSessionId,
+    this.beforeAcquire,
+    this.observedTimeSeconds,
   });
 
   final SessionRepository repository;
@@ -46,6 +68,26 @@ class SessionController extends ChangeNotifier {
   final DataOrigin origin;
   final double sampleRateHz;
   final SessionProtocolFactory? protocolFactory;
+  final MeditationSetup? meditation;
+  final String? reservedSessionId;
+  final Future<void> Function(String sessionId)? beforeAcquire;
+
+  /// Monotonic time boundary; source clocks and PCM frames remain independent.
+  final double Function()? observedTimeSeconds;
+  double get _observedSeconds =>
+      observedTimeSeconds?.call() ??
+      _playbackObserved.elapsedMicroseconds / 1e6;
+  MeditationRenderer? _renderer;
+  Future<void>? _playbackPump;
+  int _playbackBase = 0;
+  int _playedFrames = 0;
+  final Stopwatch _playbackObserved = Stopwatch();
+  double _lastPlayedObserved = 0;
+  bool get isMeditation => meditation != null;
+
+  /// Absolute rendered cursor to resume after flushing unplayed packets.
+  int get activePlaybackFrames => _playedFrames;
+  int get acceptedPlaybackFrames => _audioFramesWritten;
 
   SessionProtocol? engine;
   FeatureFrame? latest;
@@ -113,12 +155,27 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> _open(MuseChannel? muse) async {
+    _playbackObserved.start();
+    final seed = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
+    final sessionId = reservedSessionId ?? newSessionId(Random(seed));
+    final setup = meditation;
+    if (setup != null) {
+      if (audio is! PcmPlaybackProgress) {
+        throw StateError('Played audio progress is required');
+      }
+      await CanonicalWave.verify(
+        setup.file,
+        setup.profile.checksumSha256,
+        setup.profile.durationSeconds,
+      );
+    }
+    await beforeAcquire?.call(sessionId);
+    if (_closed || _finishing) return;
     await keepAlive.start();
     if (_closed || _finishing) {
       await keepAlive.stop();
       return;
     }
-    final seed = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final channelNames = muse == null
         ? simulatorChannels
         : const ['EEG1', 'EEG2', 'EEG3', 'EEG4'];
@@ -149,7 +206,7 @@ class SessionController extends ChangeNotifier {
       });
     }
     final context = SessionContext(
-      sessionId: newSessionId(Random(seed)),
+      sessionId: sessionId,
       origin: origin,
       eyeState: eyeState,
       sampleRateHz: sampleRateHz,
@@ -157,20 +214,30 @@ class SessionController extends ChangeNotifier {
       seed: seed,
       startedAt: DateTime.now().toUtc(),
     );
-    engine =
-        protocolFactory?.call(context) ??
-        SessionEngine(
-          config: config,
-          snapshot: snapshot,
-          sessionId: context.sessionId,
-          origin: origin,
-          mode: mode,
-          eyeState: eyeState,
-          sampleRateHz: sampleRateHz,
-          channelNames: channelNames,
-          seed: seed,
-          startedAt: context.startedAt,
-        );
+    engine = setup != null
+        ? MeditationProtocol(
+            context: context,
+            profile: setup.profile,
+            action: setup.action,
+            metadata: {
+              ...setup.metadata,
+              'quality_version': config.qualityVersion,
+              'eeg_config': config.toJson(),
+            },
+          )
+        : protocolFactory?.call(context) ??
+              SessionEngine(
+                config: config,
+                snapshot: snapshot,
+                sessionId: context.sessionId,
+                origin: origin,
+                mode: mode,
+                eyeState: eyeState,
+                sampleRateHz: sampleRateHz,
+                channelNames: channelNames,
+                seed: seed,
+                startedAt: context.startedAt,
+              );
     _dsp = await DspHost.start(
       config: config,
       sampleRateHz: sampleRateHz,
@@ -185,6 +252,7 @@ class SessionController extends ChangeNotifier {
     if (_source != null) {
       _batches = _source!.batches.listen((batch) {
         _raw.add(batch);
+        _anchorSource(batch);
         final optics = _source!.lastOptics;
         if (optics != null) {
           _opticsRaw.add(optics);
@@ -197,6 +265,7 @@ class SessionController extends ChangeNotifier {
         if (_closed || _finishing) return;
         final batch = bridged.shifted(-_sessionOrigin(bridged.timeSeconds));
         _raw.add(batch);
+        _anchorSource(batch);
         _diagnostics.addAll(
           _dataLoss.add(
             stream: 'eeg',
@@ -246,7 +315,7 @@ class SessionController extends ChangeNotifier {
         if (!_museConnected) return;
         _museConnected = false;
         _recordDiagnostic('connection', {'state': 'disconnected'});
-        interrupt(StopReason.sourceDisconnected);
+        if (!isMeditation) interrupt(StopReason.sourceDisconnected);
       });
     }
     _synth = BinauralSynth(
@@ -255,6 +324,18 @@ class SessionController extends ChangeNotifier {
       amplitude: config.amplitude,
       fadeSeconds: config.fadeMs / 1000,
     );
+    if (setup != null) {
+      _renderer = await MeditationRenderer.open(
+        setup.file,
+        setup.profile,
+        setup.action,
+      );
+      if (_closed || _finishing) {
+        await _renderer!.close();
+        _renderer = null;
+        return;
+      }
+    }
     await _startOutputs();
   }
 
@@ -275,6 +356,8 @@ class SessionController extends ChangeNotifier {
         ? null
         : (nir - nirEngine.baselineMean) / nirEngine.baselineStd;
     return SessionView(
+      meditation: isMeditation,
+      activeSeconds: isMeditation ? _playedFrames / 48000 : null,
       message: error ?? current?.message ?? 'Startar session.',
       phase: current?.phase.name ?? 'start',
       blockLabel: '${nirEngine?.completedBlocks ?? 0}/${config.blockCount}',
@@ -293,6 +376,11 @@ class SessionController extends ChangeNotifier {
   void interrupt(StopReason reason) {
     final current = engine;
     if (current == null || current.terminal || _finishing) return;
+    if (isMeditation && reason == StopReason.sourceDisconnected) return;
+    if (isMeditation && reason == StopReason.manual) {
+      _finishInBackground();
+      return;
+    }
     current.interrupt(reason);
     _lastInterruption = reason;
     _pauseOutputs();
@@ -356,8 +444,27 @@ class SessionController extends ChangeNotifier {
       await _starting;
       await _resuming;
       final current = engine;
+      if (isMeditation) {
+        _audioTimer?.cancel();
+        _audioTimer = null;
+        await _playbackPump;
+        if (current != null && !current.terminal && !current.waitingForResume) {
+          await _stopRamp();
+        }
+        final meditationProtocol = current as MeditationProtocol?;
+        if (meditationProtocol != null) {
+          for (var i = 0; i < meditationProtocol.frames.length; i++) {
+            meditationProtocol.frames[i] = meditationProtocol.mapFrame(
+              meditationProtocol.frames[i],
+              config.welchWindowSeconds,
+            );
+          }
+        }
+      }
       current?.finish();
       _pauseOutputs();
+      await _renderer?.close();
+      _renderer = null;
       if (origin == DataOrigin.muse) {
         _recordDiagnostic('recording_end', {'connected': _museConnected});
         _diagnosticClock.stop();
@@ -365,6 +472,14 @@ class SessionController extends ChangeNotifier {
       if (current != null) await _persist(current);
       saved = true;
     } finally {
+      await audio.stop();
+      _dsp?.close();
+      _dsp = null;
+      await _frames?.cancel();
+      await _batches?.cancel();
+      await _opticsSub?.cancel();
+      await _lost?.cancel();
+      await _diagnosticSub?.cancel();
       await keepAlive.stop();
       await _muse?.stop();
       _muse = null;
@@ -385,6 +500,7 @@ class SessionController extends ChangeNotifier {
     keepAlive.stop();
     _muse?.stop();
     _dsp?.close();
+    unawaited(_renderer?.close());
     super.dispose();
   }
 
@@ -415,6 +531,12 @@ class SessionController extends ChangeNotifier {
   /// session cannot wait for a stable signal. Save what was recorded.
   void _onDspFailure(Object failure) {
     if (_closed || _finishing) return;
+    if (isMeditation) {
+      _recordDiagnostic('processing_failed', {'error': '$failure'});
+      _dsp?.close();
+      _dsp = null;
+      return;
+    }
     engine?.abort(
       StopReason.processingFailed,
       'Signalbehandlingen slutade fungera. Sessionen sparas.',
@@ -438,7 +560,9 @@ class SessionController extends ChangeNotifier {
     for (final scored in ready) {
       current.onFrame(scored);
       _synth?.setAction(current.currentAction);
-      latest = scored;
+      latest = current is MeditationProtocol
+          ? current.mapFrame(scored, config.welchWindowSeconds)
+          : scored;
       if (current.terminal) {
         _finishInBackground();
         return;
@@ -463,6 +587,16 @@ class SessionController extends ChangeNotifier {
     }
     latencyMs = latency;
     _audioFramesWritten = 0;
+    if (isMeditation) {
+      _playbackBase = _playedFrames;
+      _audioFramesWritten = _playedFrames;
+      _playbackObserved.start();
+      _lastPlayedObserved = _observedSeconds;
+      (engine as MeditationProtocol).playback(
+        _playedFrames,
+        _lastPlayedObserved,
+      );
+    }
     _audioClock
       ..reset()
       ..start();
@@ -475,6 +609,10 @@ class SessionController extends ChangeNotifier {
   /// Keep one packet in flight and drop stale backlog after a long delay.
   /// The native output completes write only once its buffer accepts the data.
   void _writeAudio() {
+    if (isMeditation) {
+      unawaited(pumpPlayback());
+      return;
+    }
     final synth = _synth;
     if (synth == null || _finishing || _closed || _audioWritePending) return;
     final rate = config.audioSampleRateHz;
@@ -516,7 +654,126 @@ class SessionController extends ChangeNotifier {
     _audioClock.stop();
     _synth?.setAction(null);
     _source?.stop();
+    if (engine is MeditationProtocol) {
+      (engine as MeditationProtocol).playback(
+        _playedFrames,
+        _observedSeconds,
+        active: false,
+      );
+    }
     audio.stop();
+  }
+
+  void _anchorSource(EegBatch batch) {
+    if (engine is MeditationProtocol) {
+      (engine as MeditationProtocol).sourceAnchor(
+        batch.timeSeconds,
+        _observedSeconds - batch.sampleCount / batch.sampleRateHz,
+      );
+    }
+  }
+
+  /// Pumps bounded PCM using actual device consumption. Useful for virtual
+  /// devices and interruption integration; concurrent callers join one request.
+  Future<void> pumpPlayback() {
+    if (!isMeditation || _closed || _finishing || waitingForUser) {
+      return Future.value();
+    }
+    return _playbackPump ??= _pumpPlayback().whenComplete(
+      () => _playbackPump = null,
+    );
+  }
+
+  Future<void> _readPlayed(int generation) async {
+    final local = await (audio as PcmPlaybackProgress).playedFrames().timeout(
+      _audioWriteTimeout,
+    );
+    if (generation != _audioGeneration || _closed) return;
+    final played = (_playbackBase + local).clamp(
+      _playedFrames,
+      _audioFramesWritten,
+    );
+    final observed = _observedSeconds;
+    if (played > _playedFrames) {
+      _playedFrames = played;
+      _lastPlayedObserved = observed;
+    }
+    if (_audioFramesWritten > _playedFrames &&
+        observed - _lastPlayedObserved > 2) {
+      throw StateError('Audio playback stopped progressing');
+    }
+    (engine as MeditationProtocol).playback(_playedFrames, observed);
+  }
+
+  Future<void> _pumpPlayback() async {
+    final renderer = _renderer;
+    if (renderer == null || engine?.terminal == true) return;
+    final generation = _audioGeneration;
+    try {
+      await _readPlayed(generation);
+      if (generation != _audioGeneration || _closed || _finishing) return;
+      if (engine!.terminal) {
+        _finishInBackground();
+        return;
+      }
+      final due = min(MeditationRenderer.durationFrames, _playedFrames + 7200);
+      final frames = min(
+        due - _audioFramesWritten,
+        MeditationRenderer.maxPacketFrames,
+      );
+      if (frames > 0) {
+        _audioWritePending = true;
+        final pcm = await renderer
+            .render(_audioFramesWritten, frames)
+            .timeout(_audioWriteTimeout);
+        if (generation != _audioGeneration || _closed || _finishing) return;
+        await audio.write(pcm).timeout(_audioWriteTimeout);
+        if (generation != _audioGeneration || _closed) return;
+        _audioFramesWritten += frames;
+      }
+      _releaseFrames();
+      if (!_closed) notifyListeners();
+    } catch (failure) {
+      if (generation != _audioGeneration || _closed || _finishing) return;
+      engine?.abort(StopReason.audioLost, 'Ljudutgången slutade fungera.');
+      error = 'Ljudutgången slutade fungera: $failure';
+      _finishInBackground();
+    } finally {
+      _audioWritePending = false;
+      if (generation == _audioGeneration) _releaseFrames();
+    }
+  }
+
+  Future<void> _stopRamp() async {
+    try {
+      await _readPlayed(_audioGeneration);
+      await audio.stop();
+      if (_closed) return;
+      await audio.start(48000).timeout(_audioWriteTimeout);
+      _playbackBase = _playedFrames;
+      final frames = min(
+        7200,
+        MeditationRenderer.durationFrames - _playedFrames,
+      );
+      if (frames <= 0) return;
+      final pcm = await _renderer!.render(
+        _playedFrames,
+        frames,
+        stopping: true,
+      );
+      await audio.write(pcm).timeout(_audioWriteTimeout);
+      _audioFramesWritten = _playedFrames + frames;
+      _lastPlayedObserved = _observedSeconds;
+      while (_playedFrames < _audioFramesWritten && !_closed) {
+        await _readPlayed(_audioGeneration);
+        if (_playedFrames < _audioFramesWritten) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+      }
+    } catch (failure) {
+      engine?.abort(StopReason.audioLost, 'Ljudutgången slutade fungera.');
+      error = 'Ljudutgången slutade fungera: $failure';
+    }
   }
 
   Future<void> _persist(SessionProtocol current) async {

@@ -120,7 +120,37 @@ class ProfileLibrary extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> refresh() async {
+  bool _networkSuspended = false;
+  Future<void> loadCached() async {
+    _check();
+    await _ownerDirectory.create(recursive: true);
+    await _load();
+  }
+
+  /// Join all HTTP work before a local session acquires audio. Cancellation
+  /// releases streaming downloads; an already-issued metadata read is joined.
+  Future<void> suspendNetwork() async {
+    _networkSuspended = true;
+    for (final transfer in _transfers.values) {
+      transfer.cancel();
+    }
+    await stopPreview();
+    for (final job in List<Future<void>>.of(_jobs)) {
+      try {
+        await job;
+      } catch (_) {}
+    }
+  }
+
+  void resumeNetwork() => _networkSuspended = false;
+  Future<void> refresh() {
+    if (_networkSuspended) return loadCached();
+    final job = _refresh();
+    _jobs.add(job);
+    return job.whenComplete(() => _jobs.remove(job));
+  }
+
+  Future<void> _refresh() async {
     _check();
     await _ownerDirectory.create(recursive: true);
     // Orphaned temporary files after a process death can never be selected.
@@ -266,6 +296,7 @@ class ProfileLibrary extends ChangeNotifier {
   }
 
   Future<void> download(String id) {
+    if (_networkSuspended) throw StateError('Session is active');
     _check();
     if (_transfers.containsKey(id) ||
         _profiles.any((p) => p.profile.id == id && p.downloaded)) {
@@ -328,7 +359,9 @@ class ProfileLibrary extends ChangeNotifier {
 
   Future<void> removeLocal(String id) async {
     _check();
-    if (_transfers.containsKey(id) || _previewId == id) {
+    if ((audioBusy?.call() ?? false) ||
+        _transfers.containsKey(id) ||
+        _previewId == id) {
       throw StateError('Audio is in use');
     }
     await _clearReady(id);
@@ -338,6 +371,7 @@ class ProfileLibrary extends ChangeNotifier {
   }
 
   Future<void> preview(String id) {
+    if (_networkSuspended) throw StateError('Session is active');
     _check();
     if (audio == null || previewing || (audioBusy?.call() ?? false)) {
       throw StateError('Audio is busy');

@@ -66,10 +66,12 @@ class UploadSync {
         );
         if (generation != _generation) return;
         if (status == 200 || status == 201) {
-          await api.createTrainingJob(
-            origin: saved.manifest.dataOrigin,
-            experimentVersion: saved.manifest.experimentVersion,
-          );
+          if (saved.manifest.meditation == null) {
+            await api.createTrainingJob(
+              origin: saved.manifest.dataOrigin,
+              experimentVersion: saved.manifest.experimentVersion,
+            );
+          }
           await repository.markUpload(job.sessionId, 'done');
         } else if (status == 409) {
           await repository.markUpload(

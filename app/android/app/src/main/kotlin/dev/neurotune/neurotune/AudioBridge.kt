@@ -53,6 +53,16 @@ class AudioBridge(private val activity: FlutterActivity) {
                         activity.runOnUiThread { result.success(null) }
                     }
                 }
+                "playedFrames" -> {
+                    handler.post {
+                        // Unsigned frame counter; a ten-minute stream cannot wrap.
+                        val frames = track?.playbackHeadPosition?.toLong()?.and(0xffffffffL)
+                        activity.runOnUiThread {
+                            if (frames == null) result.error("AUDIO_STOPPED", "No audio output", null)
+                            else result.success(frames)
+                        }
+                    }
+                }
                 "latencyMs" -> {
                     val current = track
                     if (current == null) {
