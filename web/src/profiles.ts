@@ -18,8 +18,8 @@ export function mountProfiles(hooks:Hooks) {
   <label><input name="track-loop" type="checkbox" checked> Loop source recording</label>
   <label>Background duration (seconds)<input name="duration" type="number" min="30" max="600" step="1" value="600" required></label>
   <label>Carrier frequency (Hz)<input name="carrier" type="number" min="100" max="400" step="1" value="220" required></label>
-  <label>Tone gain<input name="tone" type="number" min="0" max="0.95" step="0.01" value="0.2" required></label>
-  <label>Background gain<input name="background" type="number" min="0" max="0.95" step="0.01" value="0.6" required></label>
+  <label>Tone gain<input name="tone" type="number" min="0" max="0.95" step="any" value="0.2" required></label>
+  <label>Background gain<input name="background" type="number" min="0" max="0.95" step="any" value="0.6" required></label>
   <label><input name="background-loop" type="checkbox" checked> Loop saved background during meditation</label>
   <p>Use stereo headphones. Frequency differences are assigned during meditation; this preview contains background only.</p>
   <button type="button" id="render-background">Render background</button>
@@ -96,7 +96,8 @@ export function mountProfiles(hooks:Hooks) {
   form.onsubmit=async event=> {
     event.preventDefault();if(render?.status!=='ready') return;
     const body={name:input('name').value,render_id:render.id,carrier_hz:Number(input('carrier').value),tone_gain:Number(input('tone').value),background_gain:Number(input('background').value),loop:input('background-loop').checked};
-    if(body.tone_gain+body.background_gain>.95) {hooks.message('Tone and background gains must total at most 0.95.');return;}
+    // Allow only binary addition error at the decimal boundary; the API compares exact decimal values.
+    if(body.tone_gain+body.background_gain>.95+Number.EPSILON) {hooks.message('Tone and background gains must total at most 0.95.');return;}
     const epoch=hooks.generation();saveButton.disabled=true;
     try {
       await hooks.api(profileId?`/audio/profiles/${profileId}/versions`:'/audio/profiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

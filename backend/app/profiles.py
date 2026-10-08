@@ -6,6 +6,7 @@ import subprocess
 import uuid
 import wave
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -53,7 +54,7 @@ class ProfileSettings(BaseModel):
         self.name = self.name.strip()
         if not self.name:
             raise ValueError('Give the profile a name.')
-        if self.tone_gain + self.background_gain > .95:
+        if Decimal(str(self.tone_gain)) + Decimal(str(self.background_gain)) > Decimal('0.95'):
             raise ValueError('Tone and background gains must total at most 0.95.')
         return self
 

@@ -146,3 +146,15 @@ def test_pending_render_recovers_expired_lease_and_failure_cannot_be_saved(tmp_p
     assert 'timed out' in failed['error']
     assert client.get(f'/v1/audio/renders/{failed_id}/preview', headers=auth(token)).status_code == 409
     assert client.post('/v1/audio/profiles', headers=auth(token), json={'name': 'Invalid', 'render_id': failed_id}).status_code == 409
+
+
+def test_decimal_headroom_boundary_accepts_exact_sum_but_rejects_excess(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, 'audio_data_dir', str(tmp_path))
+    token = register(f'{uuid.uuid4()}@example.com')['access_token']
+    render_id = ready_render(token, source(token))
+    body = {'name': 'Boundary', 'render_id': render_id, 'tone_gain': .55, 'background_gain': .4}
+    accepted = client.post('/v1/audio/profiles', headers=auth(token), json=body)
+    assert accepted.status_code == 201, accepted.text
+    assert (accepted.json()['tone_gain'], accepted.json()['background_gain']) == (.55, .4)
+    rejected = client.post('/v1/audio/profiles', headers=auth(token), json=body | {'tone_gain': .5501})
+    assert rejected.status_code == 422, rejected.text
