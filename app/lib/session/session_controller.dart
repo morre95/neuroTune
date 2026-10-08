@@ -734,11 +734,16 @@ class SessionController extends ChangeNotifier {
     _releaseFrames();
   }
 
-  void _releaseFrames() {
+  void _releaseFrames({bool finalCheckpoint = false}) {
     final current = engine;
     // Do not advance or score the protocol while audio acceptance is unknown.
     // Frames stay queued until the packet succeeds or the watchdog aborts.
-    if (current == null || _closed || _finishing || _audioWritePending) return;
+    if (current == null ||
+        _closed ||
+        (_finishing && !finalCheckpoint) ||
+        _audioWritePending) {
+      return;
+    }
     final ready = current.takeReadyFrames();
     if (ready.isEmpty) return;
     for (final scored in ready) {
@@ -914,6 +919,10 @@ class SessionController extends ChangeNotifier {
     await _playbackPump;
     _audioWritePending = false;
     _inFlightFrames = 0;
+    if (!_closed) {
+      _releaseFrames(finalCheckpoint: true);
+      await _evaluateMeditation(selectNext: false);
+    }
   }
 
   void _audioFailed(Object failure) {
@@ -1032,10 +1041,11 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  Future<void> _evaluateMeditation() async {
-    final protocol = engine as MeditationProtocol;
+  Future<void> _evaluateMeditation({bool selectNext = true}) async {
+    final protocol = engine;
+    if (protocol is! MeditationProtocol) return;
     final adaptation = protocol.adaptation;
-    if (adaptation == null) return;
+    if (adaptation == null || !adaptation.isDue(_playedFrames)) return;
     final mapped = protocol.frames
         .map((f) => protocol.mapFrame(f, config.welchWindowSeconds))
         .toList();
@@ -1045,14 +1055,13 @@ class SessionController extends ChangeNotifier {
         playedFrames: _playedFrames,
         ownedFrames: _audioFramesWritten,
         frames: mapped,
+        selectNext: selectNext,
+        checkpointReason: _finishing ? 'session_stopped' : 'playback_paused',
       );
       if (decision == null) break;
       final start = decision['transition_start_frame'] as int?;
       if (start != null) {
         await _renderer!.scheduleAction(start, adaptation.action);
-      }
-      if (decision['updated_statistics'] == true) {
-        await meditation!.saveStatistics?.call(adaptation.statistics);
       }
     }
   }
@@ -1144,17 +1153,17 @@ class SessionController extends ChangeNotifier {
       checksum: checksum,
       status: status,
     );
-    if (current is MeditationProtocol && current.adaptation != null) {
-      final statistics = current.adaptation!.statistics;
-      statistics.attachChecksum(manifest.sessionId, checksum);
-      await meditation!.saveStatistics?.call(statistics);
-    }
     await repository.enqueueUpload(
       manifest.sessionId,
       checksum,
       rawPath,
       ownerEmail,
     );
+    if (current is MeditationProtocol && current.adaptation != null) {
+      final statistics = current.adaptation!.statistics;
+      statistics.attachChecksum(manifest.sessionId, checksum);
+      await meditation!.saveStatistics?.call(statistics);
+    }
   }
 
   String _mean(

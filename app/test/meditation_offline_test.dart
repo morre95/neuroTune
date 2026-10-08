@@ -17,7 +17,8 @@ import 'package:neurotune_core/neurotune_core.dart';
 import 'package:neurotune/main.dart';
 import 'package:neurotune/platform/channels.dart';
 import 'profile_library_test.dart' show wave, metadata, owner, version;
-import 'meditation_session_test.dart' show PlaybackAudio, KeepAlive;
+import 'meditation_session_test.dart' show KeepAlive;
+import 'meditation_interruptions_test.dart' show InterruptedAudio;
 
 void main() {
   for (final heldRefresh in [false, true]) {
@@ -97,7 +98,7 @@ void main() {
               throw const SocketException('No network');
             }),
           );
-          final audio = PlaybackAudio();
+          final audio = InterruptedAudio()..autoPlay = true;
           final service = KeepAlive();
           return (dir, db, api, audio, service);
         }))!;
@@ -179,6 +180,17 @@ void main() {
         }
         expect(service.active, true);
         expect(find.textContaining('Aktiv tid'), findsOneWidget);
+        expect(
+          find.text('Adaptiv meditation · tio aktiva minuter.'),
+          findsOneWidget,
+        );
+        audio.events.add(const PcmInterruption('focus_loss_transient'));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        expect(audio.playing, false);
+        expect(find.text('Fortsätt'), findsOneWidget);
         // A durable queue entry must not trigger HTTP on the periodic retry tick.
         await tester.runAsync(() async {
           final repo = SessionRepository(db);

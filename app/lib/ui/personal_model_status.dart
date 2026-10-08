@@ -53,6 +53,10 @@ class PersonalModelStatus extends StatelessWidget {
                   ? 'Stödd för vald profil och ögonläge'
                   : 'Fast uppspelning · $reason',
             ),
+            if (reason == null)
+              const Text(
+                'Anpassning aktiveras automatiskt. Kalibreringssessioner förblir fasta.',
+              ),
             if (validation != null)
               Text(
                 '${validation['session_count']} sessioner · MAE ${_metric(validation['mae'])} · korrelation ${_metric(validation['correlation'])} · kontext-MAE ${_metric(validation['context_mae'])}',

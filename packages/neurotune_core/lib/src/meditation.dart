@@ -38,7 +38,9 @@ class MeditationProtocol implements SessionProtocol {
       ? 'Ljudet är pausat.'
       : terminal
       ? 'Meditationen är sparad.'
-      : 'Meditation · tio aktiva minuter.';
+      : adaptation == null
+      ? 'Meditation · tio aktiva minuter.'
+      : 'Adaptiv meditation · tio aktiva minuter.';
   @override
   StimulusAction get currentAction => adaptation?.action ?? action;
   @override
@@ -64,7 +66,7 @@ class MeditationProtocol implements SessionProtocol {
 
   @override
   void onFrame(FeatureFrame frame) {
-    if (phase != SessionPhase.stopped) frames.add(frame);
+    frames.add(frame);
   }
 
   void playback(int frames, double observedSeconds, {bool active = true}) {
@@ -130,6 +132,13 @@ class MeditationProtocol implements SessionProtocol {
       final played =
           ((b['played_frames'] as int) - (a['played_frames'] as int)) /
           sampleRate;
+      // Repeated reads at the same clock/head position add no interval.
+      if (elapsed == 0 &&
+          played == 0 &&
+          a['playback_active'] == true &&
+          b['playback_active'] == true) {
+        continue;
+      }
       if (a['playback_active'] != true ||
           b['playback_active'] != true ||
           elapsed <= 0 ||

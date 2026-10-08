@@ -39,6 +39,52 @@ void main() {
     },
   );
   test(
+    'control glides to separated tones and returns without an amplitude fade or phase reset',
+    () async {
+      final dir = await Directory.systemTemp.createTemp(
+        'meditation-control-glide',
+      );
+      addTearDown(() => dir.delete(recursive: true));
+      final bytes = wave(), json = metadata(wave())..['background_gain'] = 0;
+      final file = await File('${dir.path}/sound.wav').writeAsBytes(bytes);
+      final r = await MeditationRenderer.open(
+        file,
+        AudioProfileVersion.fromJson(json),
+        StimulusAction.control,
+      );
+      addTearDown(r.close);
+      await r.scheduleAction(60 * 48000, StimulusAction.binaural12);
+      final peak = ByteData.sublistView(
+        await r.render((62.5 * 48000).round(), 1),
+      );
+      expect(peak.getInt16(0, Endian.little), closeTo(6553, 1));
+      expect(peak.getInt16(2, Endian.little), closeTo(-6553, 1));
+      await r.scheduleAction(120 * 48000, StimulusAction.control);
+      final returning = ByteData.sublistView(
+        await r.render((122.5 * 48000).round(), 1),
+      );
+      expect(returning.getInt16(0, Endian.little), closeTo(-6553, 1));
+      expect(returning.getInt16(2, Endian.little), closeTo(6553, 1));
+      for (final seam in [60, 65, 120, 125]) {
+        final pcm = ByteData.sublistView(await r.render(seam * 48000 - 1, 3));
+        for (var channel = 0; channel < 2; channel++) {
+          expect(
+            (pcm.getInt16(4 + channel * 2, Endian.little) -
+                    pcm.getInt16(channel * 2, Endian.little))
+                .abs(),
+            lessThan(200),
+          );
+          expect(
+            (pcm.getInt16(8 + channel * 2, Endian.little) -
+                    pcm.getInt16(4 + channel * 2, Endian.little))
+                .abs(),
+            lessThan(200),
+          );
+        }
+      }
+    },
+  );
+  test(
     'offline rendered stereo keeps each background channel and fixed headroom',
     () async {
       final dir = await Directory.systemTemp.createTemp('meditation-pcm');

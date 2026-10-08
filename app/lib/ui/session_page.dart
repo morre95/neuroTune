@@ -156,5 +156,8 @@ String meditationActionLabel(
       !revealedPlans.contains(meta?['calibration_plan_id'])) {
     return 'Dold till seriens slut';
   }
+  if (meta?['mode'] == 'adaptive') {
+    return 'Adaptiv · start ${actionLabel(meta?['fixed_action'] as String?)}';
+  }
   return actionLabel(meta?['fixed_action'] as String?);
 }

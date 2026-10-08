@@ -53,7 +53,13 @@ class MeditationActionStatistics {
     }
     final stats = MeditationActionStatistics._(owner, setup, model, []);
     final p = setup.profile;
-    for (final seed in model.fixedMinutes) {
+    List<Map<String, dynamic>> seeds;
+    try {
+      seeds = model.fixedMinutes;
+    } on TypeError {
+      return stats;
+    }
+    for (final seed in seeds) {
       // A profile version is immutable. Also validate every exported context
       // field, never pool scores from a different sound/eye/setup.
       if (seed['profile_version_id'] != p.id ||
@@ -61,21 +67,47 @@ class MeditationActionStatistics {
           seed['eye_state'] != setup.eyeState.name ||
           seed['carrier_hz'] != p.carrierHz ||
           seed['tone_gain'] != p.toneGain ||
-          seed['background_gain'] != p.backgroundGain)
+          seed['background_gain'] != p.backgroundGain) {
         continue;
+      }
       final evidence = model.evidence.where(
         (e) => e['session_id'] == seed['session_id'],
       );
       if (evidence.isEmpty) continue;
-      stats._add({
-        'kind': 'fixed',
-        'session_id': seed['session_id'],
-        'minute': seed['minute'],
-        'action': seed['fixed_action'],
-        'score': seed['score'],
-        'checksum_sha256': evidence.single['checksum_sha256'],
-        'feedback_revision': evidence.single['feedback_revision'],
-      });
+      final features = seed['features'];
+      if (features is! List ||
+          features.length != 2 ||
+          features.any((v) => v is! num || !v.isFinite) ||
+          seed['score'] is! num ||
+          !(seed['score'] as num).isFinite) {
+        continue;
+      }
+      try {
+        final score = model.predict(
+          features.cast<num>().map((n) => n.toDouble()).toList(),
+          backgroundAssetId: p.backgroundAssetId,
+          eyeState: setup.eyeState.name,
+          carrierHz: p.carrierHz,
+          toneGain: p.toneGain,
+          backgroundGain: p.backgroundGain,
+        );
+        if ((score - (seed['score'] as num)).abs() > 1e-8 * (1 + score.abs())) {
+          continue;
+        }
+        stats._add({
+          'kind': 'fixed',
+          'session_id': seed['session_id'],
+          'minute': seed['minute'],
+          'action': seed['fixed_action'],
+          'score': score,
+          'checksum_sha256': evidence.single['checksum_sha256'],
+          'feedback_revision': evidence.single['feedback_revision'],
+        });
+      } on FormatException {
+        // Malformed seed provenance is not an observed arm.
+      } on StateError {
+        // An unusable seed does not add a new model readiness gate.
+      }
     }
     return stats;
   }
@@ -99,8 +131,9 @@ class MeditationActionStatistics {
     final id = '${item['kind']}:${item['session_id']}:${item['minute']}';
     if (_items.any(
       (i) => '${i['kind']}:${i['session_id']}:${i['minute']}' == id,
-    ))
+    )) {
       return;
+    }
     _items.add(Map<String, dynamic>.from(item));
   }
 
@@ -118,11 +151,13 @@ class MeditationActionStatistics {
     'checksum_sha256': null,
   });
   void attachChecksum(String sessionId, String checksum) {
-    if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(checksum))
+    if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(checksum)) {
       throw ArgumentError('SHA256 required');
+    }
     for (final item in _items) {
-      if (item['kind'] == 'adaptive' && item['session_id'] == sessionId)
+      if (item['kind'] == 'adaptive' && item['session_id'] == sessionId) {
         item['checksum_sha256'] = checksum;
+      }
     }
   }
 
@@ -162,8 +197,9 @@ class MeditationActionStatistics {
     for (final item in json['contributions'] as List) {
       if (item is! Map) throw const FormatException('Malformed contribution');
       final value = Map<String, dynamic>.from(item);
-      if (value['kind'] == 'fixed')
+      if (value['kind'] == 'fixed') {
         continue; // Immutable artifact seeds are authoritative.
+      }
       result._add(value);
     }
     result.means; // Reject finite scores whose aggregate overflows.
@@ -183,6 +219,8 @@ class MeditationAdaptation {
   StimulusAction action;
   int _nextMinute = 0;
   final List<Map<String, dynamic>> decisions = [];
+  bool isDue(int playedFrames) =>
+      _nextMinute < 10 && playedFrames >= (_nextMinute + 1) * 60 * 48000;
   String? get unsupportedReason {
     final s = statistics.setup, p = s.profile;
     return statistics.model.unsupportedReason(
@@ -196,8 +234,9 @@ class MeditationAdaptation {
 
   double _random() {
     final n = randomUnit();
-    if (!n.isFinite || n < 0 || n >= 1)
+    if (!n.isFinite || n < 0 || n >= 1) {
       throw StateError('Random unit must be in [0,1)');
+    }
     return n;
   }
 
@@ -206,37 +245,57 @@ class MeditationAdaptation {
     required int playedFrames,
     required int ownedFrames,
     required Iterable<FeatureFrame> frames,
+    bool selectNext = true,
+    String checkpointReason = 'playback_paused',
   }) {
-    if (_nextMinute >= 10 || playedFrames < (_nextMinute + 1) * 60 * 48000)
+    if (!isDue(playedFrames)) {
       return null;
+    }
     final minute = _nextMinute++;
     final available = extractMeditationMinutes(
       frames,
     ).where((m) => m.minute == minute);
-    final qualified = available.isNotEmpty;
+    final eegEligible = available.isNotEmpty;
+    var qualified = eegEligible;
+    String? scoreError;
     double? score;
     final previous = action;
     if (qualified) {
       final s = statistics.setup, p = s.profile;
-      score = statistics.model.predict(
-        available.single.features,
-        backgroundAssetId: p.backgroundAssetId,
-        eyeState: s.eyeState.name,
-        carrierHz: p.carrierHz,
-        toneGain: p.toneGain,
-        backgroundGain: p.backgroundGain,
-      );
-      statistics.observe(sessionId, minute, previous, score);
+      try {
+        score = statistics.model.predict(
+          available.single.features,
+          backgroundAssetId: p.backgroundAssetId,
+          eyeState: s.eyeState.name,
+          carrierHz: p.carrierHz,
+          toneGain: p.toneGain,
+          backgroundGain: p.backgroundGain,
+        );
+      } on StateError catch (failure) {
+        // Finite artifact parameters can still overflow at inference. This is
+        // an unavailable score, never an audio-output failure or clipped value.
+        qualified = false;
+        scoreError = failure.message.toString();
+      }
+      if (qualified) {
+        statistics.observe(sessionId, minute, previous, score!);
+      }
     }
     final terminal = minute == 9;
-    var reason = qualified ? 'exploitation' : 'insufficient_eeg_coverage';
+    final selectionAllowed = !terminal && selectNext;
+    var reason = qualified
+        ? 'exploitation'
+        : scoreError != null
+        ? 'invalid_score'
+        : 'insufficient_eeg_coverage';
     Map<String, double> probabilities = {previous.id: 1};
-    if (qualified && !terminal) {
+    if (qualified && selectionAllowed) {
       final means = statistics.means;
       var best = previous;
       for (final candidate in fixedActionOrder) {
-        if (means[candidate] != null && means[candidate]! > means[best]!)
+        if (means[candidate] != null && means[candidate]! > means[best]!) {
           best = candidate;
+        }
       }
       final exploit = best != previous && means[best]! - means[previous]! >= .5
           ? best
@@ -254,30 +313,39 @@ class MeditationAdaptation {
             : 'exploitation';
       }
     }
-    final changed = !terminal && action != previous;
+    final changed = selectionAllowed && action != previous;
     final start = ownedFrames > playedFrames ? ownedFrames : playedFrames;
     final decision = <String, dynamic>{
       'minute': minute,
       'boundary_played_frames': (minute + 1) * 60 * 48000,
       'evaluated_played_frames': playedFrames,
       'action': previous.id,
-      'selected_action': terminal ? null : action.id,
+      'selected_action': selectionAllowed ? action.id : null,
       'score': score,
       'quality': {
         'eligible': qualified,
-        'coverage': qualified ? available.single.coverage : <String, int>{},
+        'eeg_eligible': eegEligible,
+        'reason': qualified ? 'eligible' : reason,
+        'score_error': ?scoreError,
+        'coverage': eegEligible ? available.single.coverage : <String, int>{},
         'denominator_seconds': 50,
         'required_seconds_per_channel': 40,
         'required_channels': 2,
       },
       'updated_statistics': qualified,
-      'reason': terminal ? 'session_complete' : reason,
-      'probabilities': terminal ? <String, double>{} : probabilities,
-      'selection_probability': terminal ? null : probabilities[action.id],
+      'reason': terminal
+          ? 'session_complete'
+          : selectNext
+          ? reason
+          : checkpointReason,
+      'probabilities': selectionAllowed ? probabilities : <String, double>{},
+      'selection_probability': selectionAllowed
+          ? probabilities[action.id]
+          : null,
       'transition_start_frame': changed ? start : null,
       'transition_duration_frames': changed ? 5 * 48000 : null,
       'from_beat_hz': previous.beatHz,
-      'to_beat_hz': terminal ? null : action.beatHz,
+      'to_beat_hz': selectionAllowed ? action.beatHz : null,
       'model_version': statistics.model.modelVersion,
       'action_counts': {
         for (final e in statistics.counts.entries) e.key.id: e.value,
