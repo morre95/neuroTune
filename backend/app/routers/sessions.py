@@ -15,6 +15,7 @@ from app.config import settings
 from app.db import get_db
 from app.models import BanditVersion, SessionDeletion, SessionRecord, User
 from app.worker import build_policy
+from app.meditation import validate_meditation
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -72,6 +73,8 @@ def upload_session(
         if existing.checksum == digest:
             return _summary(existing)
         raise HTTPException(status_code=409, detail="checksum conflict")
+    if body.manifest.get('meditation') is not None:
+        validate_meditation(db, user.id, body.manifest)
     raw_dir = Path(settings.raw_data_dir)
     raw_dir.mkdir(parents=True, exist_ok=True)
     raw_path = raw_dir / f"{session_id}.zst"
@@ -113,7 +116,8 @@ def delete_sessions(
     if any(row.user_id != user.id for row in rows):
         raise HTTPException(status_code=404, detail="Session not found")
     by_id = {row.id: row for row in rows}
-    affected = {(row.origin, row.experiment_version) for row in rows}
+    affected = {(row.origin, row.experiment_version) for row in rows
+        if json.loads(row.manifest_json).get('meditation') is None}
     deletions = []
     for sid in ids:
         marker = db.get(SessionDeletion, (user.id, sid))

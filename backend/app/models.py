@@ -143,3 +143,42 @@ class AudioProfileVersion(Base):
     render_id: Mapped[str] = mapped_column(ForeignKey("audio_renders.id"))
     body_json: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CalibrationPlanRecord(Base):
+    __tablename__ = 'calibration_plans'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    body_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MeditationFeedbackRecord(Base):
+    __tablename__ = 'meditation_feedback'
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    body_json: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MeditationTrainingJob(Base):
+    __tablename__ = 'meditation_training_jobs'
+    __table_args__ = (UniqueConstraint('user_id', 'origin', 'protocol_version', 'dataset_fingerprint', name='uq_meditation_dataset'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    origin: Mapped[str] = mapped_column(String(32))
+    protocol_version: Mapped[str] = mapped_column(String(64))
+    dataset_fingerprint: Mapped[str] = mapped_column(String(64))
+    dataset_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default='queued')
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MeditationTrainingRequest(Base):
+    __tablename__ = 'meditation_training_requests'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey('meditation_training_jobs.id'))
+    body_json: Mapped[str] = mapped_column(Text)
