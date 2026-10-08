@@ -14,8 +14,10 @@ class SessionBridge(private val activity: FlutterActivity) {
             when (call.method) {
                 "start" -> {
                     requestNotifications()
-                    SessionService.start(activity)
-                    result.success(null)
+                    SessionService.start(activity) { error ->
+                        if (error == null) result.success(null)
+                        else result.error("SESSION_START_FAILED", error.message, null)
+                    }
                 }
                 "stop" -> {
                     SessionService.stop(activity)

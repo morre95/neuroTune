@@ -65,14 +65,19 @@ class MeditationProtocol implements SessionProtocol {
   }
 
   void playback(int frames, double observedSeconds, {bool active = true}) {
-    if (terminal) return;
+    // Failure cleanup can recover frames played from a pending packet. Keep
+    // that final checkpoint truthful without converting a stopped attempt into
+    // a completed session.
+    if (phase == SessionPhase.completed) return;
     playedFrames = frames.clamp(playedFrames, totalFrames);
     playbackTimeline.add({
       'observed_seconds': observedSeconds,
       'played_frames': playedFrames,
       'playback_active': active,
     });
-    if (playedFrames == totalFrames) phase = SessionPhase.completed;
+    if (!terminal && playedFrames == totalFrames) {
+      phase = SessionPhase.completed;
+    }
   }
 
   void sourceAnchor(double sourceSeconds, double observedSeconds) {
