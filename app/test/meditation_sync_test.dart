@@ -435,6 +435,7 @@ void main() {
         final manifest =
             jsonDecode(stored.manifestJson) as Map<String, dynamic>;
         final meta = manifest['meditation'] as Map<String, dynamic>;
+        meta['quality_version'] = 'eeg-fixture-1';
         meta['mode'] = mode;
         meta['origin'] = 'simulator';
         manifest['data_origin'] = 'simulator';
@@ -470,8 +471,9 @@ void main() {
               expect(body['protocol_version'], 'meditation-1');
               return http.Response('{"id":"job"}', 202);
             }
-            if (req.url.path.endsWith('/sessions'))
+            if (req.url.path.endsWith('/sessions')) {
               return http.Response('{}', 200);
+            }
             return http.Response(req.body, 200);
           }),
         )..accessToken = token(owner);
@@ -489,8 +491,8 @@ void main() {
           (await repo.listSessions())
               .single
               .manifest
-              .meditation!['quality_config_version'],
-          meta['quality_config_version'],
+              .meditation!['quality_version'],
+          'eeg-fixture-1',
         );
       },
     );
@@ -509,20 +511,12 @@ void main() {
     'pending sync error and recovered state are visible without revealing actions',
     (tester) async {
       final (db, repo, _, _, _) = (await tester.runAsync(fixture))!;
-      final delivery = MeditationSyncRepository(db);
-      final states = StreamController<MeditationSyncStatus>();
-      addTearDown(states.close);
-      Future<void> updateStatus() async {
-        final snapshot = await tester.runAsync(
-          () => delivery.watchStatus(owner, 'owner@test').first,
-        );
-        states.add(snapshot!);
-      }
-
-      await updateStatus();
+      final status = MeditationSyncRepository(
+        db,
+      ).watchStatus(owner, 'owner@test');
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(body: MeditationSyncStatusView(status: states.stream)),
+          home: Scaffold(body: MeditationSyncStatusView(status: status)),
         ),
       );
       await tester.pumpAndSettle();
@@ -543,12 +537,10 @@ void main() {
       )..accessToken = token(owner);
       final sync = UploadSync(repository: repo, api: api);
       await tester.runAsync(() => sync.flush('owner@test'));
-      await updateStatus();
       await tester.pumpAndSettle();
       expect(find.textContaining('försök misslyckades'), findsOneWidget);
       offline = false;
       await tester.runAsync(() => sync.flush('owner@test'));
-      await updateStatus();
       await tester.pumpAndSettle();
       expect(find.text('Synkroniserat med ditt konto.'), findsOneWidget);
       expect(find.textContaining('binaural'), findsNothing);

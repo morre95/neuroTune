@@ -198,7 +198,7 @@ void main() {
           ? 'fixed-session partial feedback is recoverable in the primary app offline'
           : 'saved partial feedback is recoverable in the primary app and shows post-session endpoints offline',
       (tester) async {
-        var requests = 0;
+        final syncRequests = <String>[];
         final (dir, db, api, audio, service) = (await tester.runAsync(() async {
           final dir = await Directory.systemTemp.createTemp(
             'meditation-offline',
@@ -244,8 +244,8 @@ void main() {
               );
           final api = ApiClient(
             baseUrl: 'http://offline',
-            httpClient: MockClient((_) async {
-              requests++;
+            httpClient: MockClient((request) async {
+              syncRequests.add(request.url.path);
               throw const SocketException('No network');
             }),
           );
@@ -311,7 +311,8 @@ void main() {
           await tester.pump();
         }
         expect(find.text('Meditation'), findsOneWidget);
-        expect(requests, 0);
+        expect(syncRequests, everyElement('/v1/meditation/calibration-plans'));
+        if (fixed) expect(syncRequests, isEmpty);
         await tester.scrollUntilVisible(find.text('Kalibrering'), 200);
         await tester.pump();
         await tester.tap(find.text('Kalibrering'));

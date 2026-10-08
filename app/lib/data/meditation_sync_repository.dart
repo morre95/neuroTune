@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:drift/drift.dart';
@@ -225,9 +226,12 @@ class MeditationSyncRepository {
         );
   });
 
-  Stream<MeditationSyncStatus> watchStatus(String owner, String email) => db
-      .customSelect(
-        '''
+  Stream<MeditationSyncStatus> watchStatus(String owner, String email) =>
+      Stream.multi((controller) {
+        var disposed = false;
+        var revision = 0;
+        final query = db.customSelect(
+          '''
     SELECT state, error FROM (
       SELECT sync_state AS state, last_error AS error FROM calibration_plans WHERE owner_account_id = ?
       UNION ALL SELECT sync_state, last_error FROM meditation_feedback_rows WHERE owner_account_id = ? AND mental_busyness IS NOT NULL AND relaxation IS NOT NULL
@@ -235,43 +239,70 @@ class MeditationSyncRepository {
       UNION ALL SELECT state, last_error FROM upload_jobs WHERE owner_email = ?
     )
     ''',
-        variables: [
-          Variable(owner),
-          Variable(owner),
-          Variable(owner),
-          Variable(email.toLowerCase()),
-        ],
-        readsFrom: {
-          db.calibrationPlans,
-          db.meditationFeedbackRows,
-          db.meditationTrainingOutbox,
-          db.uploadJobs,
-        },
-      )
-      .watch()
-      .map(
-        (rows) => MeditationSyncStatus(
-          rows
-              .where(
-                (r) => [
-                  'pending',
-                  'delete_pending',
-                  'conflict',
-                ].contains(r.read<String>('state')),
-              )
-              .length,
-          rows
-              .where(
-                (r) =>
-                    [
+          variables: [
+            Variable(owner),
+            Variable(owner),
+            Variable(owner),
+            Variable(email.toLowerCase()),
+          ],
+          readsFrom: {
+            db.calibrationPlans,
+            db.meditationFeedbackRows,
+            db.meditationTrainingOutbox,
+            db.uploadJobs,
+          },
+        );
+        void refresh() {
+          final requested = ++revision;
+          unawaited(
+            query.get().then(
+              (rows) {
+                if (!disposed && requested == revision) {
+                  final pending = rows.where(
+                    (row) => [
                       'pending',
                       'delete_pending',
                       'conflict',
-                    ].contains(r.read<String>('state')) &&
-                    r.readNullable<String>('error') != null,
-              )
-              .length,
-          rows.where((r) => r.read<String>('state') == 'done').length,
-        ),
-      );
+                    ].contains(row.read<String>('state')),
+                  );
+                  controller.add(
+                    MeditationSyncStatus(
+                      pending.length,
+                      pending
+                          .where(
+                            (row) => row.readNullable<String>('error') != null,
+                          )
+                          .length,
+                      rows
+                          .where((row) => row.read<String>('state') == 'done')
+                          .length,
+                    ),
+                  );
+                }
+              },
+              onError: (Object error, StackTrace stack) {
+                if (!disposed) controller.addError(error, stack);
+              },
+            ),
+          );
+        }
+
+        // Table notifications have no query-cache disposal delay. Cancel them
+        // immediately when account/navigation removes the status widget.
+        final updates = db
+            .tableUpdates(
+              TableUpdateQuery.onAllTables([
+                db.calibrationPlans,
+                db.meditationFeedbackRows,
+                db.meditationTrainingOutbox,
+                db.uploadJobs,
+              ]),
+            )
+            .listen((_) => refresh());
+        controller.onCancel = () {
+          disposed = true;
+          return updates.cancel();
+        };
+        refresh();
+      });
 }
