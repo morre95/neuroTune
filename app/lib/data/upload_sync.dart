@@ -26,6 +26,20 @@ class UploadSync {
         generation == _generation &&
         authentication == api.authGeneration &&
         owner == api.accountId;
+    Future<bool> persist(Future<void> Function() mutation) async {
+      try {
+        await repository.db.transaction(() async {
+          if (!valid()) throw StateError('Delivery cancelled');
+          await mutation();
+          if (!valid()) throw StateError('Delivery cancelled');
+        });
+        return true;
+      } catch (_) {
+        if (!valid()) return false;
+        rethrow;
+      }
+    }
+
     final deletions = await repository.pendingDeletions(email);
     for (var offset = 0; offset < deletions.length; offset += 100) {
       if (!valid()) return;
@@ -34,17 +48,21 @@ class UploadSync {
         await api.deleteSessions(chunk.map((job) => job.sessionId).toList());
         for (final job in chunk) {
           if (!valid()) return;
-          await repository.completeDeletion(job);
+          if (!await persist(() => repository.completeDeletion(job))) return;
         }
       } catch (error) {
         for (final job in chunk) {
           if (!valid()) return;
-          await repository.markUpload(
-            job.sessionId,
-            'delete_pending',
-            attempts: job.attempts + 1,
-            error: '$error',
-          );
+          if (!await persist(
+            () => repository.markUpload(
+              job.sessionId,
+              'delete_pending',
+              attempts: job.attempts + 1,
+              error: '$error',
+            ),
+          )) {
+            return;
+          }
         }
       }
     }
@@ -58,10 +76,12 @@ class UploadSync {
             ),
           );
           if (!valid()) return;
-          await meditation.markPlan(plan);
+          if (!await persist(() => meditation.markPlan(plan))) return;
         } catch (error) {
           if (!valid()) return;
-          await meditation.markPlan(plan, error: '$error');
+          if (!await persist(() => meditation.markPlan(plan, error: '$error'))) {
+            return;
+          }
         }
       }
     }
@@ -101,29 +121,47 @@ class UploadSync {
             );
             if (!valid()) return;
           }
-          await repository.markUpload(job.sessionId, 'done');
+          if (!await persist(
+            () => repository.markUpload(job.sessionId, 'done'),
+          )) {
+            return;
+          }
         } else if (status == 409) {
-          await repository.markUpload(
-            job.sessionId,
-            'conflict',
-            error: 'checksum',
-          );
+          if (!await persist(
+            () => repository.markUpload(
+              job.sessionId,
+              'conflict',
+              error: 'checksum',
+            ),
+          )) {
+            return;
+          }
         }
       } catch (error) {
         if (!valid()) return;
-        await repository.markUpload(
-          job.sessionId,
-          error is ApiException && error.status == 410 ? 'deleted' : 'pending',
-          attempts: job.attempts + 1,
-          error: '$error',
-        );
+        if (!await persist(
+          () => repository.markUpload(
+            job.sessionId,
+            error is ApiException && error.status == 410
+                ? 'deleted'
+                : 'pending',
+            attempts: job.attempts + 1,
+            error: '$error',
+          ),
+        )) {
+          return;
+        }
         if (error is ApiException &&
             error.status == 410 &&
             owner != null &&
             saved != null &&
             meditationOwner(saved.manifest) == owner &&
             valid()) {
-          await meditation.retireDeletedSession(owner, saved.id);
+          if (!await persist(
+            () => meditation.retireDeletedSession(owner, saved.id),
+          )) {
+            return;
+          }
         }
       }
     }
@@ -141,14 +179,22 @@ class UploadSync {
       try {
         await api.saveMeditationFeedback(meditation.outcome(row));
         if (!valid()) return;
-        await meditation.acknowledgeFeedback(row, saved);
+        if (!await persist(
+          () => meditation.acknowledgeFeedback(row, saved, isCurrent: valid),
+        )) {
+          return;
+        }
       } catch (error) {
         if (!valid()) return;
-        await meditation.failFeedback(
-          row,
-          error,
-          gone: error is ApiException && error.status == 410,
-        );
+        if (!await persist(
+          () => meditation.failFeedback(
+            row,
+            error,
+            gone: error is ApiException && error.status == 410,
+          ),
+        )) {
+          return;
+        }
       }
     }
     for (final request in await meditation.training(owner)) {
@@ -159,7 +205,11 @@ class UploadSync {
           .firstOrNull;
       if (!valid()) return;
       if (!current || saved == null) {
-        await meditation.markTraining(request, 'superseded');
+        if (!await persist(
+          () => meditation.markTraining(request, 'superseded'),
+        )) {
+          return;
+        }
         continue;
       }
       if (!await meditation.rawAccepted(request.sessionId, email)) continue;
@@ -170,17 +220,29 @@ class UploadSync {
         );
         if (!valid()) return;
         // An edit while the request was held leaves the new revision pending.
-        await meditation.markTraining(
-          request,
-          await meditation.trainingCurrent(request) ? 'done' : 'superseded',
-        );
+        final stillCurrent = await meditation.trainingCurrent(request);
+        if (!valid()) return;
+        if (!await persist(
+          () => meditation.markTraining(
+            request,
+            stillCurrent ? 'done' : 'superseded',
+          ),
+        )) {
+          return;
+        }
       } catch (error) {
         if (!valid()) return;
-        await meditation.markTraining(
-          request,
-          error is ApiException && error.status == 410 ? 'deleted' : 'pending',
-          error: error,
-        );
+        if (!await persist(
+          () => meditation.markTraining(
+            request,
+            error is ApiException && error.status == 410
+                ? 'deleted'
+                : 'pending',
+            error: error,
+          ),
+        )) {
+          return;
+        }
       }
     }
   }

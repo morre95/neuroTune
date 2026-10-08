@@ -93,12 +93,19 @@ class MeditationSyncRepository {
 
   Future<void> acknowledgeFeedback(
     MeditationFeedbackRow row,
-    SavedSession session,
-  ) => db.transaction(() async {
+    SavedSession session, {
+    required bool Function() isCurrent,
+  }) => db.transaction(() async {
+    void ensureCurrent() {
+      if (!isCurrent()) throw StateError('Delivery cancelled');
+    }
+
+    ensureCurrent();
     // A deletion or edit while the response was in flight cannot be acknowledged.
     final saved = await (db.select(
       db.storedSessions,
     )..where((r) => r.id.equals(row.sessionId))).getSingleOrNull();
+    ensureCurrent();
     if (saved == null) return;
     final changed =
         await (db.update(db.meditationFeedbackRows)..where(
@@ -114,6 +121,7 @@ class MeditationSyncRepository {
                 lastError: Value(null),
               ),
             );
+    ensureCurrent();
     if (changed == 0 ||
         ![
           'fixed',
@@ -142,6 +150,7 @@ class MeditationSyncRepository {
           ),
           mode: InsertMode.insertOrIgnore,
         );
+    ensureCurrent();
   });
 
   Future<void> failFeedback(

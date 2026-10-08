@@ -104,6 +104,13 @@ void main() {
           if (req.url.path.endsWith('/sessions')) {
             return http.Response('{}', 200);
           }
+          if (req.url.path.endsWith('/calibration-plans')) {
+            final profile = body['profile'] as Map<String, dynamic>;
+            profile['created_at'] = '2026-10-08T00:00:00+00:00';
+            profile['carrier_hz'] = (profile['carrier_hz'] as num).toDouble();
+            profile['normalization_factor'] =
+                (profile['normalization_factor'] as num).toDouble();
+          }
           return http.Response(jsonEncode(body), 200);
         }),
       )..accessToken = token(owner);
@@ -506,6 +513,66 @@ void main() {
     await repo.claimLegacyUploads('foreign@test');
     expect((await repo.pendingUploads()).single.ownerEmail, isNull);
   });
+
+  for (final stage in ['feedback', 'training']) {
+    test(
+      'account change during queued SQLite $stage acknowledgement leaves request pending',
+      () async {
+        final (db, repo, _, _, _) = await fixture();
+        final responseReady = Completer<void>(),
+            releaseResponse = Completer<void>();
+        final api = ApiClient(
+          baseUrl: 'http://local',
+          httpClient: MockClient((req) async {
+            if (req.url.path.endsWith(
+              stage == 'training' ? '/training/jobs' : '/feedback',
+            )) {
+              responseReady.complete();
+              await releaseResponse.future;
+              return http.Response(
+                stage == 'training' ? '{"id":"job"}' : req.body,
+                stage == 'training' ? 202 : 200,
+              );
+            }
+            if (req.url.path.endsWith('/sessions')) {
+              return http.Response('{}', 200);
+            }
+            return http.Response(req.body, 200);
+          }),
+        )..accessToken = token(owner);
+        final sync = UploadSync(repository: repo, api: api);
+        final running = sync.flush('owner@test');
+        await responseReady.future;
+        final acquired = Completer<void>(), releaseDatabase = Completer<void>();
+        final blocked = db.transaction(() async {
+          await db.getKv('transaction-barrier');
+          acquired.complete();
+          await releaseDatabase.future;
+        });
+        await acquired.future;
+        releaseResponse.complete();
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        api.accessToken = token('22222222-2222-4222-8222-222222222222');
+        releaseDatabase.complete();
+        await blocked;
+        await running;
+        if (stage == 'training') {
+          expect(
+            (await db.select(db.meditationTrainingOutbox).get())
+                .single
+                .syncState,
+            'pending',
+          );
+        } else {
+          expect(
+            (await db.select(db.meditationFeedbackRows).get()).single.syncState,
+            'pending',
+          );
+          expect(await db.select(db.meditationTrainingOutbox).get(), isEmpty);
+        }
+      },
+    );
+  }
 
   testWidgets(
     'pending sync error and recovered state are visible without revealing actions',

@@ -253,7 +253,14 @@ class ApiClient {
     final accepted = CalibrationPlan.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
-    if (jsonEncode(accepted.toJson()) != jsonEncode(plan.toJson())) {
+    final received = accepted.toJson(), expected = plan.toJson();
+    for (final body in [received, expected]) {
+      final profile = body['profile'] as Map<String, dynamic>;
+      final created = DateTime.parse(profile['created_at'] as String);
+      if (!created.isUtc) throw StateError('Invalid profile timestamp');
+      profile['created_at'] = created.toUtc().toIso8601String();
+    }
+    if (!_sameJson(received, expected)) {
       throw StateError('Calibration acknowledgement does not match');
     }
   }
@@ -267,8 +274,7 @@ class ApiClient {
     _expect(response);
     final accepted = jsonDecode(response.body) as Map<String, dynamic>;
     final expected = feedback.toJson();
-    if (accepted.length != expected.length ||
-        expected.entries.any((entry) => accepted[entry.key] != entry.value)) {
+    if (!_sameJson(accepted, expected)) {
       throw StateError('Feedback acknowledgement does not match');
     }
   }
@@ -355,6 +361,23 @@ class ApiClient {
       throw ApiException(response.statusCode, response.body);
     }
   }
+}
+
+// JSON key order and the encoding of equivalent numbers do not change context.
+bool _sameJson(Object? left, Object? right) {
+  if (left is Map && right is Map) {
+    return left.length == right.length &&
+        left.keys.every(
+          (key) => right.containsKey(key) && _sameJson(left[key], right[key]),
+        );
+  }
+  if (left is List && right is List) {
+    return left.length == right.length &&
+        Iterable<int>.generate(
+          left.length,
+        ).every((index) => _sameJson(left[index], right[index]));
+  }
+  return left == right;
 }
 
 Uint8List encodePcm16(Float64List stereo) {
