@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
+from sqlalchemy import Float, Integer, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -92,4 +92,26 @@ class BanditVersion(Base):
     origin: Mapped[str] = mapped_column(String(32), index=True)
     experiment_version: Mapped[str] = mapped_column(String(64), index=True)
     body: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AudioAsset(Base):
+    """Owned original and canonical audio, with durable import lease."""
+
+    __tablename__ = "audio_assets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    schema_version: Mapped[int] = mapped_column(Integer, default=1)
+    filename: Mapped[str] = mapped_column(String(255))
+    source_format: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    original_bytes: Mapped[int] = mapped_column(Integer)
+    original_sha256: Mapped[str] = mapped_column(String(64))
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source_channels: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lease_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

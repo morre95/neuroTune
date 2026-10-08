@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models import Experiment
-from app.routers import auth, bandit, experiments, sessions, training
+from app.routers import audio, auth, bandit, experiments, sessions, training
 
 
 def seed_experiment() -> None:
@@ -39,6 +40,8 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="neuroTune", version="0.1.0", lifespan=lifespan)
+app.include_router(audio.router, prefix="/v1")
+app.mount("/editor", StaticFiles(directory=settings.editor_dist_dir, html=True, check_dir=False), name="editor")
 app.include_router(auth.router, prefix="/v1")
 app.include_router(experiments.router, prefix="/v1")
 app.include_router(sessions.router, prefix="/v1")
