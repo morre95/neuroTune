@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'database.dart';
 import 'meditation_sync_repository.dart';
+import 'meditation_learning_cleanup.dart';
 
 class PendingUpload {
   PendingUpload({
@@ -242,6 +243,7 @@ class SessionRepository {
           row.id: row,
       };
       final changedOwners = <String>{};
+      final retiredByOwner = <String, Set<String>>{};
       for (final id in ids) {
         final job = jobs[id], marker = markers[id];
         if ((job == null && marker == null) ||
@@ -289,6 +291,7 @@ class SessionRepository {
           );
         }
         if (uuid != null) {
+          retiredByOwner.putIfAbsent(uuid, () => {}).add(id);
           await (db.delete(db.meditationFeedbackRows)..where(
                 (r) => r.ownerAccountId.equals(uuid) & r.sessionId.equals(id),
               ))
@@ -304,6 +307,9 @@ class SessionRepository {
         }
       }
       await (db.delete(db.storedSessions)..where((r) => r.id.isIn(ids))).go();
+      for (final entry in retiredByOwner.entries) {
+        await retireMeditationLearning(db, entry.key, entry.value);
+      }
       for (final owner in changedOwners) {
         await bumpEvidenceEpoch(owner);
       }

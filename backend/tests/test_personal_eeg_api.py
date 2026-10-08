@@ -84,7 +84,7 @@ def test_synthetic_simulator_api_worker_exports_ready_model(tmp_path, monkeypatc
     assert failed['id'] != model['id']
     assert failed['validation']['correlation'] is None
     assert client.post('/v1/sessions/delete',headers=auth(token),json={'session_ids':[sid]}).status_code==200
-    assert client.get('/v1/meditation/models/latest',headers=auth(token),params={'origin':'simulator'}).status_code==404
+    assert client.get('/v1/meditation/models/latest',headers=auth(token),params={'origin':'simulator'}).json()['status']=='revoked'
     assert client.get(f"/v1/meditation/training/jobs/{newer['id']}",headers=auth(token)).status_code==404
 
 

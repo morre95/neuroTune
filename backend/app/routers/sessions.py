@@ -16,7 +16,7 @@ from app.db import get_db
 from app.models import BanditVersion, SessionDeletion, SessionRecord, User
 from app.worker import build_policy
 from app.meditation import is_meditation_manifest, validate_meditation
-from app.deletion import bump_deletion_epoch, read_deletion_epoch, remove_meditation_evidence
+from app.deletion import bump_deletion_epoch, read_deletion_epoch, remove_meditation_evidence, rebuild_meditation_evidence
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -133,10 +133,11 @@ def delete_sessions(
         deletions.append(marker)
     if changed:
         bump_deletion_epoch(db, user.id)
-    remove_meditation_evidence(db, user.id, ids)
+    rebuild_scopes = remove_meditation_evidence(db, user.id, ids)
     for row in rows:
         db.delete(row)
     db.flush()
+    rebuild_meditation_evidence(db, user.id, rebuild_scopes)
     for origin, version in affected:
         policy = build_policy(db, user.id, origin, version)
         db.flush()

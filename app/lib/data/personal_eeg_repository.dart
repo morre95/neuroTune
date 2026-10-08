@@ -5,6 +5,7 @@ import 'repository.dart';
 import 'calibration_repository.dart';
 import 'api_client.dart';
 import 'meditation_sync_repository.dart';
+import 'meditation_learning_cleanup.dart';
 
 /// Versioned account/source cache. An evidence epoch guards a new publication;
 /// it is never a blanket revocation clock for an unaffected offline artifact.
@@ -98,23 +99,40 @@ class PersonalEegRepository {
       invalid = true;
       model = null;
     }
-    return db.transaction(() async {
-      if (!current()) return false;
-      final valid = model == null || await _evidenceCurrent(owner, model);
-      final value = valid && model != null
-          ? model.toJson()
-          : {
-              'missing': !invalid && model == null,
-              'invalid': invalid || !valid,
-            };
-      return sessions.publishEvidenceCache(
-        owner,
-        expectedLocalEpoch: epoch,
-        includedSessionIds: model?.includedSessionIds ?? [],
-        key: _key(owner, origin),
-        value: jsonEncode(value),
-        isCurrent: current,
-      );
-    });
+    try {
+      return await db.transaction(() async {
+        if (!current()) return false;
+        final valid = model == null || await _evidenceCurrent(owner, model);
+        final value = valid && model != null
+            ? model.toJson()
+            : {
+                'missing': !invalid && model == null,
+                'invalid': invalid || !valid,
+              };
+        final published = await sessions.publishEvidenceCache(
+          owner,
+          expectedLocalEpoch: epoch,
+          includedSessionIds: model?.includedSessionIds ?? [],
+          key: _key(owner, origin),
+          value: jsonEncode(value),
+          isCurrent: current,
+        );
+        if (!published) return false;
+        await retireSupersededMeditationStatistics(
+          db,
+          owner,
+          origin.name,
+          valid && model?.status == 'ready' ? model!.modelVersion : null,
+        );
+        if (!current()) throw const _ModelPublicationCancelled();
+        return true;
+      });
+    } on _ModelPublicationCancelled {
+      return false;
+    }
   }
+}
+
+class _ModelPublicationCancelled implements Exception {
+  const _ModelPublicationCancelled();
 }

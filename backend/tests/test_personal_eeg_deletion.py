@@ -36,4 +36,5 @@ def test_deleting_included_evidence_removes_model_after_previous_unusable_job_de
     assert client.post('/v1/sessions/delete', headers=auth(token), json={'session_ids': [sid]}).status_code == 200
     with SessionLocal() as db:
         assert db.get(PersonalEegModel, mid) is None, 'Detached artifact still holds deleted included-session evidence'
-    assert client.get('/v1/meditation/models/latest', headers=auth(token)).status_code == 404
+    revoked = client.get('/v1/meditation/models/latest', headers=auth(token)).json()
+    assert revoked['status'] == 'revoked' and revoked['included_session_ids'] == []
