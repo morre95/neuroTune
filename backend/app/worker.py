@@ -1,4 +1,5 @@
 import json
+from app.meditation import is_meditation_manifest
 import uuid
 from datetime import UTC, datetime
 
@@ -36,7 +37,7 @@ def build_policy(db: Session, user_id: str, origin: str, experiment_version: str
     stats = {action: {"n": 0, "mean": 0.0} for action in ACTIONS}
     included: list[str] = []
     for session in sessions:
-        if json.loads(session.manifest_json).get('meditation') is not None:
+        if is_meditation_manifest(json.loads(session.manifest_json)):
             continue
         decisions = json.loads(session.decisions_json)
         used = False

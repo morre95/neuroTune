@@ -165,3 +165,39 @@ def test_legacy_misrouted_worker_job_cannot_learn_meditation_decisions(tmp_path,
     policy = client.get('/v1/bandit/latest', headers=auth(token), params={'origin': 'muse', 'experiment_version': 'meditation-1'}).json()
     assert policy['included_session_ids'] == []
     assert policy['actions']['binaural_10']['n'] == 0
+
+
+
+def test_malformed_meditation_scalars_are_client_errors(tmp_path, monkeypatch):
+    token, profile, _ = context(tmp_path, monkeypatch)
+    for field in ['fixed_action', 'mode', 'origin', 'eye_state']:
+        response = client.post('/v1/sessions', headers=auth(token), json=recording(profile, **{field: []}))
+        assert 400 <= response.status_code < 500
+    body = recording(profile, mode='calibration', calibration_plan_id=[], calibration_slot=0, calibration_schema_version=1)
+    assert 400 <= client.post('/v1/sessions', headers=auth(token), json=body).status_code < 500
+
+
+def test_meditation_markers_require_context_and_restored_rows_never_train_nir(tmp_path, monkeypatch):
+    import json
+    from app.models import SessionRecord, TrainingJob
+    token, profile, _ = context(tmp_path, monkeypatch)
+    body = recording(profile)
+    del body['manifest']['meditation']
+    assert 400 <= client.post('/v1/sessions', headers=auth(token), json=body).status_code < 500
+    # Restore an old persisted row directly: upload validation cannot protect
+    # the worker from data accepted by an earlier version.
+    sid = body['manifest']['session_id']
+    with SessionLocal() as db:
+        db.add(SessionRecord(id=sid, user_id=profile['owner_account_id'], checksum=body['checksum_sha256'],
+            origin='muse', experiment_version='meditation-1', manifest_json=json.dumps(body['manifest']),
+            decisions_json=json.dumps([{'action': 'binaural_10', 'reward': 9, 'updated_bandit': True}]),
+            frames_json='[]', raw_path=str(tmp_path / 'absent'), created_at=datetime.now(UTC)))
+        db.add(TrainingJob(id=str(uuid.uuid4()), user_id=profile['owner_account_id'], origin='muse',
+            experiment_version='meditation-1', status='queued', created_at=datetime.now(UTC)))
+        db.commit()
+        run_once(db)
+    policy = client.get('/v1/bandit/latest', headers=auth(token), params={'origin': 'muse', 'experiment_version': 'meditation-1'}).json()
+    assert policy['included_session_ids'] == []
+    assert client.post('/v1/sessions/delete', headers=auth(token), json={'session_ids': [sid]}).status_code == 200
+    with SessionLocal() as db:
+        assert db.query(TrainingJob).filter_by(user_id=profile['owner_account_id']).count() == 1

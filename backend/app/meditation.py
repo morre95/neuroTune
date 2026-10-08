@@ -71,12 +71,20 @@ class FeedbackIn(BaseModel):
     revision: int = Field(strict=True, ge=1)
 
 
+def is_meditation_manifest(manifest):
+    """Reserved markers protect routing even for rows saved by older versions."""
+    return (manifest.get('meditation') is not None or manifest.get('mode') == 'meditation'
+        or manifest.get('experiment_version') == PROTOCOL)
+
+
 def validate_meditation(db, owner, manifest, completed=False):
     from app.models import CalibrationPlanRecord
     from pydantic import ValidationError
     meta = manifest.get('meditation')
     if not isinstance(meta, dict):
         raise HTTPException(422, 'Meditation context required')
+    if any(not isinstance(meta.get(key), str) for key in ('mode', 'fixed_action', 'origin', 'eye_state')):
+        raise HTTPException(422, 'Invalid meditation scalar metadata')
     try:
         profile = ProfileVersion.model_validate(meta.get('profile'))
     except ValidationError:
@@ -99,7 +107,14 @@ def validate_meditation(db, owner, manifest, completed=False):
     if completed and (frames != 28800000 or manifest.get('ended_in_phase') != 'completed' or manifest.get('stop_reason') is not None):
         raise HTTPException(409, 'Feedback requires 600 completed active seconds')
     if meta['mode'] == 'calibration':
-        plan = db.get(CalibrationPlanRecord, meta.get('calibration_plan_id', ''))
+        plan_id = meta.get('calibration_plan_id')
+        if not isinstance(plan_id, str):
+            raise HTTPException(422, 'Invalid calibration plan identifier')
+        try:
+            uuid.UUID(plan_id)
+        except ValueError:
+            raise HTTPException(422, 'Invalid calibration plan identifier') from None
+        plan = db.get(CalibrationPlanRecord, plan_id)
         if plan is None or plan.user_id != owner:
             raise HTTPException(404, 'Calibration plan not found')
         body = PlanIn.model_validate(json.loads(plan.body_json))
