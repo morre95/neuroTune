@@ -4,7 +4,8 @@ type Tokens = {access_token:string;refresh_token:string};
 export type AudioAsset = {id:string;schema_version:number;filename:string;status:'pending'|'ready'|'failed';error:string|null;duration_seconds:number|null;checksum_sha256:string|null};
 let tokens: Tokens | null = null;
 let generation = 0;
-let refreshing: Promise<Tokens> | null = null;
+type Refresh = { generation: number; promise: Promise<Tokens> };
+let refreshing: Refresh | null = null;
 let poll: number | undefined;
 let previewUrl: string | null = null;
 const app = document.querySelector<HTMLElement>('#app')!;
@@ -24,7 +25,7 @@ function clearPreview() {
   previewUrl=null;
 }
 function signedOut() {
-  generation++; tokens=null; clearTimeout(poll); clearPreview();
+  generation++; tokens=null; refreshing=null; clearTimeout(poll); clearPreview();
   login.hidden=false; library.hidden=true; document.querySelector('#assets')!.replaceChildren();
 }
 export async function api(path:string, init:RequestInit = {}):Promise<Response> {
@@ -32,14 +33,20 @@ export async function api(path:string, init:RequestInit = {}):Promise<Response> 
   const epoch = generation;
   const request = ()=>fetch(`/v1${path}`,{...init,headers:{...init.headers,Authorization:`Bearer ${tokens?.access_token}`}});
   let response=await request();
+  if(generation!==epoch) throw new Error('Account changed.');
   if(response.status===401 && current) {
-    if(!refreshing) refreshing=(async()=> {
+    if(!refreshing || refreshing.generation!==epoch) {
+      const state: Refresh = {generation:epoch,promise:(async()=> {
       const refreshed=await fetch('/v1/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:current.refresh_token})});
       if(!refreshed.ok) throw new Error('Please sign in again.');
       return await refreshed.json() as Tokens;
-    })().finally(()=>{refreshing=null;});
+      })()};
+      refreshing=state;
+      state.promise=state.promise.finally(()=>{if(refreshing===state) refreshing=null;});
+    }
+    const state=refreshing;
     try {
-      const pair=await refreshing;
+      const pair=await state.promise;
       if(generation!==epoch) throw new Error('Account changed.');
       tokens=pair; response=await request();
     } catch(error) {if(generation===epoch) signedOut(); throw error;}

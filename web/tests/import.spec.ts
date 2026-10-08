@@ -50,3 +50,41 @@ test('upload refusal is actionable without losing the signed in library', async 
   await expect(page.getByRole('status')).toHaveText('Choose a WAV, MP3, M4A/AAC, or FLAC recording.');
   await expect(page.getByRole('button',{name:'Upload recording'})).toBeEnabled();
 });
+
+test('a delayed refresh cannot cross sign-out and another account sign-in', async ({page})=> {
+  let loginCount=0;
+  let releaseOldRefresh: (()=>Promise<void>) | undefined;
+  let oldRefreshStarted=false;
+  let newRefreshStarted=false;
+  await page.route('**/v1/auth/login', async route=> {
+    loginCount++;
+    await route.fulfill({json:{access_token:loginCount===1?'alice-expired':'bob-expired',refresh_token:loginCount===1?'alice-refresh':'bob-refresh'}});
+  });
+  await page.route('**/v1/auth/logout',route=>route.fulfill({json:{ok:true}}));
+  await page.route('**/v1/auth/refresh',async route=> {
+    const refresh=route.request().postDataJSON().refresh_token;
+    if(refresh==='alice-refresh') {
+      oldRefreshStarted=true;
+      releaseOldRefresh=()=>route.fulfill({json:{access_token:'alice-valid',refresh_token:'alice-next'}});
+    } else {
+      newRefreshStarted=true;
+      await route.fulfill({json:{access_token:'bob-valid',refresh_token:'bob-next'}});
+    }
+  });
+  await page.route('**/v1/audio/assets',async route=> {
+    const token=route.request().headers()['authorization'];
+    if(token.endsWith('expired')) await route.fulfill({status:401,json:{detail:'Expired token'}});
+    else await route.fulfill({json:[{id:'asset',filename:token==='Bearer bob-valid'?'Bob private recording.wav':'Alice private recording.wav',status:'ready',error:null}]});
+  });
+  await page.goto('/editor/');
+  await page.getByLabel('Email').fill('alice@example.com');await page.getByLabel('Password').fill('correct-horse');
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await expect.poll(()=>oldRefreshStarted).toBe(true);
+  await page.getByRole('button',{name:'Sign out'}).click();
+  await page.getByLabel('Email').fill('bob@example.com');await page.getByLabel('Password').fill('correct-horse');
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await expect.poll(()=>newRefreshStarted).toBe(true);
+  await releaseOldRefresh!();
+  await expect(page.getByText('Bob private recording.wav',{exact:true})).toBeVisible();
+  await expect(page.getByText('Alice private recording.wav',{exact:true})).toHaveCount(0);
+});

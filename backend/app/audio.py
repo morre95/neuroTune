@@ -70,9 +70,10 @@ def run_audio_jobs(db: Session) -> int:
             duration = float(probe.get("format", {}).get("duration", streams[0].get("duration", 0)))
             if not math.isfinite(duration) or duration < 0 or duration > MAX_DURATION:
                 raise ValueError("Trim your recording to ten minutes or less before uploading.")
+            channel_args = ["-af", "pan=stereo|c0=c0|c1=c0"] if streams[0]["channels"] == 1 else []
             _command(["ffmpeg", "-nostdin", "-v", "error", "-xerror", "-protocol_whitelist", "file,pipe", "-f", asset.source_format,
                 "-threads", "1", "-i", source, "-map", "0:a:0", "-vn", "-t", "600.01", "-ac", "2", "-ar", "48000",
-                "-c:a", "pcm_s16le", "-threads", "1", "-y", str(temporary)])
+                "-c:a", "pcm_s16le", "-threads", "1", *channel_args, "-y", str(temporary)])
             with wave.open(str(temporary), "rb") as audio:
                 decoded_duration = audio.getnframes() / audio.getframerate()
                 if decoded_duration <= 0 or decoded_duration > MAX_DURATION:

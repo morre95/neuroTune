@@ -32,6 +32,7 @@ def test_owner_imports_and_auditions_mono_audio(tmp_path, monkeypatch):
         frames = wav.readframes(wav.getnframes())
         assert frames[0::4] == frames[2::4]
         assert frames[1::4] == frames[3::4]
+        assert frames[400:404] == b'\x00\x10\x00\x10'
 
 
 def test_foreign_account_cannot_inspect_or_download_asset(tmp_path, monkeypatch):
