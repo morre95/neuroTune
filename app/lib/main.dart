@@ -1,3 +1,4 @@
+import 'data/meditation_action_repository.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
@@ -1043,10 +1044,58 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         _fixedAction = fixedAction;
         _manualFixedAction = false;
       }
+      PersonalEegModel? frozenModel;
+      MeditationActionStatistics? statistics;
+      Future<void> Function(MeditationActionStatistics)? saveStatistics;
+      if (plan == null) {
+        final owner = widget.api.accountId!;
+        final generation = widget.api.authGeneration;
+        final scope = MeditationSetupContext(
+          profile: profile,
+          eyeState: _eyes,
+          origin: origin,
+        );
+        final model = await _personalModels.load(owner, origin);
+        if (model?.unsupportedReason(
+                  backgroundAssetId: profile.backgroundAssetId,
+                  eyeState: _eyes.name,
+                  carrierHz: profile.carrierHz,
+                  toneGain: profile.toneGain,
+                  backgroundGain: profile.backgroundGain,
+                  eegConfig: _config,
+                ) ==
+                null &&
+            model != null) {
+          final actions = MeditationActionRepository(
+            widget.database,
+            _repository,
+          );
+          statistics = await actions.load(owner, scope, model);
+          frozenModel = model;
+          saveStatistics = (stats) async {
+            await actions.save(
+              stats,
+              isCurrent: () =>
+                  mounted &&
+                  widget.api.accountId == owner &&
+                  widget.api.authGeneration == generation,
+            );
+          };
+        }
+        if (!mounted ||
+            attempt != _startAttempt ||
+            widget.api.accountId != owner ||
+            widget.api.authGeneration != generation) {
+          return;
+        }
+      }
       meditation = MeditationSetup(
         profile: profile,
         file: file,
         action: plan == null ? fixedAction : plan.schedule[progress!.nextSlot!],
+        model: frozenModel,
+        statistics: statistics,
+        saveStatistics: saveStatistics,
         metadata: plan == null
             ? {'owner_account_id': widget.api.accountId}
             : plan.sessionMetadata(progress!.nextSlot!),

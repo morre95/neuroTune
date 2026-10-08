@@ -90,6 +90,19 @@ class MeditationRenderer {
     }
   }
 
+  /// Commands share the render response slot. The controller calls this only
+  /// after the owned render/write has settled; old absolute history is retained.
+  Future<void> scheduleAction(int startFrame, StimulusAction action) async {
+    if (_closed) throw StateError('Renderer closed');
+    if (_pending != null) throw StateError('Concurrent PCM command');
+    if (startFrame < 0 || startFrame >= durationFrames) {
+      throw RangeError('Glide start bounds');
+    }
+    final pending = _pending = Completer<Object?>();
+    _commands.send(('glide', startFrame, action.id));
+    await pending.future.timeout(const Duration(seconds: 2));
+  }
+
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
@@ -122,7 +135,24 @@ class MeditationRenderer {
       input = await file.open();
       await input.setPosition(wave.dataOffset);
       final opening = ByteData.sublistView(await input.read(overlapFrames * 4));
-      final tones = StimulusAction.byId(actionId).tones(profile.carrierHz);
+      final initialBeat = StimulusAction.byId(actionId).beatHz;
+      // start frame, initial beat, target beat, accumulated difference cycles.
+      final glides = <(int, double, double, double)>[];
+      double differenceIntegral(int frame) {
+        (int, double, double, double)? active;
+        for (final g in glides) {
+          if (g.$1 > frame) break;
+          active = g;
+        }
+        if (active == null) return initialBeat * frame / sampleRate;
+        final x = (frame - active.$1) / sampleRate;
+        final ramp = min(x, 5.0);
+        return active.$4 +
+            active.$2 * ramp +
+            (active.$3 - active.$2) * ramp * ramp / 10 +
+            active.$3 * max(0, x - 5);
+      }
+
       var cacheStart = -1;
       var cacheFrames = 0;
       var cache = ByteData(0);
@@ -170,6 +200,20 @@ class MeditationRenderer {
           break;
         }
         try {
+          if (command is (String, int, String)) {
+            final (_, start, id) = command;
+            if (glides.length >= 9 ||
+                start >= durationFrames ||
+                (glides.isNotEmpty &&
+                    start < glides.last.$1 + 5 * sampleRate)) {
+              throw StateError('Glide history bounds');
+            }
+            final from = glides.isEmpty ? initialBeat : glides.last.$3;
+            final integral = differenceIntegral(start);
+            glides.add((start, from, StimulusAction.byId(id).beatHz, integral));
+            reply.send(true);
+            continue;
+          }
           final (start, count, stopping) = command as (int, int, bool);
           final bytes = Uint8List(count * 4);
           final pcm = ByteData.sublistView(bytes);
@@ -191,8 +235,10 @@ class MeditationRenderer {
                 ) *
                 (stopping ? (count == 1 ? 0 : max(0, 1 - i / (count - 1))) : 1);
             for (var channel = 0; channel < 2; channel++) {
-              final hz = channel == 0 ? tones.$1 : tones.$2;
-              final tone = sin(2 * pi * hz * frame / sampleRate);
+              final cycles =
+                  profile.carrierHz * frame / sampleRate +
+                  (channel == 0 ? -1 : 1) * differenceIntegral(frame) / 2;
+              final tone = sin(2 * pi * cycles);
               final mixed =
                   (background(frame, channel) * profile.backgroundGain +
                       tone * profile.toneGain) *

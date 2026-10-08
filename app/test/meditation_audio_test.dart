@@ -7,6 +7,38 @@ import 'profile_library_test.dart' show wave, metadata;
 
 void main() {
   test(
+    'five-second glide integrates frequency and replays the same absolute phase',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('meditation-glide');
+      addTearDown(() => dir.delete(recursive: true));
+      final bytes = wave();
+      final json = metadata(bytes)..['background_gain'] = 0;
+      final file = await File('${dir.path}/silence.wav').writeAsBytes(bytes);
+      final r = await MeditationRenderer.open(
+        file,
+        AudioProfileVersion.fromJson(json),
+        StimulusAction.binaural6,
+      );
+      addTearDown(r.close);
+      const start = 60 * 48000;
+      await r.scheduleAction(start, StimulusAction.binaural12);
+      // Literal integral: 540.625 / 559.375 cycles after 2.5s.
+      // Initial 60s at 217/223Hz contributes integral cycles.
+      final pcm = ByteData.sublistView(await r.render(start + 120000, 1));
+      expect(pcm.getInt16(0, Endian.little), closeTo(-4634, 1));
+      expect(pcm.getInt16(2, Endian.little), closeTo(4634, 1));
+      final whole = await r.render(start + 119950, 100);
+      final a = await r.render(start + 119950, 50);
+      final b = await r.render(start + 120000, 50);
+      expect([...a, ...b], whole);
+      await r.scheduleAction(120 * 48000, StimulusAction.control);
+      expect(await r.render(start + 119950, 100), whole);
+      final end = ByteData.sublistView(await r.render(start + 240000, 1));
+      expect(end.getInt16(0, Endian.little), closeTo(0, 1));
+      expect(end.getInt16(2, Endian.little), closeTo(0, 1));
+    },
+  );
+  test(
     'offline rendered stereo keeps each background channel and fixed headroom',
     () async {
       final dir = await Directory.systemTemp.createTemp('meditation-pcm');

@@ -1,4 +1,5 @@
 import 'audio_profile.dart';
+import 'meditation_adaptation.dart';
 import 'diagnostics.dart';
 import 'models.dart';
 import 'session_protocol.dart';
@@ -10,10 +11,12 @@ class MeditationProtocol implements SessionProtocol {
     required this.profile,
     required this.action,
     this.metadata = const {},
+    this.adaptation,
   });
   static const protocolVersion = 'meditation-1';
   static const sampleRate = 48000;
   static const totalFrames = 600 * sampleRate;
+  final MeditationAdaptation? adaptation;
   final SessionContext context;
   final AudioProfileVersion profile;
   final StimulusAction action;
@@ -37,7 +40,7 @@ class MeditationProtocol implements SessionProtocol {
       ? 'Meditationen är sparad.'
       : 'Meditation · tio aktiva minuter.';
   @override
-  StimulusAction get currentAction => action;
+  StimulusAction get currentAction => adaptation?.action ?? action;
   @override
   StopReason? stopReason;
   @override
@@ -61,7 +64,7 @@ class MeditationProtocol implements SessionProtocol {
 
   @override
   void onFrame(FeatureFrame frame) {
-    if (!terminal) frames.add(frame);
+    if (phase != SessionPhase.stopped) frames.add(frame);
   }
 
   void playback(int frames, double observedSeconds, {bool active = true}) {
@@ -91,29 +94,37 @@ class MeditationProtocol implements SessionProtocol {
     if (offset == null) return frame.withPlayback(null, false);
     final start = frame.timeSeconds - windowSeconds + offset;
     final end = frame.timeSeconds + offset;
-    Map<String, dynamic>? before;
-    Map<String, dynamic>? after;
-    for (final point in playbackTimeline) {
-      final time = point['observed_seconds'] as double;
-      if (time <= start) before = point;
-      if (time >= end) {
-        after = point;
-        break;
+    // Checkpoints are monotonic. Binary search bounds so live minute scoring
+    // does not repeatedly scan a ten-minute playback history on the UI isolate.
+    int lowerBound(double time) {
+      var low = 0, high = playbackTimeline.length;
+      while (low < high) {
+        final middle = (low + high) ~/ 2;
+        if ((playbackTimeline[middle]['observed_seconds'] as double) < time) {
+          low = middle + 1;
+        } else {
+          high = middle;
+        }
       }
+      return low;
     }
-    if (before == null || after == null) return frame.withPlayback(null, false);
-    final points = playbackTimeline
-        .where(
-          (p) =>
-              (p['observed_seconds'] as double) >=
-                  (before!['observed_seconds'] as double) &&
-              (p['observed_seconds'] as double) <=
-                  (after!['observed_seconds'] as double),
-        )
-        .toList();
-    for (var i = 1; i < points.length; i++) {
-      final a = points[i - 1];
-      final b = points[i];
+
+    var beforeIndex = lowerBound(start);
+    while (beforeIndex < playbackTimeline.length &&
+        (playbackTimeline[beforeIndex]['observed_seconds'] as double) <=
+            start) {
+      beforeIndex++;
+    }
+    beforeIndex--;
+    final afterIndex = lowerBound(end);
+    if (beforeIndex < 0 || afterIndex >= playbackTimeline.length) {
+      return frame.withPlayback(null, false);
+    }
+    final before = playbackTimeline[beforeIndex];
+    final after = playbackTimeline[afterIndex];
+    for (var i = beforeIndex + 1; i <= afterIndex; i++) {
+      final a = playbackTimeline[i - 1];
+      final b = playbackTimeline[i];
       final elapsed =
           (b['observed_seconds'] as double) - (a['observed_seconds'] as double);
       final played =
@@ -177,7 +188,7 @@ class MeditationProtocol implements SessionProtocol {
     userId: null,
     sessionId: sessionId,
     experimentVersion: protocolVersion,
-    policyVersion: 'fixed',
+    policyVersion: adaptation == null ? 'fixed' : 'meditation-epsilon-0.1-v1',
     dataOrigin: context.origin.name,
     mode: 'meditation',
     eyeState: context.eyeState.name,
@@ -201,7 +212,14 @@ class MeditationProtocol implements SessionProtocol {
       ...metadata,
       'schema_version': 1,
       'protocol_version': protocolVersion,
-      'mode': metadata['mode'] ?? 'fixed',
+      'mode': adaptation == null ? (metadata['mode'] ?? 'fixed') : 'adaptive',
+      if (adaptation != null) ...{
+        'model_version': adaptation!.statistics.model.modelVersion,
+        'model_id': adaptation!.statistics.model.id,
+        'preprocessing_version': 'meditation-eeg-1',
+        'adaptive_decisions': adaptation!.decisions,
+        'statistics_setup_key': adaptation!.statistics.setup.key,
+      },
       'profile_version_id': profile.id,
       'profile': profile.toJson(),
       'fixed_action': action.id,

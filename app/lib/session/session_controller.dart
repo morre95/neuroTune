@@ -32,7 +32,13 @@ class MeditationSetup {
     required this.file,
     required this.action,
     this.metadata = const {},
+    this.model,
+    this.statistics,
+    this.saveStatistics,
   });
+  final PersonalEegModel? model;
+  final MeditationActionStatistics? statistics;
+  final Future<void> Function(MeditationActionStatistics)? saveStatistics;
   final AudioProfileVersion profile;
   final File file;
   final StimulusAction action;
@@ -56,6 +62,7 @@ class SessionController extends ChangeNotifier {
     this.reservedSessionId,
     this.beforeAcquire,
     this.observedTimeSeconds,
+    this.randomUnit,
   });
 
   final SessionRepository repository;
@@ -74,6 +81,7 @@ class SessionController extends ChangeNotifier {
   final Future<void> Function(String sessionId)? beforeAcquire;
 
   /// Monotonic time boundary; source clocks and PCM frames remain independent.
+  final double Function()? randomUnit;
   final double Function()? observedTimeSeconds;
   double get _observedSeconds =>
       observedTimeSeconds?.call() ??
@@ -266,10 +274,51 @@ class SessionController extends ChangeNotifier {
       seed: seed,
       startedAt: DateTime.now().toUtc(),
     );
+    MeditationAdaptation? adaptation;
+    final model = setup?.model;
+    if (setup != null &&
+        model != null &&
+        setup.metadata['mode'] != 'calibration' &&
+        model.ownerAccountId == setup.metadata['owner_account_id'] &&
+        model.ownerAccountId == setup.profile.ownerAccountId &&
+        model.origin == origin.name &&
+        model.unsupportedReason(
+              backgroundAssetId: setup.profile.backgroundAssetId,
+              eyeState: eyeState.name,
+              carrierHz: setup.profile.carrierHz,
+              toneGain: setup.profile.toneGain,
+              backgroundGain: setup.profile.backgroundGain,
+              eegConfig: config,
+            ) ==
+            null) {
+      final scope = MeditationSetupContext(
+        profile: setup.profile,
+        eyeState: eyeState,
+        origin: origin,
+      );
+      final stats =
+          setup.statistics ??
+          MeditationActionStatistics.seeded(model.ownerAccountId, scope, model);
+      if (stats.setup.key == scope.key &&
+          stats.owner == model.ownerAccountId &&
+          stats.model.modelVersion == model.modelVersion) {
+        adaptation = MeditationAdaptation(
+          statistics: MeditationActionStatistics.fromJson(
+            stats.toJson(),
+            model.ownerAccountId,
+            scope,
+            model,
+          ),
+          initialAction: setup.action,
+          randomUnit: randomUnit ?? Random(seed).nextDouble,
+        );
+      }
+    }
     engine = setup != null
         ? MeditationProtocol(
             context: context,
             profile: setup.profile,
+            adaptation: adaptation,
             action: setup.action,
             metadata: {
               ...setup.metadata,
@@ -698,7 +747,7 @@ class SessionController extends ChangeNotifier {
       latest = current is MeditationProtocol
           ? current.mapFrame(scored, config.welchWindowSeconds)
           : scored;
-      if (current.terminal) {
+      if (current.terminal && current is! MeditationProtocol) {
         _finishInBackground();
         return;
       }
@@ -948,6 +997,9 @@ class SessionController extends ChangeNotifier {
     try {
       await _readPlayed(generation);
       if (generation != _audioGeneration || _closed || _finishing) return;
+      _releaseFrames();
+      await _evaluateMeditation();
+      if (generation != _audioGeneration || _closed || _finishing) return;
       if (engine!.terminal) {
         _finishInBackground();
         return;
@@ -977,6 +1029,31 @@ class SessionController extends ChangeNotifier {
     } finally {
       _audioWritePending = false;
       if (generation == _audioGeneration) _releaseFrames();
+    }
+  }
+
+  Future<void> _evaluateMeditation() async {
+    final protocol = engine as MeditationProtocol;
+    final adaptation = protocol.adaptation;
+    if (adaptation == null) return;
+    final mapped = protocol.frames
+        .map((f) => protocol.mapFrame(f, config.welchWindowSeconds))
+        .toList();
+    while (true) {
+      final decision = adaptation.evaluate(
+        sessionId: protocol.sessionId,
+        playedFrames: _playedFrames,
+        ownedFrames: _audioFramesWritten,
+        frames: mapped,
+      );
+      if (decision == null) break;
+      final start = decision['transition_start_frame'] as int?;
+      if (start != null) {
+        await _renderer!.scheduleAction(start, adaptation.action);
+      }
+      if (decision['updated_statistics'] == true) {
+        await meditation!.saveStatistics?.call(adaptation.statistics);
+      }
     }
   }
 
@@ -1067,6 +1144,11 @@ class SessionController extends ChangeNotifier {
       checksum: checksum,
       status: status,
     );
+    if (current is MeditationProtocol && current.adaptation != null) {
+      final statistics = current.adaptation!.statistics;
+      statistics.attachChecksum(manifest.sessionId, checksum);
+      await meditation!.saveStatistics?.call(statistics);
+    }
     await repository.enqueueUpload(
       manifest.sessionId,
       checksum,

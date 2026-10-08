@@ -16,3 +16,4 @@ export 'src/meditation.dart';
 export 'src/calibration.dart';
 export 'src/recommendation.dart';
 export 'src/personal_eeg.dart';
+export 'src/meditation_adaptation.dart';
