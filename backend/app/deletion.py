@@ -48,20 +48,20 @@ def remove_meditation_evidence(db, owner, session_ids):
                 affected.add(request.job_id)
         except (ValueError, TypeError, AttributeError):
             affected.add(request.job_id)
-    if affected:
-        # Models include only usable rows; a removed job snapshot can also
-        # contain an unusable session which never influenced the fitted model.
-        for model in db.query(PersonalEegModel).filter_by(user_id=owner).all():
-            try:
-                body = json.loads(model.body_json)
-                included = body['included_session_ids']
-                if not isinstance(included, list) or set(included).intersection(ids):
-                    db.delete(model)
-                elif model.job_id in affected:
-                    model.job_id = None
-            except (ValueError, TypeError, KeyError):
+    # Models include only usable rows; a removed job snapshot can also
+    # contain an unusable session which never influenced the fitted model.
+    for model in db.query(PersonalEegModel).filter_by(user_id=owner).all():
+        try:
+            body = json.loads(model.body_json)
+            included = body['included_session_ids']
+            if not isinstance(included, list) or set(included).intersection(ids):
                 db.delete(model)
-        db.flush()
+            elif model.job_id in affected:
+                model.job_id = None
+        except (ValueError, TypeError, KeyError):
+            db.delete(model)
+    db.flush()
+    if affected:
         db.query(MeditationTrainingRequest).filter(MeditationTrainingRequest.user_id == owner,
             MeditationTrainingRequest.job_id.in_(affected)).delete(synchronize_session=False)
         db.query(MeditationTrainingJob).filter(MeditationTrainingJob.user_id == owner,
