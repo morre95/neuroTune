@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'profile_library_test.dart' show metadata, wave;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:neurotune/data/database.dart';
@@ -116,6 +118,95 @@ void main() {
       expect(await authChanged, isFalse);
       expect(await cache2.load(owner, DataOrigin.simulator), isNull);
       await db.close();
+    },
+  );
+  test(
+    'known included revision conflicts and owned deletion revoke only affected cache',
+    () async {
+      final dir = await Directory.systemTemp.createTemp('model-evidence');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('plugins.flutter.io/path_provider'),
+            (_) async => dir.path,
+          );
+      final db = AppDatabase(NativeDatabase.memory());
+      final sessions = SessionRepository(db),
+          calibration = CalibrationRepository(db, SessionRepository(db));
+      final profile = AudioProfileVersion.fromJson(metadata(wave()));
+      final protocol = MeditationProtocol(
+        context: SessionContext(
+          sessionId: 'literal-0',
+          origin: DataOrigin.simulator,
+          eyeState: EyeState.closed,
+          sampleRateHz: 256,
+          channelNames: simulatorChannels,
+          seed: 1,
+          startedAt: DateTime.utc(2026),
+        ),
+        profile: profile,
+        action: StimulusAction.control,
+      );
+      protocol.playback(MeditationProtocol.totalFrames, 600);
+      final raw = utf8.encode('{}'), checksum = sha256Hex(utf8.encode('{}'));
+      final path = await sessions.saveSession(
+        manifest: protocol.manifest(checksum: checksum),
+        decisions: [],
+        frames: [],
+        raw: raw,
+        checksum: checksum,
+        status: 'completed',
+      );
+      await sessions.enqueueUpload('literal-0', checksum, path, 'owner@test');
+      await calibration.saveFeedback(
+        owner,
+        'literal-0',
+        mentalBusyness: 3,
+        relaxation: 7,
+      );
+      final included = {
+        ...json,
+        'evidence': [
+          for (final e in json['evidence'] as List)
+            {
+              ...e as Map<String, dynamic>,
+              if (e['session_id'] == 'literal-0') 'checksum_sha256': checksum,
+            },
+        ],
+      };
+      final api = ApiClient(
+        baseUrl: 'http://model',
+        httpClient: MockClient(
+          (_) async => http.Response(jsonEncode(included), 200),
+        ),
+      )..accessToken = token(owner);
+      final cache = PersonalEegRepository(db, sessions, calibration, api);
+      await cache.refresh(owner, DataOrigin.simulator, isCurrent: () => true);
+      expect((await cache.load(owner, DataOrigin.simulator))!.status, 'ready');
+      await calibration.saveFeedback(
+        owner,
+        'literal-0',
+        mentalBusyness: 4,
+        relaxation: 7,
+      );
+      expect(
+        (await cache.load(owner, DataOrigin.simulator))!.status,
+        'revoked',
+      );
+      await sessions.deleteSessions(
+        ['literal-0'],
+        'owner@test',
+        ownerAccountId: owner,
+      );
+      expect(
+        (await cache.load(owner, DataOrigin.simulator))!.status,
+        'revoked',
+      );
+      expect(
+        await cache.refresh(owner, DataOrigin.simulator, isCurrent: () => true),
+        isFalse,
+      );
+      await db.close();
+      await dir.delete(recursive: true);
     },
   );
 }

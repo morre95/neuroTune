@@ -30,7 +30,9 @@ class PersonalEegRepository {
       final record = local[sid];
       // An authenticated artifact may include evidence from another device.
       if (record == null) continue;
-      if (record.checksum != e['checksum_sha256']) return false;
+      if (record.origin != model.origin ||
+          record.checksum != e['checksum_sha256'])
+        return false;
       final rating = await calibration.feedback(owner, sid);
       if (rating != null && rating.revision != e['feedback_revision'])
         return false;
@@ -58,6 +60,8 @@ class PersonalEegRepository {
           return model;
         } on FormatException {
           return null;
+        } on TypeError {
+          return null;
         }
       });
   Future<bool> refresh(
@@ -78,6 +82,8 @@ class PersonalEegRepository {
     try {
       model = await api.latestMeditationModel(origin);
     } on FormatException {
+      invalid = true;
+    } on TypeError {
       invalid = true;
     } on StateError {
       if (!current()) return false;
