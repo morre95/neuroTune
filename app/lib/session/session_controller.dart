@@ -440,6 +440,8 @@ class SessionController extends ChangeNotifier {
   /// service and the headband are released either way, or the app is left with
   /// an ongoing notification and a connected Muse that only a restart clears.
   Future<void> _finishOnce() async {
+    Object? failure;
+    StackTrace? failureStack;
     try {
       await _starting;
       await _resuming;
@@ -471,20 +473,49 @@ class SessionController extends ChangeNotifier {
       }
       if (current != null) await _persist(current);
       saved = true;
-    } finally {
-      await audio.stop();
-      _dsp?.close();
-      _dsp = null;
-      await _frames?.cancel();
-      await _batches?.cancel();
-      await _opticsSub?.cancel();
-      await _lost?.cancel();
-      await _diagnosticSub?.cancel();
-      await keepAlive.stop();
-      await _muse?.stop();
-      _muse = null;
-      if (!_closed) notifyListeners();
+    } catch (error, stack) {
+      failure = error;
+      failureStack = stack;
     }
+    // Cleanup steps are independent: one failing platform call must not keep
+    // the foreground service, subscriptions or headband alive. Preserve the
+    // original persistence failure when cleanup also reports an error.
+    Future<void> release(FutureOr<void> Function() operation) async {
+      try {
+        await operation();
+      } catch (error, stack) {
+        failure ??= error;
+        failureStack ??= stack;
+      }
+    }
+
+    await release(audio.stop);
+    final dsp = _dsp;
+    _dsp = null;
+    await release(() => dsp?.close());
+    await release(() async {
+      await _frames?.cancel();
+    });
+    await release(() async {
+      await _batches?.cancel();
+    });
+    await release(() async {
+      await _opticsSub?.cancel();
+    });
+    await release(() async {
+      await _lost?.cancel();
+    });
+    await release(() async {
+      await _diagnosticSub?.cancel();
+    });
+    await release(keepAlive.stop);
+    final muse = _muse;
+    _muse = null;
+    await release(() async {
+      await muse?.stop();
+    });
+    if (!_closed) notifyListeners();
+    if (failure != null) Error.throwWithStackTrace(failure!, failureStack!);
   }
 
   @override
@@ -497,10 +528,14 @@ class SessionController extends ChangeNotifier {
     _lost?.cancel();
     _diagnosticSub?.cancel();
     _diagnosticClock.stop();
-    keepAlive.stop();
-    _muse?.stop();
-    _dsp?.close();
-    unawaited(_renderer?.close());
+    _cleanupInBackground(keepAlive.stop, 'keep_alive');
+    _cleanupInBackground(() async {
+      await _muse?.stop();
+    }, 'muse');
+    _cleanupInBackground(() => _dsp?.close(), 'dsp');
+    _cleanupInBackground(() async {
+      await _renderer?.close();
+    }, 'renderer');
     super.dispose();
   }
 
@@ -509,7 +544,9 @@ class SessionController extends ChangeNotifier {
   void _finishInBackground() {
     unawaited(
       finish().catchError((Object failure) {
-        error = 'Sessionen kunde inte sparas: $failure';
+        error = saved
+            ? 'Sessionen är sparad, men resurserna kunde inte stängas: $failure'
+            : 'Sessionen kunde inte sparas: $failure';
         if (!_closed) notifyListeners();
       }),
     );
@@ -580,9 +617,11 @@ class SessionController extends ChangeNotifier {
   Future<bool> _startOutputs() async {
     if (_closed || _finishing) return false;
     final generation = _audioGeneration;
-    final latency = await audio.start(config.audioSampleRateHz);
+    final latency = await audio.start(
+      isMeditation ? MeditationRenderer.sampleRate : config.audioSampleRateHz,
+    );
     if (generation != _audioGeneration || _closed || _finishing) {
-      unawaited(audio.stop());
+      _cleanupInBackground(audio.stop, 'audio');
       return false;
     }
     latencyMs = latency;
@@ -661,7 +700,25 @@ class SessionController extends ChangeNotifier {
         active: false,
       );
     }
-    audio.stop();
+    _cleanupInBackground(audio.stop, 'audio');
+  }
+
+  void _cleanupInBackground(
+    FutureOr<void> Function() operation,
+    String resource,
+  ) {
+    unawaited(
+      Future<void>.sync(operation).catchError((Object failure) {
+        _recordDiagnostic('cleanup_failed', {
+          'resource': resource,
+          'error': '$failure',
+        });
+        if (!_closed) {
+          error = 'Resursen kunde inte stängas ($resource): $failure';
+          notifyListeners();
+        }
+      }),
+    );
   }
 
   void _anchorSource(EegBatch batch) {

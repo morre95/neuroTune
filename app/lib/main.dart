@@ -111,6 +111,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   var _endingSession = false;
   var _inExperiments = false;
   var _networkQuiet = false;
+  int _experimentNavigationGeneration = 0;
+  Future<void>? _experimentNavigation;
   String? _selectedProfileId;
   StimulusAction _fixedAction = StimulusAction.control;
   bool get _meditating => widget.meditationEnabled && !_inExperiments;
@@ -257,17 +259,30 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   /// Fetches the active experiment and the policy for [origin], falling back
   /// to the cache offline. It returns them instead of storing them, so a start
   /// the user has left cannot overwrite what a newer one loaded.
-  Future<_Remote> _loadRemote(DataOrigin origin) async {
+  Future<_Remote> _loadRemote(
+    DataOrigin origin, {
+    bool Function()? stillCurrent,
+  }) async {
+    void checkCurrent() {
+      if (stillCurrent?.call() == false) {
+        throw StateError('Remote navigation cancelled');
+      }
+    }
+
     var config = _config;
     BanditSnapshot snapshot;
     var offline = false;
     try {
+      checkCurrent();
       config = await widget.api.activeExperiment();
+      checkCurrent();
       await _repository.saveConfig(config);
+      checkCurrent();
       snapshot = await widget.api.latestBandit(
         origin: origin.name,
         experimentVersion: config.version,
       );
+      checkCurrent();
       await _repository.saveBandit(snapshot);
     } catch (_) {
       snapshot =
@@ -348,6 +363,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _logout() async {
+    _experimentNavigationGeneration++;
     await _profileLibrary?.close();
     _profileLibrary = null;
     _selectedProfileId = null;
@@ -399,23 +415,33 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     }
   }
 
-  Future<void> _openExperiments() async {
+  Future<void> _openExperiments() => _experimentNavigation ??=
+      _enterExperiments().whenComplete(() => _experimentNavigation = null);
+
+  Future<void> _enterExperiments() async {
     final owner = _auth?.email;
     final generation = widget.api.authGeneration;
-    final remote = await _loadRemote(DataOrigin.simulator);
-    if (!mounted ||
-        _auth?.email != owner ||
-        widget.api.authGeneration != generation ||
-        _screen != _Screen.home ||
-        _startingSession ||
-        _session != null) {
-      return;
-    }
+    final navigation = _experimentNavigationGeneration;
+    bool current() =>
+        mounted &&
+        _auth?.email == owner &&
+        widget.api.authGeneration == generation &&
+        _experimentNavigationGeneration == navigation &&
+        !_networkQuiet &&
+        _screen == _Screen.home &&
+        !_startingSession &&
+        _session == null;
+    final remote = await _loadRemote(
+      DataOrigin.simulator,
+      stillCurrent: current,
+    );
+    if (!current()) return;
     _applyRemote(remote);
     setState(() => _inExperiments = true);
   }
 
   Future<void> _openProfiles() async {
+    _experimentNavigationGeneration++;
     await _stopStereoTest();
     try {
       await _ensureProfileLibrary();
@@ -435,6 +461,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   void _openContact() {
+    _experimentNavigationGeneration++;
     _usingMuse = false;
     _startSimulatorPreview();
     setState(() => _screen = _Screen.contact);
@@ -488,7 +515,10 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     if (_startingSession) return;
     final attempt = ++_startAttempt;
     setState(() => _startingSession = true);
-    if (_meditating) _networkQuiet = true;
+    if (_meditating) {
+      _networkQuiet = true;
+      _experimentNavigationGeneration++;
+    }
     try {
       await _openSession(attempt);
     } catch (failure, stack) {
@@ -523,6 +553,10 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     }
     MeditationSetup? meditation;
     if (_meditating) {
+      // A prior navigation may still own an HTTP request (including refresh).
+      // Join it before audio, and suppress every follow-up request in its chain.
+      await _experimentNavigation;
+      if (!mounted || attempt != _startAttempt) return;
       _uploadSync.cancel();
       try {
         await _uploadSync.waitForIdle();
@@ -622,6 +656,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _muse() async {
+    _experimentNavigationGeneration++;
     if (_connectingMuse) return;
     _usingMuse = true;
     await _preview?.stop();
@@ -660,7 +695,9 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     try {
       await controller.finish();
     } catch (error) {
-      failure = 'Sessionen kunde inte sparas: $error';
+      failure = controller.saved
+          ? 'Sessionen är sparad, men resurserna kunde inte stängas: $error'
+          : 'Sessionen kunde inte sparas: $error';
     }
     controller.dispose();
     _session = null;
@@ -678,6 +715,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _openHistory() async {
+    _experimentNavigationGeneration++;
     _history = await _repository.listOwnedSessions(_auth!.email);
     final pending = await _repository.pendingDeletions(_auth!.email);
     _historyMessage = pending.isEmpty
@@ -711,6 +749,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
 
   @override
   void dispose() {
+    _experimentNavigationGeneration++;
     _emptyLibrary.dispose();
     _uploadRetryTimer?.cancel();
     _uploadSync.cancel();
