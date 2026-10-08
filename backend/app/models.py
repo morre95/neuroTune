@@ -182,3 +182,11 @@ class MeditationTrainingRequest(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
     job_id: Mapped[str] = mapped_column(ForeignKey('meditation_training_jobs.id'))
     body_json: Mapped[str] = mapped_column(Text)
+
+
+class OwnerDeletionEpoch(Base):
+    """Publication invalidation state; not a model or statistics artifact."""
+    __tablename__ = 'owner_deletion_epochs'
+
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    epoch: Mapped[int] = mapped_column(Integer, default=0)
