@@ -40,7 +40,10 @@ class UploadSync {
       }
     }
 
-    final deletions = await repository.pendingDeletions(email);
+    final deletions = await repository.pendingDeletions(
+      email,
+      ownerAccountId: owner,
+    );
     for (var offset = 0; offset < deletions.length; offset += 100) {
       if (!valid()) return;
       final chunk = deletions.skip(offset).take(100).toList();
@@ -79,7 +82,9 @@ class UploadSync {
           if (!await persist(() => meditation.markPlan(plan))) return;
         } catch (error) {
           if (!valid()) return;
-          if (!await persist(() => meditation.markPlan(plan, error: '$error'))) {
+          if (!await persist(
+            () => meditation.markPlan(plan, error: '$error'),
+          )) {
             return;
           }
         }
@@ -158,7 +163,12 @@ class UploadSync {
             meditationOwner(saved.manifest) == owner &&
             valid()) {
           if (!await persist(
-            () => meditation.retireDeletedSession(owner, saved.id),
+            () => repository.recordServerDeletion(
+              saved.id,
+              email,
+              owner,
+              isCurrent: valid,
+            ),
           )) {
             return;
           }
@@ -186,6 +196,19 @@ class UploadSync {
         }
       } catch (error) {
         if (!valid()) return;
+        if (error is ApiException && error.status == 410) {
+          if (!await persist(
+            () => repository.recordServerDeletion(
+              row.sessionId,
+              email,
+              owner,
+              isCurrent: valid,
+            ),
+          )) {
+            return;
+          }
+          continue;
+        }
         if (!await persist(
           () => meditation.failFeedback(
             row,
@@ -232,6 +255,19 @@ class UploadSync {
         }
       } catch (error) {
         if (!valid()) return;
+        if (error is ApiException && error.status == 410) {
+          if (!await persist(
+            () => repository.recordServerDeletion(
+              request.sessionId,
+              email,
+              owner,
+              isCurrent: valid,
+            ),
+          )) {
+            return;
+          }
+          continue;
+        }
         if (!await persist(
           () => meditation.markTraining(
             request,

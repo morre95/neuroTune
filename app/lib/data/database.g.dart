@@ -3530,6 +3530,338 @@ class MeditationTrainingOutboxCompanion
   }
 }
 
+class $SessionTombstonesTable extends SessionTombstones
+    with TableInfo<$SessionTombstonesTable, SessionTombstone> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SessionTombstonesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerEmailMeta = const VerificationMeta(
+    'ownerEmail',
+  );
+  @override
+  late final GeneratedColumn<String> ownerEmail = GeneratedColumn<String>(
+    'owner_email',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _ownerAccountIdMeta = const VerificationMeta(
+    'ownerAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerAccountId = GeneratedColumn<String>(
+    'owner_account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    sessionId,
+    ownerEmail,
+    ownerAccountId,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'session_tombstones';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SessionTombstone> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('owner_email')) {
+      context.handle(
+        _ownerEmailMeta,
+        ownerEmail.isAcceptableOrUnknown(data['owner_email']!, _ownerEmailMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerEmailMeta);
+    }
+    if (data.containsKey('owner_account_id')) {
+      context.handle(
+        _ownerAccountIdMeta,
+        ownerAccountId.isAcceptableOrUnknown(
+          data['owner_account_id']!,
+          _ownerAccountIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {sessionId};
+  @override
+  SessionTombstone map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SessionTombstone(
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      ownerEmail: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_email'],
+      )!,
+      ownerAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_account_id'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SessionTombstonesTable createAlias(String alias) {
+    return $SessionTombstonesTable(attachedDatabase, alias);
+  }
+}
+
+class SessionTombstone extends DataClass
+    implements Insertable<SessionTombstone> {
+  final String sessionId;
+  final String ownerEmail;
+  final String? ownerAccountId;
+  final DateTime createdAt;
+  const SessionTombstone({
+    required this.sessionId,
+    required this.ownerEmail,
+    this.ownerAccountId,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['session_id'] = Variable<String>(sessionId);
+    map['owner_email'] = Variable<String>(ownerEmail);
+    if (!nullToAbsent || ownerAccountId != null) {
+      map['owner_account_id'] = Variable<String>(ownerAccountId);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  SessionTombstonesCompanion toCompanion(bool nullToAbsent) {
+    return SessionTombstonesCompanion(
+      sessionId: Value(sessionId),
+      ownerEmail: Value(ownerEmail),
+      ownerAccountId: ownerAccountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ownerAccountId),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory SessionTombstone.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SessionTombstone(
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      ownerEmail: serializer.fromJson<String>(json['ownerEmail']),
+      ownerAccountId: serializer.fromJson<String?>(json['ownerAccountId']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'sessionId': serializer.toJson<String>(sessionId),
+      'ownerEmail': serializer.toJson<String>(ownerEmail),
+      'ownerAccountId': serializer.toJson<String?>(ownerAccountId),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  SessionTombstone copyWith({
+    String? sessionId,
+    String? ownerEmail,
+    Value<String?> ownerAccountId = const Value.absent(),
+    DateTime? createdAt,
+  }) => SessionTombstone(
+    sessionId: sessionId ?? this.sessionId,
+    ownerEmail: ownerEmail ?? this.ownerEmail,
+    ownerAccountId: ownerAccountId.present
+        ? ownerAccountId.value
+        : this.ownerAccountId,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  SessionTombstone copyWithCompanion(SessionTombstonesCompanion data) {
+    return SessionTombstone(
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      ownerEmail: data.ownerEmail.present
+          ? data.ownerEmail.value
+          : this.ownerEmail,
+      ownerAccountId: data.ownerAccountId.present
+          ? data.ownerAccountId.value
+          : this.ownerAccountId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SessionTombstone(')
+          ..write('sessionId: $sessionId, ')
+          ..write('ownerEmail: $ownerEmail, ')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(sessionId, ownerEmail, ownerAccountId, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SessionTombstone &&
+          other.sessionId == this.sessionId &&
+          other.ownerEmail == this.ownerEmail &&
+          other.ownerAccountId == this.ownerAccountId &&
+          other.createdAt == this.createdAt);
+}
+
+class SessionTombstonesCompanion extends UpdateCompanion<SessionTombstone> {
+  final Value<String> sessionId;
+  final Value<String> ownerEmail;
+  final Value<String?> ownerAccountId;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const SessionTombstonesCompanion({
+    this.sessionId = const Value.absent(),
+    this.ownerEmail = const Value.absent(),
+    this.ownerAccountId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SessionTombstonesCompanion.insert({
+    required String sessionId,
+    required String ownerEmail,
+    this.ownerAccountId = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : sessionId = Value(sessionId),
+       ownerEmail = Value(ownerEmail),
+       createdAt = Value(createdAt);
+  static Insertable<SessionTombstone> custom({
+    Expression<String>? sessionId,
+    Expression<String>? ownerEmail,
+    Expression<String>? ownerAccountId,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (sessionId != null) 'session_id': sessionId,
+      if (ownerEmail != null) 'owner_email': ownerEmail,
+      if (ownerAccountId != null) 'owner_account_id': ownerAccountId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SessionTombstonesCompanion copyWith({
+    Value<String>? sessionId,
+    Value<String>? ownerEmail,
+    Value<String?>? ownerAccountId,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return SessionTombstonesCompanion(
+      sessionId: sessionId ?? this.sessionId,
+      ownerEmail: ownerEmail ?? this.ownerEmail,
+      ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (ownerEmail.present) {
+      map['owner_email'] = Variable<String>(ownerEmail.value);
+    }
+    if (ownerAccountId.present) {
+      map['owner_account_id'] = Variable<String>(ownerAccountId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SessionTombstonesCompanion(')
+          ..write('sessionId: $sessionId, ')
+          ..write('ownerEmail: $ownerEmail, ')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3547,6 +3879,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $MeditationFeedbackRowsTable(this);
   late final $MeditationTrainingOutboxTable meditationTrainingOutbox =
       $MeditationTrainingOutboxTable(this);
+  late final $SessionTombstonesTable sessionTombstones =
+      $SessionTombstonesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3560,6 +3894,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     calibrationAttempts,
     meditationFeedbackRows,
     meditationTrainingOutbox,
+    sessionTombstones,
   ];
 }
 
@@ -5469,6 +5804,204 @@ typedef $$MeditationTrainingOutboxTableProcessedTableManager =
       MeditationTrainingOutboxData,
       PrefetchHooks Function()
     >;
+typedef $$SessionTombstonesTableCreateCompanionBuilder =
+    SessionTombstonesCompanion Function({
+      required String sessionId,
+      required String ownerEmail,
+      Value<String?> ownerAccountId,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$SessionTombstonesTableUpdateCompanionBuilder =
+    SessionTombstonesCompanion Function({
+      Value<String> sessionId,
+      Value<String> ownerEmail,
+      Value<String?> ownerAccountId,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$SessionTombstonesTableFilterComposer
+    extends Composer<_$AppDatabase, $SessionTombstonesTable> {
+  $$SessionTombstonesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerEmail => $composableBuilder(
+    column: $table.ownerEmail,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SessionTombstonesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SessionTombstonesTable> {
+  $$SessionTombstonesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerEmail => $composableBuilder(
+    column: $table.ownerEmail,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SessionTombstonesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SessionTombstonesTable> {
+  $$SessionTombstonesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<String> get ownerEmail => $composableBuilder(
+    column: $table.ownerEmail,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$SessionTombstonesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SessionTombstonesTable,
+          SessionTombstone,
+          $$SessionTombstonesTableFilterComposer,
+          $$SessionTombstonesTableOrderingComposer,
+          $$SessionTombstonesTableAnnotationComposer,
+          $$SessionTombstonesTableCreateCompanionBuilder,
+          $$SessionTombstonesTableUpdateCompanionBuilder,
+          (
+            SessionTombstone,
+            BaseReferences<
+              _$AppDatabase,
+              $SessionTombstonesTable,
+              SessionTombstone
+            >,
+          ),
+          SessionTombstone,
+          PrefetchHooks Function()
+        > {
+  $$SessionTombstonesTableTableManager(
+    _$AppDatabase db,
+    $SessionTombstonesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SessionTombstonesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SessionTombstonesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SessionTombstonesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> sessionId = const Value.absent(),
+                Value<String> ownerEmail = const Value.absent(),
+                Value<String?> ownerAccountId = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SessionTombstonesCompanion(
+                sessionId: sessionId,
+                ownerEmail: ownerEmail,
+                ownerAccountId: ownerAccountId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String sessionId,
+                required String ownerEmail,
+                Value<String?> ownerAccountId = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SessionTombstonesCompanion.insert(
+                sessionId: sessionId,
+                ownerEmail: ownerEmail,
+                ownerAccountId: ownerAccountId,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SessionTombstonesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SessionTombstonesTable,
+      SessionTombstone,
+      $$SessionTombstonesTableFilterComposer,
+      $$SessionTombstonesTableOrderingComposer,
+      $$SessionTombstonesTableAnnotationComposer,
+      $$SessionTombstonesTableCreateCompanionBuilder,
+      $$SessionTombstonesTableUpdateCompanionBuilder,
+      (
+        SessionTombstone,
+        BaseReferences<
+          _$AppDatabase,
+          $SessionTombstonesTable,
+          SessionTombstone
+        >,
+      ),
+      SessionTombstone,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5495,4 +6028,6 @@ class $AppDatabaseManager {
         _db,
         _db.meditationTrainingOutbox,
       );
+  $$SessionTombstonesTableTableManager get sessionTombstones =>
+      $$SessionTombstonesTableTableManager(_db, _db.sessionTombstones);
 }

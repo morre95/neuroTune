@@ -250,6 +250,12 @@ class CalibrationRepository {
   /// A duplicate acquisition of the same reserved recording is idempotent.
   Future<int> reserveAttempt(String owner, String planId, String sessionId) =>
       db.transaction(() async {
+        if (await (db.select(
+              db.sessionTombstones,
+            )..where((r) => r.sessionId.equals(sessionId))).getSingleOrNull() !=
+            null) {
+          throw StateError('Sessionen är raderad.');
+        }
         final existing = await (db.select(
           db.calibrationAttempts,
         )..where((r) => r.sessionId.equals(sessionId))).getSingleOrNull();
@@ -329,7 +335,13 @@ class CalibrationRepository {
     int? mentalBusyness,
     int? relaxation,
   }) => db.transaction(() async {
-    if ([mentalBusyness, relaxation].any((v) => v != null && (v < 0 || v > 10))) {
+    if (await sessions.isTombstoned(owner, sessionId)) {
+      throw StateError('Sessionen är raderad.');
+    }
+    if ([
+      mentalBusyness,
+      relaxation,
+    ].any((v) => v != null && (v < 0 || v > 10))) {
       throw ArgumentError('Ratings must be integers from 0 to 10');
     }
     final saved = (await sessions.listSessions())
@@ -356,7 +368,9 @@ class CalibrationRepository {
     final old = await feedback(owner, sessionId);
     final busy = mentalBusyness ?? old?.mentalBusyness;
     final relaxed = relaxation ?? old?.relaxation;
-    if (old != null && old.mentalBusyness == busy && old.relaxation == relaxed) {
+    if (old != null &&
+        old.mentalBusyness == busy &&
+        old.relaxation == relaxed) {
       return;
     }
     await db
@@ -373,5 +387,8 @@ class CalibrationRepository {
             lastError: const Value(null),
           ),
         );
+    if (['fixed', 'calibration'].contains(saved.manifest.meditation?['mode'])) {
+      await sessions.bumpEvidenceEpoch(owner);
+    }
   });
 }
