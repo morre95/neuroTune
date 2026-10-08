@@ -30,7 +30,7 @@ Future<
     String,
   )
 >
-fixture() async {
+fixture({NativeDatabase Function(File)? openDatabase}) async {
   final dir = await Directory.systemTemp.createTemp('meditation-sync');
   addTearDown(() => dir.delete(recursive: true));
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -38,7 +38,8 @@ fixture() async {
         const MethodChannel('plugins.flutter.io/path_provider'),
         (_) async => dir.path,
       );
-  final db = AppDatabase(NativeDatabase(File('${dir.path}/local.sqlite')));
+  final file = File('${dir.path}/local.sqlite');
+  final db = AppDatabase(openDatabase?.call(file) ?? NativeDatabase(file));
   addTearDown(db.close);
   final repo = SessionRepository(db);
   final calibration = CalibrationRepository(db, repo);

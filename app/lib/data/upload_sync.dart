@@ -40,6 +40,44 @@ class UploadSync {
       }
     }
 
+    Future<bool> retireDeletedSession(String sessionId) async {
+      if (owner == null) return false;
+      if (!await persist(
+        () => repository.recordServerDeletion(
+          sessionId,
+          email,
+          owner,
+          isCurrent: valid,
+        ),
+      )) {
+        return false;
+      }
+      if (!valid()) return false;
+      final job = (await repository.pendingDeletions(
+        email,
+        ownerAccountId: owner,
+      )).where((row) => row.sessionId == sessionId).firstOrNull;
+      if (!valid()) return false;
+      if (job == null) return true;
+      try {
+        // Retirement is committed. Filesystem work cannot roll it back.
+        await repository.completeDeletion(job, isCurrent: valid);
+      } catch (error) {
+        if (!valid()) return false;
+        if (!await persist(
+          () => repository.markUpload(
+            job.sessionId,
+            'delete_pending',
+            attempts: job.attempts + 1,
+            error: '$error',
+          ),
+        )) {
+          return false;
+        }
+      }
+      return valid();
+    }
+
     final deletions = await repository.pendingDeletions(
       email,
       ownerAccountId: owner,
@@ -51,7 +89,8 @@ class UploadSync {
         await api.deleteSessions(chunk.map((job) => job.sessionId).toList());
         for (final job in chunk) {
           if (!valid()) return;
-          if (!await persist(() => repository.completeDeletion(job))) return;
+          await repository.completeDeletion(job, isCurrent: valid);
+          if (!valid()) return;
         }
       } catch (error) {
         for (final job in chunk) {
@@ -162,16 +201,7 @@ class UploadSync {
             saved != null &&
             meditationOwner(saved.manifest) == owner &&
             valid()) {
-          if (!await persist(
-            () => repository.recordServerDeletion(
-              saved.id,
-              email,
-              owner,
-              isCurrent: valid,
-            ),
-          )) {
-            return;
-          }
+          if (!await retireDeletedSession(saved.id)) return;
         }
       }
     }
@@ -197,16 +227,7 @@ class UploadSync {
       } catch (error) {
         if (!valid()) return;
         if (error is ApiException && error.status == 410) {
-          if (!await persist(
-            () => repository.recordServerDeletion(
-              row.sessionId,
-              email,
-              owner,
-              isCurrent: valid,
-            ),
-          )) {
-            return;
-          }
+          if (!await retireDeletedSession(row.sessionId)) return;
           continue;
         }
         if (!await persist(
@@ -256,16 +277,7 @@ class UploadSync {
       } catch (error) {
         if (!valid()) return;
         if (error is ApiException && error.status == 410) {
-          if (!await persist(
-            () => repository.recordServerDeletion(
-              request.sessionId,
-              email,
-              owner,
-              isCurrent: valid,
-            ),
-          )) {
-            return;
-          }
+          if (!await retireDeletedSession(request.sessionId)) return;
           continue;
         }
         if (!await persist(

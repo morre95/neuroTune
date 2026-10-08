@@ -215,6 +215,7 @@ class SessionRepository {
     String ownerEmail, {
     String? ownerAccountId,
     bool Function()? isCurrent,
+    bool cleanupRaw = true,
   }) async {
     final ids = sessionIds.toSet().toList();
     if (ids.isEmpty) return;
@@ -309,6 +310,7 @@ class SessionRepository {
       await (db.delete(db.kvStore)..where((r) => r.key.like('bandit:%'))).go();
       if (!current()) throw StateError('Account changed');
     });
+    if (!cleanupRaw) return;
     for (final job in await pendingDeletions(email)) {
       if (ids.contains(job.sessionId)) {
         try {
@@ -320,36 +322,20 @@ class SessionRepository {
     }
   }
 
-  /// A trusted owned HTTP 410 confirms remote deletion. Preserve a local marker
-  /// and remove the evidence immediately; only failed raw cleanup needs retry.
+  /// Only persist the evidence retirement here. The sync caller commits its
+  /// generation-guarded transaction before irreversible raw cleanup starts.
   Future<void> recordServerDeletion(
     String sessionId,
     String ownerEmail,
     String ownerAccountId, {
     required bool Function() isCurrent,
-  }) async {
-    await deleteSessions(
-      [sessionId],
-      ownerEmail,
-      ownerAccountId: ownerAccountId,
-      isCurrent: isCurrent,
-    );
-    final job = (await pendingDeletions(
-      ownerEmail,
-      ownerAccountId: ownerAccountId,
-    )).where((row) => row.sessionId == sessionId).firstOrNull;
-    if (job == null) return;
-    try {
-      await completeDeletion(job);
-    } on FileSystemException catch (error) {
-      await markUpload(
-        sessionId,
-        'delete_pending',
-        attempts: job.attempts + 1,
-        error: '$error',
-      );
-    }
-  }
+  }) => deleteSessions(
+    [sessionId],
+    ownerEmail,
+    ownerAccountId: ownerAccountId,
+    isCurrent: isCurrent,
+    cleanupRaw: false,
+  );
 
   Future<List<PendingUpload>> pendingDeletions(
     String ownerEmail, {
@@ -386,9 +372,17 @@ class SessionRepository {
     ];
   }
 
-  Future<void> completeDeletion(PendingUpload job) async {
+  /// Call after evidence retirement has committed. A cancelled acknowledgement
+  /// may retain the queue, but must never restore evidence whose raw was unlinked.
+  Future<void> completeDeletion(
+    PendingUpload job, {
+    bool Function()? isCurrent,
+  }) async {
+    bool current() => isCurrent?.call() ?? true;
+    if (!current()) throw StateError('Delivery cancelled');
     await _deleteRawFile(job.payloadPath);
     await db.transaction(() async {
+      if (!current()) throw StateError('Delivery cancelled');
       await (db.delete(db.uploadJobs)..where(
             (row) =>
                 row.sessionId.equals(job.sessionId) &
@@ -400,6 +394,7 @@ class SessionRepository {
       await (db.delete(
         db.kvStore,
       )..where((row) => row.key.like('bandit:%'))).go();
+      if (!current()) throw StateError('Delivery cancelled');
     });
   }
 

@@ -627,4 +627,107 @@ void main() {
       expect(await File(path).exists(), true);
     },
   );
+  test(
+    'server retirement commits evidence removal before raw cleanup and a cancelled acknowledgement',
+    () async {
+      late ApiClient api;
+      final (db, sessions, calibration, _, sid) = await fixture(
+        openDatabase: (file) => NativeDatabase(
+          file,
+          setup: (sqlite) {
+            sqlite.createFunction(
+              functionName: 'switch_test_owner',
+              directOnly: false,
+              function: (_) {
+                api.accessToken = token('99999999-9999-4999-8999-999999999999');
+                return 0;
+              },
+            );
+          },
+        ),
+      );
+      final job = (await sessions.pendingUploads()).single;
+      await db
+          .update(db.calibrationPlans)
+          .write(const CalibrationPlansCompanion(syncState: Value('done')));
+      await sessions.markUpload(sid, 'done');
+      api = ApiClient(
+        baseUrl: 'http://local',
+        httpClient: MockClient((request) async {
+          expect(request.url.path, '/v1/meditation/sessions/$sid/feedback');
+          return http.Response('{"detail":"deleted"}', 410);
+        }),
+      )..accessToken = token(owner);
+      // The account changes during actual SQL acknowledgement, after unlink.
+      await db.customStatement(
+        'CREATE TRIGGER switch_owner AFTER DELETE ON upload_jobs BEGIN SELECT switch_test_owner(); END',
+      );
+      await UploadSync(repository: sessions, api: api).flush('owner@test');
+      expect(await sessions.listSessions(), isEmpty);
+      expect(await calibration.feedback(owner, sid), isNull);
+      expect(await sessions.isTombstoned(owner, sid), true);
+      expect(await File(job.payloadPath).exists(), false);
+      expect(await sessions.pendingDeletions('owner@test'), hasLength(1));
+      await db.customStatement('DROP TRIGGER switch_owner');
+      api.accessToken = token(owner);
+      final retry = ApiClient(
+        baseUrl: 'http://local',
+        httpClient: MockClient((request) async {
+          expect(request.url.path, '/v1/sessions/delete');
+          return http.Response(
+            jsonEncode({
+              'deleted_session_ids': [sid],
+            }),
+            200,
+          );
+        }),
+      )..accessToken = token(owner);
+      await UploadSync(repository: sessions, api: retry).flush('owner@test');
+      expect(await sessions.pendingDeletions('owner@test'), isEmpty);
+      expect(await sessions.isTombstoned(owner, sid), true);
+    },
+  );
+
+  test(
+    'account change before queued server retirement commit preserves the recording and its raw file',
+    () async {
+      final (db, sessions, calibration, _, sid) = await fixture();
+      final job = (await sessions.pendingUploads()).single;
+      await db
+          .update(db.calibrationPlans)
+          .write(const CalibrationPlansCompanion(syncState: Value('done')));
+      await sessions.markUpload(sid, 'done');
+      final entered = Completer<void>(), response = Completer<void>();
+      final api = ApiClient(
+        baseUrl: 'http://local',
+        httpClient: MockClient((request) async {
+          entered.complete();
+          await response.future;
+          return http.Response('{"detail":"deleted"}', 410);
+        }),
+      )..accessToken = token(owner);
+      final running = UploadSync(
+        repository: sessions,
+        api: api,
+      ).flush('owner@test');
+      await entered.future;
+      final locked = Completer<void>(), unlock = Completer<void>();
+      final barrier = db.transaction(() async {
+        await db.getKv('barrier');
+        locked.complete();
+        await unlock.future;
+      });
+      await locked.future;
+      response.complete();
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      api.accessToken = token('99999999-9999-4999-8999-999999999999');
+      unlock.complete();
+      await barrier;
+      await running;
+      expect(await sessions.listSessions(), hasLength(1));
+      expect(await calibration.feedback(owner, sid), isNotNull);
+      expect(await sessions.isTombstoned(owner, sid), false);
+      expect(await File(job.payloadPath).exists(), true);
+    },
+  );
 }
