@@ -42,6 +42,15 @@ class PlaybackAudio implements PcmOutput, PcmPlaybackProgress {
   }
 }
 
+// Recorded-source correlation needs consumption tied to the observed clock;
+// the accelerated ten-minute fake above intentionally consumes on acceptance.
+class ClockedPlaybackAudio extends PlaybackAudio {
+  @override
+  Future<void> write(Uint8List bytes) async {
+    accepted += bytes.length ~/ 4;
+  }
+}
+
 class KeepAlive implements SessionKeepAlive {
   bool active = false;
   @override
@@ -135,7 +144,7 @@ void main() {
       final bytes = wave();
       final file = await File('${dir.path}/ready.wav').writeAsBytes(bytes);
       final profile = AudioProfileVersion.fromJson(metadata(bytes));
-      final audio = PlaybackAudio();
+      final audio = ClockedPlaybackAudio();
       final muse = StreamMuse();
       var observed = 0.0;
       final config = ExperimentConfig.defaults();
@@ -171,6 +180,7 @@ void main() {
       var nextBatch = .5;
       for (var step = 1; step <= 40; step++) {
         observed = step * .15;
+        audio.played = (step * .15 * 48000).round();
         await session.pumpPlayback();
         while (nextBatch <= observed + 1e-9) {
           final batch = source.pull().shifted(300);
@@ -193,6 +203,7 @@ void main() {
       nextBatch = 9.5;
       for (var step = 1; step <= 40; step++) {
         observed = 9 + step * .15;
+        audio.played = (step * .15 * 48000).round();
         await session.pumpPlayback();
         while (nextBatch <= observed + 1e-9) {
           muse.eegOut.add(source.pull().shifted(303));
@@ -211,6 +222,7 @@ void main() {
       }
       expect(session.engine!.frames, isNotEmpty);
       expect(session.engine!.phase, SessionPhase.sound);
+      session.interrupt(StopReason.background);
       await session.finish();
       final saved = (await session.repository.listSessions()).single;
       expect(saved.status, 'stopped');

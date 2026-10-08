@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:neurotune_core/neurotune_core.dart';
 
 import '../data/api_client.dart';
@@ -79,10 +80,16 @@ class SessionController extends ChangeNotifier {
       _playbackObserved.elapsedMicroseconds / 1e6;
   MeditationRenderer? _renderer;
   Future<void>? _playbackPump;
+  Future<void>? _pausing;
+  StreamSubscription<PcmInterruption>? _audioEvents;
+  Future<double?>? _outputStart;
+  bool _outputAcquired = false;
+  int _inFlightFrames = 0;
   int _playbackBase = 0;
   int _playedFrames = 0;
   final Stopwatch _playbackObserved = Stopwatch();
   double _lastPlayedObserved = 0;
+  final Stopwatch _progressStall = Stopwatch();
   bool get isMeditation => meditation != null;
 
   /// Absolute rendered cursor to resume after flushing unplayed packets.
@@ -147,6 +154,50 @@ class SessionController extends ChangeNotifier {
       // Keep the headband connected so the contact page can retry without
       // scanning again; dispose() only stops a Muse the session owns.
       _muse = null;
+      _pauseOutputs();
+      await _pausing;
+      _source?.stop();
+      Future<void> release(
+        FutureOr<void> Function() operation,
+        String resource,
+      ) async {
+        try {
+          await operation();
+        } catch (cleanup) {
+          _recordDiagnostic('cleanup_failed', {
+            'resource': resource,
+            'error': '$cleanup',
+          });
+        }
+      }
+
+      await release(keepAlive.stop, 'keep_alive');
+      await release(() async {
+        await _audioEvents?.cancel();
+      }, 'audio_events');
+      await release(() async {
+        await _frames?.cancel();
+      }, 'frames');
+      await release(() async {
+        await _batches?.cancel();
+      }, 'eeg');
+      await release(() async {
+        await _opticsSub?.cancel();
+      }, 'optics');
+      await release(() async {
+        await _lost?.cancel();
+      }, 'connection');
+      await release(() async {
+        await _diagnosticSub?.cancel();
+      }, 'diagnostics');
+      await release(() => _dsp?.close(), 'dsp');
+      await release(() async {
+        await _renderer?.close();
+      }, 'renderer');
+      _renderer = null;
+      if (isMeditation && engine != null && !_closed && !_finishing) {
+        _audioFailed(failure);
+      }
       return false;
     }
     if (_closed || _finishing) return false;
@@ -156,6 +207,7 @@ class SessionController extends ChangeNotifier {
 
   Future<void> _open(MuseChannel? muse) async {
     _playbackObserved.start();
+    _diagnosticClock.start();
     final seed = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final sessionId = reservedSessionId ?? newSessionId(Random(seed));
     final setup = meditation;
@@ -336,6 +388,25 @@ class SessionController extends ChangeNotifier {
         return;
       }
     }
+    if (audio is PcmInterruptionSource) {
+      _audioEvents = (audio as PcmInterruptionSource).interruptions.listen((
+        event,
+      ) {
+        if (_closed) return;
+        _recordDiagnostic('audio_interruption', {
+          'reason': event.reason,
+          'available': event.available,
+        });
+        if (!event.available) {
+          if (_finishing && isMeditation) {
+            _pauseOutputs();
+          } else {
+            interrupt(StopReason.background);
+          }
+        }
+      }, onError: (Object failure) => _audioFailed(failure));
+    }
+    if (isMeditation) _source?.start();
     await _startOutputs();
   }
 
@@ -402,6 +473,11 @@ class SessionController extends ChangeNotifier {
 
   Future<void> _resume() async {
     try {
+      if (isMeditation) {
+        await _starting;
+        await _pausing;
+        if (_closed || _finishing) return;
+      }
       if (_lastInterruption == StopReason.sourceDisconnected && _muse != null) {
         await _muse!.stop();
         await _muse!.start();
@@ -416,6 +492,7 @@ class SessionController extends ChangeNotifier {
     } catch (failure) {
       error = 'Sessionen kunde inte fortsätta: $failure';
       _pauseOutputs();
+      if (isMeditation) _audioFailed(failure);
     }
     if (!_closed) notifyListeners();
   }
@@ -445,6 +522,7 @@ class SessionController extends ChangeNotifier {
     try {
       await _starting;
       await _resuming;
+      await _pausing;
       final current = engine;
       if (isMeditation) {
         _audioTimer?.cancel();
@@ -453,6 +531,8 @@ class SessionController extends ChangeNotifier {
         if (current != null && !current.terminal && !current.waitingForResume) {
           await _stopRamp();
         }
+        _pauseOutputs();
+        await _pausing;
         final meditationProtocol = current as MeditationProtocol?;
         if (meditationProtocol != null) {
           for (var i = 0; i < meditationProtocol.frames.length; i++) {
@@ -464,7 +544,9 @@ class SessionController extends ChangeNotifier {
         }
       }
       current?.finish();
-      _pauseOutputs();
+      if (!isMeditation) _pauseOutputs();
+      await _pausing;
+      _source?.stop();
       await _renderer?.close();
       _renderer = null;
       if (origin == DataOrigin.muse) {
@@ -490,6 +572,9 @@ class SessionController extends ChangeNotifier {
     }
 
     await release(audio.stop);
+    await release(() async {
+      await _audioEvents?.cancel();
+    });
     final dsp = _dsp;
     _dsp = null;
     await release(() => dsp?.close());
@@ -522,6 +607,19 @@ class SessionController extends ChangeNotifier {
   void dispose() {
     _closed = true;
     _pauseOutputs();
+    if (isMeditation) {
+      // Resumable pauses retain focus. Terminal disposal must abandon it after
+      // a held start/checkpoint settles, including a start that acquired late.
+      _cleanupInBackground(() async {
+        try {
+          await _pausing;
+        } finally {
+          await audio.stop();
+        }
+      }, 'audio');
+    }
+    _source?.stop();
+    _audioEvents?.cancel();
     _frames?.cancel();
     _batches?.cancel();
     _opticsSub?.cancel();
@@ -617,11 +715,25 @@ class SessionController extends ChangeNotifier {
   Future<bool> _startOutputs() async {
     if (_closed || _finishing) return false;
     final generation = _audioGeneration;
-    final latency = await audio.start(
+    final starting = audio.start(
       isMeditation ? MeditationRenderer.sampleRate : config.audioSampleRateHz,
     );
+    _outputStart = starting;
+    double? latency;
+    try {
+      latency = await starting;
+    } on PlatformException catch (failure) {
+      if (failure.code != 'AUDIO_FOCUS_DENIED' || !isMeditation) rethrow;
+      _recordDiagnostic('audio_interruption', {
+        'reason': 'focus_denied',
+        'available': false,
+      });
+      interrupt(StopReason.background);
+      return false;
+    }
+    _outputAcquired = true;
     if (generation != _audioGeneration || _closed || _finishing) {
-      _cleanupInBackground(audio.stop, 'audio');
+      if (!isMeditation) _cleanupInBackground(audio.stop, 'audio');
       return false;
     }
     latencyMs = latency;
@@ -631,6 +743,9 @@ class SessionController extends ChangeNotifier {
       _audioFramesWritten = _playedFrames;
       _playbackObserved.start();
       _lastPlayedObserved = _observedSeconds;
+      _progressStall
+        ..reset()
+        ..start();
       (engine as MeditationProtocol).playback(
         _playedFrames,
         _lastPlayedObserved,
@@ -641,7 +756,7 @@ class SessionController extends ChangeNotifier {
       ..start();
     _writeAudio();
     _audioTimer ??= Timer.periodic(_audioTick, (_) => _writeAudio());
-    _source?.start();
+    if (!isMeditation) _source?.start();
     return true;
   }
 
@@ -677,9 +792,7 @@ class SessionController extends ChangeNotifier {
           .timeout(_audioWriteTimeout);
     } catch (failure) {
       if (generation != _audioGeneration || _closed || _finishing) return;
-      engine?.abort(StopReason.audioLost, 'Ljudutgången slutade fungera.');
-      error = 'Ljudutgången slutade fungera: $failure';
-      _finishInBackground();
+      _audioFailed(failure);
     } finally {
       _audioWritePending = false;
       if (generation == _audioGeneration) _releaseFrames();
@@ -692,15 +805,77 @@ class SessionController extends ChangeNotifier {
     _audioTimer = null;
     _audioClock.stop();
     _synth?.setAction(null);
-    _source?.stop();
-    if (engine is MeditationProtocol) {
-      (engine as MeditationProtocol).playback(
-        _playedFrames,
-        _observedSeconds,
-        active: false,
-      );
+    if (isMeditation) {
+      _pausing ??= _pauseMeditation().whenComplete(() => _pausing = null);
+    } else {
+      _source?.stop();
+      _cleanupInBackground(audio.stop, 'audio');
     }
-    _cleanupInBackground(audio.stop, 'audio');
+  }
+
+  /// Invalidate writes synchronously, then join a held start and take the
+  /// device checkpoint before flushing. Recording/DSP continue during pauses.
+  Future<void> _pauseMeditation() async {
+    bool paused = false;
+    try {
+      // A rejected focus request acquired nothing; other start failures are
+      // handled by start/resume. Still stop defensively below.
+      try {
+        await _outputStart;
+      } catch (_) {}
+      if (_outputAcquired) {
+        final local = audio is PcmInterruptionSource
+            ? await (audio as PcmInterruptionSource)
+                  .pauseAndCheckpoint()
+                  .timeout(_audioWriteTimeout)
+            : await (audio as PcmPlaybackProgress).playedFrames().timeout(
+                _audioWriteTimeout,
+              );
+        paused = audio is PcmInterruptionSource;
+        _playedFrames = (_playbackBase + local).clamp(
+          _playedFrames,
+          _audioFramesWritten + _inFlightFrames,
+        );
+        (engine as MeditationProtocol?)?.playback(
+          _playedFrames,
+          _observedSeconds,
+        );
+      }
+    } catch (failure) {
+      _recordDiagnostic('audio_checkpoint_failed', {'error': '$failure'});
+      _audioFailed(failure);
+    }
+    (engine as MeditationProtocol?)?.playback(
+      _playedFrames,
+      _observedSeconds,
+      active: false,
+    );
+    if (!paused) {
+      try {
+        await audio.stop().timeout(_audioWriteTimeout);
+      } catch (failure) {
+        _recordDiagnostic('cleanup_failed', {
+          'resource': 'audio',
+          'error': '$failure',
+        });
+        _audioFailed(failure);
+      }
+    }
+    _outputAcquired = false;
+    await _playbackPump;
+    _audioWritePending = false;
+    _inFlightFrames = 0;
+  }
+
+  void _audioFailed(Object failure) {
+    if (_closed || _finishing) return;
+    _recordDiagnostic('audio_failed', {
+      'error': '$failure',
+      'played_frames': _playedFrames,
+    });
+    engine?.abort(StopReason.audioLost, 'Ljudutgången slutade fungera.');
+    error = 'Ljudutgången slutade fungera: $failure';
+    _finishInBackground();
   }
 
   void _cleanupInBackground(
@@ -748,15 +923,19 @@ class SessionController extends ChangeNotifier {
     if (generation != _audioGeneration || _closed) return;
     final played = (_playbackBase + local).clamp(
       _playedFrames,
-      _audioFramesWritten,
+      _audioFramesWritten + _inFlightFrames,
     );
     final observed = _observedSeconds;
     if (played > _playedFrames) {
       _playedFrames = played;
       _lastPlayedObserved = observed;
+      _progressStall
+        ..reset()
+        ..start();
     }
     if (_audioFramesWritten > _playedFrames &&
-        observed - _lastPlayedObserved > 2) {
+        (observed - _lastPlayedObserved > 2 ||
+            _progressStall.elapsed > _audioWriteTimeout)) {
       throw StateError('Audio playback stopped progressing');
     }
     (engine as MeditationProtocol).playback(_playedFrames, observed);
@@ -784,17 +963,17 @@ class SessionController extends ChangeNotifier {
             .render(_audioFramesWritten, frames)
             .timeout(_audioWriteTimeout);
         if (generation != _audioGeneration || _closed || _finishing) return;
+        _inFlightFrames = frames;
         await audio.write(pcm).timeout(_audioWriteTimeout);
         if (generation != _audioGeneration || _closed) return;
         _audioFramesWritten += frames;
+        _inFlightFrames = 0;
       }
       _releaseFrames();
       if (!_closed) notifyListeners();
     } catch (failure) {
       if (generation != _audioGeneration || _closed || _finishing) return;
-      engine?.abort(StopReason.audioLost, 'Ljudutgången slutade fungera.');
-      error = 'Ljudutgången slutade fungera: $failure';
-      _finishInBackground();
+      _audioFailed(failure);
     } finally {
       _audioWritePending = false;
       if (generation == _audioGeneration) _releaseFrames();
@@ -802,11 +981,17 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> _stopRamp() async {
+    final generation = _audioGeneration;
     try {
-      await _readPlayed(_audioGeneration);
+      await _readPlayed(generation);
       await audio.stop();
-      if (_closed) return;
-      await audio.start(48000).timeout(_audioWriteTimeout);
+      _outputAcquired = false;
+      if (_closed || generation != _audioGeneration) return;
+      final starting = audio.start(48000);
+      _outputStart = starting;
+      await starting;
+      _outputAcquired = true;
+      if (_closed || generation != _audioGeneration) return;
       _playbackBase = _playedFrames;
       final frames = min(
         7200,
@@ -818,16 +1003,38 @@ class SessionController extends ChangeNotifier {
         frames,
         stopping: true,
       );
+      if (_closed || generation != _audioGeneration) return;
+      _inFlightFrames = frames;
       await audio.write(pcm).timeout(_audioWriteTimeout);
+      if (_closed || generation != _audioGeneration) return;
       _audioFramesWritten = _playedFrames + frames;
+      _inFlightFrames = 0;
       _lastPlayedObserved = _observedSeconds;
-      while (_playedFrames < _audioFramesWritten && !_closed) {
-        await _readPlayed(_audioGeneration);
+      _progressStall
+        ..reset()
+        ..start();
+      while (_playedFrames < _audioFramesWritten &&
+          !_closed &&
+          generation == _audioGeneration) {
+        await _readPlayed(generation);
         if (_playedFrames < _audioFramesWritten) {
           await Future<void>.delayed(const Duration(milliseconds: 20));
         }
       }
     } catch (failure) {
+      if (_closed || generation != _audioGeneration) return;
+      if (failure is PlatformException &&
+          failure.code == 'AUDIO_FOCUS_DENIED') {
+        _recordDiagnostic('audio_interruption', {
+          'reason': 'focus_denied',
+          'available': false,
+        });
+        return;
+      }
+      _recordDiagnostic('audio_failed', {
+        'error': '$failure',
+        'played_frames': _playedFrames,
+      });
       engine?.abort(StopReason.audioLost, 'Ljudutgången slutade fungera.');
       error = 'Ljudutgången slutade fungera: $failure';
     }

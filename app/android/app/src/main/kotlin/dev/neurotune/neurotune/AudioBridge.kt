@@ -1,15 +1,23 @@
 package dev.neurotune.neurotune
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.media.MediaPlayer
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.EventChannel
 import java.io.FileInputStream
 
 /**
@@ -21,6 +29,20 @@ class AudioBridge(private val activity: FlutterActivity) {
     private val thread = HandlerThread("neurotune-pcm").also { it.start() }
     private val handler = Handler(thread.looper)
     private var track: AudioTrack? = null
+    private val audioManager = activity.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private var focusRequest: AudioFocusRequest? = null
+    private var legacyFocusListener: AudioManager.OnAudioFocusChangeListener? = null
+    @Volatile private var focusEpoch = 0
+    private var pausedHead = 0L
+    private var eventSink: EventChannel.EventSink? = null
+    private val noisyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                handler.post { if (track != null) interruptOutput("route_noisy") }
+            }
+        }
+    }
+    private var noisyRegistered = false
     private var testPlayer: MediaPlayer? = null
     // Confined to the audio handler. Only one bounded packet may be pending.
     private var pendingWrite: PendingWrite? = null
@@ -33,6 +55,19 @@ class AudioBridge(private val activity: FlutterActivity) {
     }
 
     fun register(messenger: BinaryMessenger) {
+        EventChannel(messenger, "dev.neurotune/audio_events").setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink) { eventSink = events }
+                override fun onCancel(arguments: Any?) { eventSink = null }
+            },
+        )
+        if (Build.VERSION.SDK_INT >= 33) {
+            activity.registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            activity.registerReceiver(noisyReceiver, IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
+        }
+        noisyRegistered = true
         MethodChannel(messenger, "dev.neurotune/audio").setMethodCallHandler { call, result ->
             when (call.method) {
                 "start" -> start(call.argument<Int>("sampleRate") ?: 48000, result)
@@ -40,10 +75,24 @@ class AudioBridge(private val activity: FlutterActivity) {
                     val bytes = call.arguments as ByteArray
                     handler.post { enqueueWrite(bytes, result) }
                 }
+                "pauseAndCheckpoint" -> {
+                    handler.post {
+                        try {
+                            val frames = pauseTrack()
+                            activity.runOnUiThread { result.success(frames) }
+                        } catch (error: Exception) {
+                            activity.runOnUiThread { result.error("AUDIO_PAUSE_FAILED", error.message, null) }
+                        }
+                    }
+                }
                 "stop" -> {
                     handler.post {
-                        stopTrack()
-                        activity.runOnUiThread { result.success(null) }
+                        try {
+                            stopTrack()
+                            activity.runOnUiThread { result.success(null) }
+                        } catch (error: Exception) {
+                            activity.runOnUiThread { result.error("AUDIO_STOP_FAILED", error.message, null) }
+                        }
                     }
                 }
                 "startTest" -> startTest(call.argument<String>("path"), result)
@@ -56,10 +105,9 @@ class AudioBridge(private val activity: FlutterActivity) {
                 "playedFrames" -> {
                     handler.post {
                         // Unsigned frame counter; a ten-minute stream cannot wrap.
-                        val frames = track?.playbackHeadPosition?.toLong()?.and(0xffffffffL)
+                        val frames = track?.playbackHeadPosition?.toLong()?.and(0xffffffffL) ?: pausedHead
                         activity.runOnUiThread {
-                            if (frames == null) result.error("AUDIO_STOPPED", "No audio output", null)
-                            else result.success(frames)
+                            result.success(frames)
                         }
                     }
                 }
@@ -81,6 +129,11 @@ class AudioBridge(private val activity: FlutterActivity) {
             try {
                 stopTest()
                 stopTrack()
+                if (!requestFocus()) {
+                    abandonFocus()
+                    activity.runOnUiThread { result.error("AUDIO_FOCUS_DENIED", "Audio focus is unavailable", null) }
+                    return@post
+                }
                 val minBuffer = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_STEREO, AudioFormat.ENCODING_PCM_16BIT)
                 val created = AudioTrack.Builder()
                     .setAudioAttributes(
@@ -192,26 +245,107 @@ class AudioBridge(private val activity: FlutterActivity) {
         testPlayer = null
     }
 
-    private fun stopTrack() {
+    /** Confined to the audio handler: freeze the played head before flush.
+     * Retain focus while paused so a transient loss can deliver a gain event. */
+    private fun pauseTrack(): Long {
         handler.removeCallbacks(drain)
+        val current = track
+        track = null
         val pending = pendingWrite
         pendingWrite = null
-        if (pending != null) {
-            activity.runOnUiThread { pending.result.success(null) }
+        try {
+            if (current != null) {
+                current.pause()
+                pausedHead = current.playbackHeadPosition.toLong().and(0xffffffffL)
+            }
+            return pausedHead
+        } finally {
+            if (pending != null) activity.runOnUiThread { pending.result.success(null) }
+            if (current != null) {
+                try { current.flush() } finally { current.release() }
+            }
         }
-        track?.pause()
-        track?.flush()
-        track?.release()
-        track = null
+    }
+
+    private fun stopTrack() {
+        try { pauseTrack() } finally {
+            pausedHead = 0L
+            abandonFocus()
+        }
+    }
+
+    private fun emit(reason: String, available: Boolean) {
+        val epoch = focusEpoch
+        activity.runOnUiThread {
+            if (epoch != focusEpoch) return@runOnUiThread
+            eventSink?.success(mapOf("reason" to reason, "available" to available))
+        }
+    }
+
+    private fun interruptOutput(reason: String) {
+        try {
+            pauseTrack()
+            emit(reason, false)
+        } catch (error: Exception) {
+            activity.runOnUiThread { eventSink?.error("AUDIO_PAUSE_FAILED", error.message, null) }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun requestFocus(): Boolean {
+        val epoch = ++focusEpoch
+        val listener = AudioManager.OnAudioFocusChangeListener { change ->
+            // Ignore delayed callbacks belonging to a released output.
+            handler.post {
+                if (epoch == focusEpoch) {
+                    when (change) {
+                        AudioManager.AUDIOFOCUS_GAIN -> emit("focus_gain", true)
+                        AudioManager.AUDIOFOCUS_LOSS -> interruptOutput("focus_loss")
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> interruptOutput("focus_loss_transient")
+                        AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> interruptOutput("focus_loss_duck")
+                    }
+                }
+            }
+        }
+        val result = if (Build.VERSION.SDK_INT >= 26) {
+            val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
+                .setWillPauseWhenDucked(true)
+                .setOnAudioFocusChangeListener(listener, handler)
+                .build()
+            focusRequest = request
+            audioManager.requestAudioFocus(request)
+        } else {
+            legacyFocusListener = listener
+            audioManager.requestAudioFocus(listener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+        }
+        return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    }
+
+    @Suppress("DEPRECATION")
+    private fun abandonFocus() {
+        ++focusEpoch
+        val request = focusRequest
+        focusRequest = null
+        val listener = legacyFocusListener
+        legacyFocusListener = null
+        if (Build.VERSION.SDK_INT >= 26 && request != null) audioManager.abandonAudioFocusRequest(request)
+        else if (listener != null) audioManager.abandonAudioFocus(listener)
     }
 
     /// Called when the Flutter engine goes away. Nothing will write or stop
     /// the track after that, so it is released here.
     fun dispose() {
+        eventSink = null
+        if (noisyRegistered) {
+            activity.unregisterReceiver(noisyReceiver)
+            noisyRegistered = false
+        }
         handler.removeCallbacksAndMessages(null)
         handler.post {
-            stopTest()
-            stopTrack()
+            try { stopTest() } finally { runCatching { stopTrack() } }
         }
         thread.quitSafely()
     }
