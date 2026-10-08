@@ -80,6 +80,7 @@ class PersonalEegRepository {
         api.authGeneration == generation;
     if (!current()) return false;
     final epoch = await sessions.readEvidenceEpoch(owner);
+    final previousCache = await db.getKv(_key(owner, origin));
     if (!current()) return false;
     PersonalEegModel? model;
     bool invalid = false;
@@ -102,6 +103,9 @@ class PersonalEegRepository {
     try {
       return await db.transaction(() async {
         if (!current()) return false;
+        // Another refresh/deletion may have committed while HTTP was held.
+        // Compare durable state, including across repository instances.
+        if (await db.getKv(_key(owner, origin)) != previousCache) return false;
         final valid = model == null || await _evidenceCurrent(owner, model);
         final value = valid && model != null
             ? model.toJson()

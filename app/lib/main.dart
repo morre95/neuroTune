@@ -275,12 +275,29 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     if (email == null) return;
     final owner = widget.api.accountId;
     final authentication = widget.api.authGeneration;
+    final learningNavigation = _experimentNavigationGeneration;
+    final reconcileLearning =
+        widget.meditationEnabled && _screen != _Screen.auth && !_inExperiments;
     bool authenticated() =>
         mounted &&
         _auth?.email == email &&
         widget.api.accountId == owner &&
         widget.api.authGeneration == authentication;
-    await _uploadSync.flush(email);
+    bool learningCurrent() =>
+        authenticated() &&
+        _experimentNavigationGeneration == learningNavigation &&
+        !_networkQuiet &&
+        !_startingSession &&
+        _session == null;
+    await _uploadSync.flush(
+      email,
+      reconcileLearning: reconcileLearning,
+      canReconcileLearning: learningCurrent,
+    );
+    if (reconcileLearning && learningCurrent()) {
+      await _loadCalibration(stillCurrent: learningCurrent);
+      if (learningCurrent()) setState(() {});
+    }
     if (!authenticated() || _screen != _Screen.history) return;
     final navigation = _experimentNavigationGeneration;
     bool current() =>

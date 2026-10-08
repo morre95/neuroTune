@@ -8,10 +8,21 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.db import get_db
-from app.models import CalibrationPlanRecord, User, MeditationFeedbackRecord, MeditationTrainingJob, MeditationTrainingRequest
+from app.models import CalibrationPlanRecord, User, MeditationFeedbackRecord, MeditationTrainingJob, MeditationTrainingRequest, SessionDeletion
 from app.meditation import PlanIn, require_profile, FeedbackIn, owned_recording, validate_meditation, TrainingIn, training_dataset
 
 router = APIRouter(prefix='/meditation', tags=['meditation'])
+
+
+@router.get('/deletions')
+def learning_deletions(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    from app.deletion import read_deletion_epoch
+    db.query(User).filter_by(id=user.id).with_for_update().one()
+    # No raw paths, ratings or foreign ownership information. Tombstones are
+    # authoritative even for evidence absent from this particular phone.
+    ids = [row.session_id for row in db.query(SessionDeletion).filter_by(user_id=user.id)
+        .order_by(SessionDeletion.session_id).all()]
+    return dict(schema_version=1, deleted_session_ids=ids, deletion_epoch=read_deletion_epoch(db,user.id))
 
 
 @router.post('/calibration-plans')

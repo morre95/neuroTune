@@ -105,4 +105,8 @@ def test_server_epoch_change_during_fit_prevents_publication(tmp_path, monkeypat
     with SessionLocal() as db:
         run_once(db)
     assert client.get('/v1/meditation/models/latest',headers=auth(token),params={'origin':'muse'}).status_code==404
-    assert client.get(f"/v1/meditation/training/jobs/{job['id']}",headers=auth(token)).json()['status']=='stale'
+    assert client.get(f"/v1/meditation/training/jobs/{job['id']}",headers=auth(token)).json()['status']=='queued'
+    monkeypatch.setattr(learner,'train_model',original)
+    with SessionLocal() as db:
+        run_once(db)
+    assert client.get(f"/v1/meditation/training/jobs/{job['id']}",headers=auth(token)).json()['status']=='done'

@@ -343,6 +343,78 @@ class SessionRepository {
     cleanupRaw: false,
   );
 
+  /// Authoritative owned tombstones discovered during idle learning sync.
+  /// Evidence can have come from another phone, so unknown local IDs also need
+  /// durable markers. Foreign/legacy local recordings remain untouched.
+  Future<List<String>> recordServerDeletions(
+    Iterable<String> sessionIds,
+    String ownerEmail,
+    String owner, {
+    required bool Function() isCurrent,
+  }) => db.transaction(() async {
+    _epochKey(owner);
+    if (!isCurrent()) throw StateError('Account changed');
+    final before = await readEvidenceEpoch(owner);
+    final known = <String>[], absent = <String>{};
+    bool added = false;
+    for (final id in sessionIds.toSet()) {
+      final marker = await (db.select(
+        db.sessionTombstones,
+      )..where((r) => r.sessionId.equals(id))).getSingleOrNull();
+      if (marker != null && marker.ownerAccountId != owner) continue;
+      final row = await (db.select(
+        db.storedSessions,
+      )..where((r) => r.id.equals(id))).getSingleOrNull();
+      if (row != null && meditationOwner(_saved(row).manifest) != owner)
+        continue;
+      final job = await (db.select(
+        db.uploadJobs,
+      )..where((r) => r.sessionId.equals(id))).getSingleOrNull();
+      if (job != null && job.ownerEmail != ownerEmail.toLowerCase()) continue;
+      if (row != null || marker != null || job != null) {
+        known.add(id);
+      } else {
+        await db
+            .into(db.sessionTombstones)
+            .insert(
+              SessionTombstonesCompanion.insert(
+                sessionId: id,
+                ownerEmail: ownerEmail.toLowerCase(),
+                ownerAccountId: Value(owner),
+                createdAt: DateTime.now().toUtc(),
+              ),
+            );
+        absent.add(id);
+        added = true;
+        await (db.delete(db.meditationFeedbackRows)..where(
+              (r) => r.ownerAccountId.equals(owner) & r.sessionId.equals(id),
+            ))
+            .go();
+        await (db.delete(db.calibrationAttempts)..where(
+              (r) => r.ownerAccountId.equals(owner) & r.sessionId.equals(id),
+            ))
+            .go();
+        await (db.delete(db.meditationTrainingOutbox)..where(
+              (r) => r.ownerAccountId.equals(owner) & r.sessionId.equals(id),
+            ))
+            .go();
+      }
+    }
+    if (known.isNotEmpty)
+      await deleteSessions(
+        known,
+        ownerEmail,
+        ownerAccountId: owner,
+        isCurrent: isCurrent,
+        cleanupRaw: false,
+      );
+    if (absent.isNotEmpty) await retireMeditationLearning(db, owner, absent);
+    if (added && await readEvidenceEpoch(owner) == before)
+      await bumpEvidenceEpoch(owner);
+    if (!isCurrent()) throw StateError('Account changed');
+    return [...known, ...absent];
+  });
+
   Future<List<PendingUpload>> pendingDeletions(
     String ownerEmail, {
     String? ownerAccountId,

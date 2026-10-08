@@ -52,9 +52,12 @@ def remove_meditation_evidence(db, owner, session_ids):
             affected.add(request.job_id)
     # Models include only usable rows; a removed job snapshot can also
     # contain an unusable session which never influenced the fitted model.
-    revoked, retained = set(), set()
-    for model in db.query(PersonalEegModel).filter_by(user_id=owner).all():
+    revoked, retained, seen_scopes = set(), set(), set()
+    for model in db.query(PersonalEegModel).filter_by(user_id=owner).order_by(
+        PersonalEegModel.created_at.desc(), PersonalEegModel.id.desc()).all():
         scope = (model.origin, model.protocol_version)
+        latest = scope not in seen_scopes
+        seen_scopes.add(scope)
         try:
             body = json.loads(model.body_json)
             included = body['included_session_ids']
@@ -62,7 +65,8 @@ def remove_meditation_evidence(db, owner, session_ids):
                 revoked.add(scope)
                 db.delete(model)
             else:
-                retained.add(scope)
+                if latest and body.get('status') != 'revoked':
+                    retained.add(scope)
                 if model.job_id in affected:
                     model.job_id = None
         except (ValueError, TypeError, KeyError):

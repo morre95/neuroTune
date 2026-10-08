@@ -315,6 +315,24 @@ class ApiClient {
     );
   }
 
+  Future<List<String>> meditationDeletionIds() async {
+    final response = await _send('GET', '/v1/meditation/deletions');
+    _expect(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final ids = body['deleted_session_ids'];
+    if (body['schema_version'] != 1 ||
+        body['deletion_epoch'] is! int ||
+        body['deletion_epoch'] < 0 ||
+        ids is! List ||
+        ids.any(
+          (id) =>
+              id is! String || !RegExp(r'^[A-Za-z0-9_-]{1,64}$').hasMatch(id),
+        )) {
+      throw const FormatException('Invalid owned deletion ledger');
+    }
+    return ids.cast<String>().toSet().toList();
+  }
+
   Future<void> deleteSessions(List<String> sessionIds) async {
     final response = await _send('POST', '/v1/sessions/delete', {
       'session_ids': sessionIds,

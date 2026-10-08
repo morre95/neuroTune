@@ -80,9 +80,12 @@ def process_job(db, job):
     if job is None:
         db.rollback()
         return
-    if (read_deletion_epoch(db,owner) != epoch
-        or dataset_fingerprint(training_dataset(db,owner,origin,protocol)) != fingerprint):
-        job.status, job.error = 'stale', 'Training evidence changed during fitting'
+    current_fingerprint = dataset_fingerprint(training_dataset(db,owner,origin,protocol))
+    if read_deletion_epoch(db,owner) != epoch or current_fingerprint != fingerprint:
+        # An unrelated/unknown tombstone still prevents this publication. Keep
+        # its unchanged canonical intent durable for the next worker pass.
+        job.status = 'queued' if current_fingerprint == fingerprint else 'stale'
+        job.error = 'Training evidence changed during fitting'
         db.commit()
         return
     created = datetime.now(UTC)

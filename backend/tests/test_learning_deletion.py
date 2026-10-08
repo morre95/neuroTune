@@ -6,7 +6,7 @@ from pathlib import Path
 
 from app.db import SessionLocal
 from app.worker import run_once
-from test_api import auth, client
+from test_api import auth, client, register
 from test_eeg_model_math import frames, channel
 from test_meditation_sync import context, recording, feedback
 
@@ -42,6 +42,33 @@ def latest(token):
 def consume():
     with SessionLocal() as db:
         run_once(db)
+
+
+def test_remote_adaptive_deletion_is_discoverable_owned_and_does_not_revoke_fixed_model(tmp_path, monkeypatch):
+    token, profile, _ = context(tmp_path, monkeypatch)
+    saved = [add_fixed(token, profile, target) for target in range(10) for _ in range(2)]
+    request(token, saved[-1][0])
+    consume()
+    model = latest(token)
+    adaptive = recording(profile, mode='adaptive', origin='simulator', model_version=model['model_version'],
+        adaptive_decisions=[dict(minute=0, action='control', score=6, updated_statistics=True, model_version=model['model_version'])])
+    adaptive['manifest']['data_origin'] = 'simulator'
+    sid = adaptive['manifest']['session_id']
+    assert client.post('/v1/sessions', headers=auth(token), json=adaptive).status_code == 200
+    assert client.post(f'/v1/meditation/sessions/{sid}/feedback', headers=auth(token), json=feedback(profile,sid,revision=1)).status_code == 200
+    forbidden = dict(schema_version=1, request_id=str(uuid.uuid4()), session_id=sid, feedback_revision=1, origin='simulator', protocol_version='meditation-1')
+    assert client.post('/v1/meditation/training/jobs', headers=auth(token), json=forbidden).status_code == 409
+    assert client.post('/v1/sessions/delete', headers=auth(token), json={'session_ids':[sid]}).status_code == 200
+    assert latest(token)['id'] == model['id']
+    assert client.get(f'/v1/sessions/{sid}', headers=auth(token)).status_code == 404
+    ledger = client.get('/v1/meditation/deletions', headers=auth(token))
+    assert ledger.status_code == 200, ledger.text
+    assert ledger.json() == dict(schema_version=1, deleted_session_ids=[sid], deletion_epoch=1)
+    other = register(f'{uuid.uuid4()}@example.com')['access_token']
+    assert client.get('/v1/meditation/deletions', headers=auth(other)).json()['deleted_session_ids'] == []
+    assert client.get('/v1/meditation/deletions').status_code == 401
+    consume()
+    assert latest(token)['id'] == model['id'], 'adaptive-only deletion queued unnecessary EEG refitting'
 
 
 def test_deletion_rebuild_is_durable_idempotent_and_never_resurrects_historical_ready(tmp_path, monkeypatch):
@@ -97,3 +124,30 @@ def test_deletion_rebuild_is_durable_idempotent_and_never_resurrects_historical_
     assert recovered['status'] == 'ready' and recovered['validation']['session_count'] == 20
     assert recovered['model_version'] != rebuilt['model_version']
     assert sid not in recovered['included_session_ids'] and replacement in recovered['included_session_ids']
+
+
+def test_included_deletion_during_fit_rejects_old_publication_and_consumes_remaining_rebuild(tmp_path, monkeypatch):
+    import app.personal_eeg as learner
+    token, profile, _ = context(tmp_path, monkeypatch)
+    saved = [add_fixed(token, profile, target) for target in range(10) for _ in range(2)]
+    request(token, saved[-1][0])
+    consume()
+    first = latest(token)
+    extra, _, _ = add_fixed(token, profile, 9)
+    _, pending = request(token, extra)
+    original = learner.train_model
+    deleted = saved[-1][0]
+    def deleting_fit(rows):
+        assert client.post('/v1/sessions/delete', headers=auth(token), json={'session_ids':[deleted]}).status_code == 200
+        assert latest(token)['status'] == 'revoked'
+        return original(rows)
+    monkeypatch.setattr(learner, 'train_model', deleting_fit)
+    consume()
+    assert latest(token)['status'] == 'revoked'
+    assert client.get(f"/v1/meditation/training/jobs/{pending['id']}", headers=auth(token)).status_code == 404
+    monkeypatch.setattr(learner, 'train_model', original)
+    consume()
+    rebuilt = latest(token)
+    assert rebuilt['status'] == 'ready' and rebuilt['validation']['session_count'] == 20
+    assert deleted not in rebuilt['included_session_ids'] and extra in rebuilt['included_session_ids']
+    assert rebuilt['model_version'] != first['model_version']

@@ -4,6 +4,8 @@ import 'package:neurotune_core/neurotune_core.dart';
 import 'api_client.dart';
 import 'meditation_sync_repository.dart';
 import 'repository.dart';
+import 'calibration_repository.dart';
+import 'personal_eeg_repository.dart';
 
 class UploadSync {
   UploadSync({required this.repository, required this.api});
@@ -14,18 +16,31 @@ class UploadSync {
   int _generation = 0;
   void cancel() => _generation++;
   Future<void> waitForIdle() async => await _running;
-  Future<void> flush(String ownerEmail) =>
-      _running ??= _flush(ownerEmail.toLowerCase()).whenComplete(() {
+  Future<void> flush(
+    String ownerEmail, {
+    bool reconcileLearning = false,
+    bool Function()? canReconcileLearning,
+  }) => _running ??=
+      _flush(
+        ownerEmail.toLowerCase(),
+        reconcileLearning,
+        canReconcileLearning,
+      ).whenComplete(() {
         _running = null;
       });
 
-  Future<void> _flush(String email) async {
+  Future<void> _flush(
+    String email,
+    bool reconcileLearning,
+    bool Function()? canReconcileLearning,
+  ) async {
     final generation = _generation, authentication = api.authGeneration;
     final owner = api.accountId;
     bool valid() =>
         generation == _generation &&
         authentication == api.authGeneration &&
         owner == api.accountId;
+    bool learningCurrent() => valid() && (canReconcileLearning?.call() ?? true);
     Future<bool> persist(Future<void> Function() mutation) async {
       try {
         await repository.db.transaction(() async {
@@ -106,6 +121,35 @@ class UploadSync {
             return;
           }
         }
+      }
+    }
+    if (reconcileLearning && owner != null && learningCurrent()) {
+      try {
+        final ids = await api.meditationDeletionIds();
+        if (!learningCurrent()) return;
+        final retired = await repository.recordServerDeletions(
+          ids,
+          email,
+          owner,
+          isCurrent: learningCurrent,
+        );
+        if (!learningCurrent()) return;
+        // SQL retirement has committed; raw cleanup/ack cannot restore it.
+        for (final job in await repository.pendingDeletions(
+          email,
+          ownerAccountId: owner,
+        )) {
+          if (!retired.contains(job.sessionId)) continue;
+          if (!learningCurrent()) return;
+          try {
+            await repository.completeDeletion(job, isCurrent: learningCurrent);
+          } on FileSystemException {
+            // Keep the durable raw-cleanup retry queue.
+          }
+        }
+      } catch (_) {
+        if (!learningCurrent()) return;
+        // Offline ledger failure retains the known cache/tombstones.
       }
     }
     if (owner != null) {
@@ -290,6 +334,23 @@ class UploadSync {
           ),
         )) {
           return;
+        }
+      }
+    }
+    if (reconcileLearning && learningCurrent()) {
+      final cache = PersonalEegRepository(
+        repository.db,
+        repository,
+        CalibrationRepository(repository.db, repository),
+        api,
+      );
+      for (final origin in DataOrigin.values) {
+        if (!learningCurrent()) return;
+        try {
+          await cache.refresh(owner, origin, isCurrent: learningCurrent);
+        } catch (_) {
+          if (!learningCurrent()) return;
+          // A network failure never revokes an unaffected offline artifact.
         }
       }
     }

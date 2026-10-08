@@ -18,12 +18,16 @@ class MeditationActionRepository {
     MeditationSetupContext setup,
     PersonalEegModel model,
   ) => db.transaction(() async {
-    if (!await _modelCurrent(owner, model)) {
+    if (!await _modelCurrent(owner, model, allowHistorical: true)) {
       throw StateError('Learning model was revoked or superseded');
     }
     final seeds = MeditationActionStatistics.seeded(owner, setup, model);
     final raw = await db.getKv(key(seeds));
-    if (raw == null) return seeds;
+    if (raw == null) {
+      if (!await _modelCurrent(owner, model))
+        throw StateError('Superseded model has no durable session statistics');
+      return seeds;
+    }
     try {
       final body = jsonDecode(raw) as Map<String, dynamic>;
       final parsed = MeditationActionStatistics.fromJson(
@@ -39,6 +43,10 @@ class MeditationActionRepository {
           reviewed.add(contribution);
         }
       }
+      if (!await _modelCurrent(owner, model) &&
+          !reviewed.any((c) => c['kind'] == 'adaptive')) {
+        throw StateError('Superseded model has no durable session statistics');
+      }
       return MeditationActionStatistics.fromJson(
         {...body, 'contributions': reviewed},
         owner,
@@ -46,12 +54,20 @@ class MeditationActionRepository {
         model,
       );
     } on FormatException {
+      if (!await _modelCurrent(owner, model))
+        throw StateError('Superseded model has no valid durable statistics');
       return seeds;
     } on TypeError {
+      if (!await _modelCurrent(owner, model))
+        throw StateError('Superseded model has no valid durable statistics');
       return seeds;
     }
   });
-  Future<bool> _modelCurrent(String owner, PersonalEegModel model) async {
+  Future<bool> _modelCurrent(
+    String owner,
+    PersonalEegModel model, {
+    bool allowHistorical = false,
+  }) async {
     if (model.ownerAccountId != owner || model.status != 'ready') return false;
     final raw = await db.getKv(
       'meditation_model:v1:$owner:${model.origin}:meditation-1',
@@ -62,8 +78,9 @@ class MeditationActionRepository {
         if (body['missing'] == true || body['invalid'] == true) return false;
         final latest = PersonalEegModel.fromJson(body);
         if (latest.status != 'ready' ||
-            latest.modelVersion != model.modelVersion ||
-            latest.id != model.id ||
+            (!allowHistorical &&
+                (latest.modelVersion != model.modelVersion ||
+                    latest.id != model.id)) ||
             latest.ownerAccountId != owner ||
             latest.origin != model.origin)
           return false;
@@ -142,7 +159,14 @@ class MeditationActionRepository {
   }) => db.transaction(() async {
     // Snapshot before awaits: later session updates cannot alter this write.
     final snapshot = stats.toJson();
-    if (!isCurrent() || !await _modelCurrent(stats.owner, stats.model))
+    if (!isCurrent() ||
+        !await _modelCurrent(
+          stats.owner,
+          stats.model,
+          allowHistorical: stats.contributions.any(
+            (c) => c['kind'] == 'adaptive',
+          ),
+        ))
       return false;
     for (final contribution in stats.contributions) {
       if (contribution['kind'] == 'adaptive' &&
