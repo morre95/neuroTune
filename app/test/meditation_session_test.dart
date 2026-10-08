@@ -147,6 +147,16 @@ void main() {
       final audio = ClockedPlaybackAudio();
       final muse = StreamMuse();
       var observed = 0.0;
+      var lastObserved = -0.000001;
+      double readObserved() {
+        // The controller's periodic pump still uses real timers. Each reading
+        // must remain monotonic even while our virtual clock is stationary.
+        lastObserved = observed > lastObserved
+            ? observed
+            : lastObserved + 0.000001;
+        return lastObserved;
+      }
+
       final config = ExperimentConfig.defaults();
       final session = SessionController(
         repository: SessionRepository(db),
@@ -161,7 +171,7 @@ void main() {
         mode: SessionMode.comparison,
         eyeState: EyeState.open,
         origin: DataOrigin.muse,
-        observedTimeSeconds: () => observed,
+        observedTimeSeconds: readObserved,
         meditation: MeditationSetup(
           profile: profile,
           file: file,
@@ -179,6 +189,8 @@ void main() {
       );
       var nextBatch = .5;
       for (var step = 1; step <= 40; step++) {
+        // Join any automatic read before changing the paired fake clocks.
+        await session.pumpPlayback();
         observed = step * .15;
         audio.played = (step * .15 * 48000).round();
         await session.pumpPlayback();
@@ -202,9 +214,15 @@ void main() {
       await session.pumpPlayback();
       nextBatch = 9.5;
       for (var step = 1; step <= 40; step++) {
+        await session.pumpPlayback();
         observed = 9 + step * .15;
         audio.played = (step * .15 * 48000).round();
         await session.pumpPlayback();
+        if (step == 30) {
+          // Exercise automatic pumps while this fixture's virtual time is idle,
+          // as happens when the full suite takes longer than the audio tick.
+          await Future<void>.delayed(const Duration(milliseconds: 120));
+        }
         while (nextBatch <= observed + 1e-9) {
           muse.eegOut.add(source.pull().shifted(303));
           await Future<void>.delayed(Duration.zero);
