@@ -297,8 +297,15 @@ void main() {
       final (db, sessions, _, _, sid) = await fixture();
       final key = 'meditation_model:v1:$owner:muse';
       final statsKey = 'meditation_action_stats:v1:$owner:muse';
+      final independentModel = jsonEncode({
+        'included_session_ids': ['unrelated-evidence'],
+      });
+      final independentStatistics = jsonEncode({
+        'model_evidence': [],
+        'contributions': [],
+      });
       await db.putKv(key, 'old-model');
-      await db.putKv(statsKey, 'old-statistics');
+      await db.putKv(statsKey, independentStatistics);
       final epoch = await sessions.readEvidenceEpoch(owner);
       expect(
         await sessions.publishEvidenceCache(
@@ -306,7 +313,7 @@ void main() {
           expectedLocalEpoch: epoch,
           includedSessionIds: [sid],
           key: key,
-          value: 'new-model',
+          value: independentModel,
         ),
         true,
       );
@@ -330,10 +337,10 @@ void main() {
       barrier.complete();
       await holding;
       expect(await pending, false);
-      expect(await db.getKv(key), 'new-model');
+      expect(await db.getKv(key), independentModel);
       await sessions.deleteSessions([sid], 'owner@test', ownerAccountId: owner);
-      expect(await db.getKv(key), 'new-model');
-      expect(await db.getKv(statsKey), 'old-statistics');
+      expect(await db.getKv(key), independentModel);
+      expect(await db.getKv(statsKey), independentStatistics);
       expect(
         await sessions.publishEvidenceCache(
           owner,

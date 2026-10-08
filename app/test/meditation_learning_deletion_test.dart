@@ -135,9 +135,10 @@ void main() {
         baseUrl: 'http://sync',
         httpClient: MockClient((request) async {
           paths.add(request.url.path);
-          if (request.url.path == '/v1/sessions')
+          if (request.url.path == '/v1/sessions') {
             return http.Response('{}', 200);
-          if (request.url.path == '/v1/meditation/deletions')
+          }
+          if (request.url.path == '/v1/meditation/deletions') {
             return http.Response(
               jsonEncode({
                 'schema_version': 1,
@@ -146,10 +147,12 @@ void main() {
               }),
               200,
             );
-          if (request.url.path == '/v1/meditation/models/latest')
+          }
+          if (request.url.path == '/v1/meditation/models/latest') {
             return request.url.queryParameters['origin'] == 'muse'
                 ? http.Response(jsonEncode(h.model.toJson()), 200)
                 : http.Response('{}', 404);
+          }
           throw StateError('Unexpected route ${request.url}');
         }),
       )..accessToken = token(owner);

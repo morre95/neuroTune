@@ -365,8 +365,9 @@ class SessionRepository {
       final row = await (db.select(
         db.storedSessions,
       )..where((r) => r.id.equals(id))).getSingleOrNull();
-      if (row != null && meditationOwner(_saved(row).manifest) != owner)
+      if (row != null && meditationOwner(_saved(row).manifest) != owner) {
         continue;
+      }
       final job = await (db.select(
         db.uploadJobs,
       )..where((r) => r.sessionId.equals(id))).getSingleOrNull();
@@ -400,7 +401,7 @@ class SessionRepository {
             .go();
       }
     }
-    if (known.isNotEmpty)
+    if (known.isNotEmpty) {
       await deleteSessions(
         known,
         ownerEmail,
@@ -408,9 +409,11 @@ class SessionRepository {
         isCurrent: isCurrent,
         cleanupRaw: false,
       );
+    }
     if (absent.isNotEmpty) await retireMeditationLearning(db, owner, absent);
-    if (added && await readEvidenceEpoch(owner) == before)
+    if (added && await readEvidenceEpoch(owner) == before) {
       await bumpEvidenceEpoch(owner);
+    }
     if (!isCurrent()) throw StateError('Account changed');
     return [...known, ...absent];
   });

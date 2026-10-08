@@ -19,8 +19,9 @@ Future<void> retireMeditationLearning(
   bool intersects(Iterable<dynamic> ids) => ids.any(deleted.contains);
   for (final row in rows) {
     if (!row.key.startsWith('meditation_model:v1:$owner:') &&
-        !row.key.startsWith('meditation_action_stats:v1:$owner:'))
+        !row.key.startsWith('meditation_action_stats:v1:$owner:')) {
       continue;
+    }
     try {
       final body = jsonDecode(row.value) as Map<String, dynamic>;
       if (row.key.startsWith('meditation_model:')) {
@@ -105,8 +106,9 @@ Future<void> retireSupersededMeditationStatistics(
   for (final row in rows) {
     if (!row.key.startsWith(
       'meditation_action_stats:v1:$owner:$origin:meditation-1:',
-    ))
+    )) {
       continue;
+    }
     bool retain = false;
     try {
       final body = jsonDecode(row.value) as Map;

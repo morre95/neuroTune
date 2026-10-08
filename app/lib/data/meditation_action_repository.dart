@@ -24,8 +24,9 @@ class MeditationActionRepository {
     final seeds = MeditationActionStatistics.seeded(owner, setup, model);
     final raw = await db.getKv(key(seeds));
     if (raw == null) {
-      if (!await _modelCurrent(owner, model))
+      if (!await _modelCurrent(owner, model)) {
         throw StateError('Superseded model has no durable session statistics');
+      }
       return seeds;
     }
     try {
@@ -54,12 +55,14 @@ class MeditationActionRepository {
         model,
       );
     } on FormatException {
-      if (!await _modelCurrent(owner, model))
+      if (!await _modelCurrent(owner, model)) {
         throw StateError('Superseded model has no valid durable statistics');
+      }
       return seeds;
     } on TypeError {
-      if (!await _modelCurrent(owner, model))
+      if (!await _modelCurrent(owner, model)) {
         throw StateError('Superseded model has no valid durable statistics');
+      }
       return seeds;
     }
   });
@@ -82,8 +85,9 @@ class MeditationActionRepository {
                 (latest.modelVersion != model.modelVersion ||
                     latest.id != model.id)) ||
             latest.ownerAccountId != owner ||
-            latest.origin != model.origin)
+            latest.origin != model.origin) {
           return false;
+        }
       } on FormatException {
         return false;
       } on TypeError {
@@ -102,16 +106,18 @@ class MeditationActionRepository {
         );
         if (meditationOwner(manifest) == owner &&
             (row.origin != model.origin ||
-                row.checksum != evidence['checksum_sha256']))
+                row.checksum != evidence['checksum_sha256'])) {
           return false;
+        }
       }
       final rating =
           await (db.select(db.meditationFeedbackRows)..where(
                 (r) => r.ownerAccountId.equals(owner) & r.sessionId.equals(sid),
               ))
               .getSingleOrNull();
-      if (rating != null && rating.revision != evidence['feedback_revision'])
+      if (rating != null && rating.revision != evidence['feedback_revision']) {
         return false;
+      }
     }
     return true;
   }
@@ -166,8 +172,9 @@ class MeditationActionRepository {
           allowHistorical: stats.contributions.any(
             (c) => c['kind'] == 'adaptive',
           ),
-        ))
+        )) {
       return false;
+    }
     for (final contribution in stats.contributions) {
       if (contribution['kind'] == 'adaptive' &&
           !await _reviewable(stats, contribution)) {
