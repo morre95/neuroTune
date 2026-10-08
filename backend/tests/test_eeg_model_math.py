@@ -69,3 +69,28 @@ def test_validation_gates_use_literal_held_out_errors_and_degenerate_cases():
     assert not validate_predictions([0,2,4,6],[1,3,5,7],[1,3,5,7],20)['gates']['improvement']
     zero=validate_predictions([5,5,5,5],[5,5,5,5],[5,5,5,5],20)
     assert zero['correlation'] is None and not zero['gates']['improvement']
+
+
+def test_leave_one_session_out_scaling_matches_independent_closed_form():
+    from app.eeg_model import train_model
+    rows=[dict(session_id=f'literal-{r}',features=[float(r),0.],target=r/2,
+        background_asset_id='one',eye_state='closed',carrier_hz=220.,tone_gain=.2,background_gain=.6,
+        minutes=[],fixed_action='control',profile_version_id='profile',checksum_sha256='a'*64,feedback_revision=1) for r in range(20)]
+    result=train_model(rows)
+    # Each fold has19 rows. Standardized ridge shrinks its sole varying slope
+    # by19/20, around that fold's own mean. Held-out0=>.25, held-out19=>9.25.
+    assert result['validation']['held_out_predictions'][0]==pytest.approx(.25)
+    assert result['validation']['held_out_predictions'][19]==pytest.approx(9.25)
+    assert result['validation']['mae']==pytest.approx(.13157894736842105)
+    assert result['validation']['context_mae']==pytest.approx(2.6315789473684212)
+    assert result['status']=='ready'
+
+
+def test_paused_unmapped_invalid_canonical_and_duplicate_channels_never_supply_coverage():
+    assert extract_minutes(frames(range(11,61),playback_active=False))==[]
+    assert extract_minutes(frames(range(11,61),active_time_seconds=None))==[]
+    # A denser valid later frame cannot replace the first canonical invalid frame.
+    invalid=frames(range(11,61),rejected=True)
+    later=[f | {'time_seconds':f['time_seconds']+.1} for f in frames(range(11,61))]
+    assert extract_minutes(invalid+later)==[]
+    assert extract_minutes(frames(range(11,61),channels=[channel('A'),channel('B'),channel('A')]))==[]

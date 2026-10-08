@@ -47,7 +47,7 @@ class PersonalModelStatus extends StatelessWidget {
             ),
             Text(
               reason == null
-                  ? 'Stödd för vald profil och ögonläge · ${model!.modelVersion}'
+                  ? 'Stödd för vald profil och ögonläge'
                   : 'Fast uppspelning · $reason',
             ),
             if (validation != null)

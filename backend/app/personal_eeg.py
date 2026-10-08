@@ -4,6 +4,7 @@ import json
 import uuid
 from datetime import UTC, datetime
 
+from app.deletion import read_deletion_epoch
 from app.eeg_model import QUALITY, extract_minutes, finite, train_model
 from app.meditation import training_dataset
 from app.models import MeditationFeedbackRecord, MeditationTrainingJob, PersonalEegModel, SessionDeletion, SessionRecord, User
@@ -71,13 +72,24 @@ def process_job(db, job):
         job.status, job.error = 'stale', 'Training evidence changed'
         db.commit()
         return
+    epoch = read_deletion_epoch(db,job.user_id)
     body = train_model(session_rows(db,job))
+    owner, jid, origin, protocol, fingerprint = job.user_id, job.id, job.origin, job.protocol_version, job.dataset_fingerprint
+    db.expire_all()
+    job = db.get(MeditationTrainingJob,jid)
+    if job is None:
+        db.rollback()
+        return
+    if (read_deletion_epoch(db,owner) != epoch
+        or dataset_fingerprint(training_dataset(db,owner,origin,protocol)) != fingerprint):
+        job.status, job.error = 'stale', 'Training evidence changed during fitting'
+        db.commit()
+        return
     created = datetime.now(UTC)
-    versions = db.query(PersonalEegModel).filter_by(user_id=job.user_id,origin=job.origin,protocol_version=job.protocol_version).all()
-    version = f'v{max([int(v.model_version[1:]) for v in versions], default=0)+1}'
     mid = str(uuid.uuid4())
+    version = 'meditation-eeg-1:' + mid  # opaque, never reused after deletion
     body.update(id=mid,owner_account_id=job.user_id,origin=job.origin,model_version=version,
-        dataset_fingerprint=job.dataset_fingerprint,server_deletion_epoch=0,created_at=created.isoformat())
+        dataset_fingerprint=job.dataset_fingerprint,server_deletion_epoch=epoch,created_at=created.isoformat())
     db.add(PersonalEegModel(id=mid,user_id=job.user_id,job_id=job.id,origin=job.origin,
         protocol_version=job.protocol_version,model_version=version,body_json=json.dumps(body,allow_nan=False),created_at=created))
     job.status, job.error = 'done', None
@@ -94,14 +106,18 @@ def run_jobs(db):
             db.rollback()
             job = db.get(MeditationTrainingJob,jid)
             if job is not None:
+                db.query(User).filter_by(id=job.user_id).with_for_update().one()
+                if dataset_fingerprint(training_dataset(db,job.user_id,job.origin,job.protocol_version)) != job.dataset_fingerprint:
+                    job.status, job.error = 'stale', 'Training evidence changed'
+                    db.commit()
+                    continue
                 # Fail closed: never leave an older validated artifact advertised.
                 created = datetime.now(UTC)
                 mid=str(uuid.uuid4())
-                versions=db.query(PersonalEegModel).filter_by(user_id=job.user_id,origin=job.origin,protocol_version=job.protocol_version).all()
-                version=f'v{max([int(v.model_version[1:]) for v in versions], default=0)+1}'
+                version='meditation-eeg-1:' + mid
                 body=dict(schema_version=1,preprocessing_version='meditation-eeg-1',quality_version=QUALITY,
                     protocol_version=job.protocol_version,id=mid,owner_account_id=job.user_id,origin=job.origin,
-                    model_version=version,dataset_fingerprint=job.dataset_fingerprint,server_deletion_epoch=0,
+                    model_version=version,dataset_fingerprint=job.dataset_fingerprint,server_deletion_epoch=read_deletion_epoch(db,job.user_id),
                     status='failed',reasons=['Training failed; collect more data or retry'],included_session_ids=[],evidence=[],
                     validation=dict(session_count=0,mae=None,correlation=None,context_mae=None,gates={}),created_at=created.isoformat())
                 db.add(PersonalEegModel(id=mid,user_id=job.user_id,job_id=job.id,origin=job.origin,protocol_version=job.protocol_version,

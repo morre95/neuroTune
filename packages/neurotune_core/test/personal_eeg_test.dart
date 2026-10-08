@@ -40,6 +40,24 @@ void main() {
             }),
         ];
         final minutes = extractMeditationMinutes(frames);
+        expect(
+          extractMeditationMinutes(
+            frames.map((f) => f.withPlayback(null, false)),
+          ),
+          isEmpty,
+        );
+        expect(
+          extractMeditationMinutes([
+            ...frames.map(
+              (f) => FeatureFrame.fromJson({...f.toJson(), 'rejected': true}),
+            ),
+            ...frames,
+          ]),
+          isEmpty,
+        );
+        final duplicates = extractMeditationMinutes([...frames, ...frames]);
+        expect(duplicates.map((m) => m.minute).toList(), c['expected_minutes']);
+
         expect(minutes.map((m) => m.minute).toList(), c['expected_minutes']);
         if (minutes.isNotEmpty) {
           expect(minutes.single.coverage, {
@@ -147,6 +165,72 @@ void main() {
           'preprocessing_version': 'other',
         }),
         throwsFormatException,
+      );
+    },
+  );
+  test(
+    'numeric support is inclusive globally, independent of background ranges',
+    () {
+      final json = Map<String, dynamic>.from(fixture['model'] as Map);
+      final wider = PersonalEegModel.fromJson({
+        ...json,
+        'training_ranges': {
+          'carrier_hz': [220, 230],
+          'tone_gain': [.1, .3],
+          'background_gain': [.5, .7],
+        },
+        'supported_contexts': [
+          {
+            'background_asset_id': (json['backgrounds'] as List).single,
+            'eye_state': 'closed',
+            'session_count': 5,
+            'training_ranges': {
+              'carrier_hz': [220, 220],
+            },
+          },
+        ],
+      });
+      for (final carrier in [220.0, 225.0, 230.0]) {
+        expect(
+          wider.unsupportedReason(
+            backgroundAssetId: wider.backgrounds.single,
+            eyeState: 'closed',
+            carrierHz: carrier,
+            toneGain: .2,
+            backgroundGain: .6,
+          ),
+          isNull,
+        );
+      }
+      expect(
+        wider.unsupportedReason(
+          backgroundAssetId: 'unknown',
+          eyeState: 'closed',
+          carrierHz: 225,
+          toneGain: .2,
+          backgroundGain: .6,
+        ),
+        isNotNull,
+      );
+      final sparse = PersonalEegModel.fromJson({
+        ...json,
+        'supported_contexts': [
+          {
+            'background_asset_id': (json['backgrounds'] as List).single,
+            'eye_state': 'closed',
+            'session_count': 4,
+          },
+        ],
+      });
+      expect(
+        sparse.unsupportedReason(
+          backgroundAssetId: sparse.backgrounds.single,
+          eyeState: 'closed',
+          carrierHz: 220,
+          toneGain: .2,
+          backgroundGain: .6,
+        ),
+        isNotNull,
       );
     },
   );

@@ -18,6 +18,8 @@ import 'data/upload_sync.dart';
 import 'data/profile_library.dart';
 import 'data/calibration_repository.dart';
 import 'data/meditation_preference_repository.dart';
+import 'data/personal_eeg_repository.dart';
+import 'ui/personal_model_status.dart';
 import 'ui/meditation_preference_page.dart';
 import 'ui/calibration_page.dart';
 import 'ui/feedback_page.dart';
@@ -109,6 +111,72 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   );
   late final MeditationPreferenceRepository _preferences =
       MeditationPreferenceRepository(widget.database, _calibration);
+  late final PersonalEegRepository _personalModels = PersonalEegRepository(
+    widget.database,
+    _repository,
+    _calibration,
+    widget.api,
+  );
+  Map<DataOrigin, PersonalEegModel?> _cachedModels = {};
+  Future<void>? _modelRefresh;
+  String? _modelMessage;
+  AudioProfileVersion? get _modelProfile {
+    final profiles = _profileLibrary?.profiles.where(
+      (p) => p.profile.id == _selectedProfileId,
+    );
+    return profiles == null || profiles.isEmpty ? null : profiles.first.profile;
+  }
+
+  Future<void> _refreshModel(DataOrigin origin) async {
+    if (_modelRefresh != null ||
+        _networkQuiet ||
+        _auth == null ||
+        _screen != _Screen.home)
+      return;
+    final owner = widget.api.accountId;
+    if (owner == null) return;
+    final email = _auth!.email;
+    final generation = widget.api.authGeneration,
+        navigation = _experimentNavigationGeneration;
+    bool current() =>
+        mounted &&
+        widget.api.accountId == owner &&
+        widget.api.authGeneration == generation &&
+        _experimentNavigationGeneration == navigation &&
+        _screen == _Screen.home &&
+        !_networkQuiet &&
+        _session == null &&
+        !_startingSession;
+    final task = () async {
+      try {
+        await _uploadSync.flush(email);
+        if (!current()) return;
+        await _personalModels.refresh(owner, origin, isCurrent: current);
+        if (!current()) return;
+        final model = await _personalModels.load(owner, origin);
+        if (current())
+          setState(() {
+            _cachedModels[origin] = model;
+            _modelMessage = null;
+          });
+      } catch (_) {
+        if (current())
+          setState(
+            () => _modelMessage =
+                'Modellen kunde inte uppdateras. En giltig cache fungerar offline.',
+          );
+      }
+    }();
+    _modelRefresh = task;
+    setState(() => _modelMessage = null);
+    try {
+      await task;
+    } finally {
+      if (identical(_modelRefresh, task)) _modelRefresh = null;
+      if (mounted) setState(() {});
+    }
+  }
+
   FixedMeditationChoice? _preferenceChoice;
   List<CalibrationSlotResult> _preferenceResults = [];
   bool _manualFixedAction = false;
@@ -425,6 +493,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     _revealedPlans = {};
     _feedbackSession = null;
     _feedbackDraft = null;
+    _cachedModels = {};
+    _modelMessage = null;
     _preferenceChoice = null;
     _preferenceResults = [];
     _manualFixedAction = false;
@@ -522,6 +592,12 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     if (!current()) return;
     final pending = await _calibration.pendingFeedback(owner);
     if (!current()) return;
+    final models = <DataOrigin, PersonalEegModel?>{};
+    for (final origin in [DataOrigin.simulator, DataOrigin.muse]) {
+      models[origin] = await _personalModels.load(owner, origin);
+      if (!current()) return;
+    }
+    _cachedModels = models;
     _calibrationProgress = progress;
     _pendingMeditationFeedback = pending;
     _revealedPlans = {
@@ -878,6 +954,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       // A prior navigation may still own an HTTP request (including refresh).
       // Join it before audio, and suppress every follow-up request in its chain.
       await _experimentNavigation;
+      await _modelRefresh;
       if (!mounted || attempt != _startAttempt) return;
       _uploadSync.cancel();
       try {
@@ -1226,6 +1303,23 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
                   }),
                   onCalibration: _openCalibration,
                   pendingFeedback: _pendingMeditationFeedback.length,
+                  modelStatus: Column(
+                    children: [
+                      for (final origin in [
+                        DataOrigin.simulator,
+                        DataOrigin.muse,
+                      ])
+                        PersonalModelStatus(
+                          model: _cachedModels[origin],
+                          profile: _modelProfile,
+                          eyeState: _eyes,
+                          origin: origin,
+                          busy: _modelRefresh != null,
+                          onRefresh: () => unawaited(_refreshModel(origin)),
+                          message: _modelMessage,
+                        ),
+                    ],
+                  ),
                   onSimulator: _openContact,
                   onMuse: _muse,
                   connectingMuse: _connectingMuse,

@@ -6,187 +6,187 @@
     "quality_version": "2026.3-unverified",
     "protocol_version": "meditation-1",
     "included_session_ids": [
-      "0ecb5cb0-190f-4449-9e60-066ce0700b20",
-      "1f3556b8-43cf-4a11-80d1-e26793baccfa",
-      "2027bc66-ba88-4d83-a774-509f86da67db",
-      "254f5e7b-5876-42ae-94ac-2c009d4e230d",
-      "30aee789-d798-4e37-9ae1-588c0e425921",
-      "31f422cb-e472-46d4-a25b-9a9542899aa6",
-      "3f68c1c9-6e8b-4837-98b0-9530249e7705",
-      "3ff53c61-0df8-4ccf-b4bc-25aa47ef7fd6",
-      "4267b011-4fb6-4487-8213-f813d4a33327",
-      "5729849a-bdef-4028-ae9f-4dd68122ed9c",
-      "5d37d340-07ac-44cc-9fa8-3765578a8b49",
-      "77fac3f0-f9ce-4566-b4b9-2ec4df31b989",
-      "a6f50c06-b936-44dd-b8d3-f53f2d35802e",
-      "a84f567c-4242-4fba-b656-942fcb429353",
-      "ba0f1649-5473-444f-8b94-459edf200b9c",
-      "cf425d81-93e2-4044-9e4b-4c598d814ef0",
-      "d68e6abf-c4bb-4578-8038-1f99c85aba1e",
-      "deacc681-87b2-46fa-98af-85308f588569",
-      "e54a9805-dcd9-42ce-bb21-53a2253a26d5",
-      "e886fe94-ddfb-4edd-9ede-984beae134a6"
+      "0121237d-ecfc-4f75-bdad-5f106202f731",
+      "10d59de3-9e5f-467d-b28e-04f64cb75b34",
+      "12ce605d-95a0-4d70-9cfb-bd099e0b42d1",
+      "15cb24d1-2486-42f0-a933-7a0e03e84339",
+      "4abaf462-19f9-42f2-86ec-d718f552cf01",
+      "4ae140c9-d621-48b8-b037-863ab6998f4b",
+      "5eb1b99b-f09b-473f-a214-d5fe77232949",
+      "6527de98-f2a7-4e79-a4bc-b9dbbe9ec89d",
+      "6d5c1533-4c64-4bb0-b53e-b2f257c69416",
+      "6e1bb755-58c1-442a-abf5-c548d6f859f2",
+      "8f7b3a2f-eceb-43f9-90c0-1370b66cb4d2",
+      "9789d048-6487-42f2-9583-b4dd5fef0dc0",
+      "be680662-dd66-4be9-b7ab-156afa107050",
+      "c3118662-5394-456e-8115-64d26e646145",
+      "d3369821-bfbd-4901-900c-8636bd810f11",
+      "d9245970-954f-4022-ab23-4bfdc2d958c6",
+      "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+      "efd10025-f7b7-4b7f-85d7-2d1b12cc7cf0",
+      "f14c0691-d62d-4646-8b34-37e5a6500368",
+      "f1561056-3488-45cb-8a6b-49be34c3cf4a"
     ],
     "evidence": [
       {
-        "session_id": "0ecb5cb0-190f-4449-9e60-066ce0700b20",
+        "session_id": "0121237d-ecfc-4f75-bdad-5f106202f731",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "1f3556b8-43cf-4a11-80d1-e26793baccfa",
+        "session_id": "10d59de3-9e5f-467d-b28e-04f64cb75b34",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "2027bc66-ba88-4d83-a774-509f86da67db",
+        "session_id": "12ce605d-95a0-4d70-9cfb-bd099e0b42d1",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "254f5e7b-5876-42ae-94ac-2c009d4e230d",
+        "session_id": "15cb24d1-2486-42f0-a933-7a0e03e84339",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "30aee789-d798-4e37-9ae1-588c0e425921",
+        "session_id": "4abaf462-19f9-42f2-86ec-d718f552cf01",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "31f422cb-e472-46d4-a25b-9a9542899aa6",
+        "session_id": "4ae140c9-d621-48b8-b037-863ab6998f4b",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "3f68c1c9-6e8b-4837-98b0-9530249e7705",
+        "session_id": "5eb1b99b-f09b-473f-a214-d5fe77232949",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "3ff53c61-0df8-4ccf-b4bc-25aa47ef7fd6",
+        "session_id": "6527de98-f2a7-4e79-a4bc-b9dbbe9ec89d",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "4267b011-4fb6-4487-8213-f813d4a33327",
+        "session_id": "6d5c1533-4c64-4bb0-b53e-b2f257c69416",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "5729849a-bdef-4028-ae9f-4dd68122ed9c",
+        "session_id": "6e1bb755-58c1-442a-abf5-c548d6f859f2",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "5d37d340-07ac-44cc-9fa8-3765578a8b49",
+        "session_id": "8f7b3a2f-eceb-43f9-90c0-1370b66cb4d2",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "77fac3f0-f9ce-4566-b4b9-2ec4df31b989",
+        "session_id": "9789d048-6487-42f2-9583-b4dd5fef0dc0",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "a6f50c06-b936-44dd-b8d3-f53f2d35802e",
+        "session_id": "be680662-dd66-4be9-b7ab-156afa107050",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "a84f567c-4242-4fba-b656-942fcb429353",
+        "session_id": "c3118662-5394-456e-8115-64d26e646145",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "ba0f1649-5473-444f-8b94-459edf200b9c",
+        "session_id": "d3369821-bfbd-4901-900c-8636bd810f11",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "cf425d81-93e2-4044-9e4b-4c598d814ef0",
+        "session_id": "d9245970-954f-4022-ab23-4bfdc2d958c6",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "d68e6abf-c4bb-4578-8038-1f99c85aba1e",
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "deacc681-87b2-46fa-98af-85308f588569",
+        "session_id": "efd10025-f7b7-4b7f-85d7-2d1b12cc7cf0",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "e54a9805-dcd9-42ce-bb21-53a2253a26d5",
+        "session_id": "f14c0691-d62d-4646-8b34-37e5a6500368",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       },
       {
-        "session_id": "e886fe94-ddfb-4edd-9ede-984beae134a6",
+        "session_id": "f1561056-3488-45cb-8a6b-49be34c3cf4a",
         "checksum_sha256": "75f6647e610e02a86ac51943dc95c8b68db944df4e4d4b14a4b576e529ec561c",
         "feedback_revision": 1
       }
     ],
     "validation": {
       "session_count": 20,
-      "mae": 0.13939477316984641,
-      "correlation": 0.9999999897356479,
+      "mae": 0.1393947731698461,
+      "correlation": 0.9999999897356482,
       "context_mae": 2.7740290898185633,
+      "held_out_predictions": [
+        5.916679349953012,
+        5.916679349953012,
+        2.1390623928986265,
+        6.8609376071013735,
+        3.0833206500469874,
+        3.0833206500469874,
+        4.972245129261319,
+        8.748290033613332,
+        7.804874014221733,
+        4.97224512926132,
+        6.8609376071013735,
+        0.2517099663866684,
+        1.195125985778267,
+        2.139062392898627,
+        4.02775487073868,
+        1.195125985778267,
+        0.2517099663866684,
+        8.748290033613332,
+        4.027754870738681,
+        7.804874014221733
+      ],
+      "context_predictions": [
+        4.335582546108863,
+        4.335582546108863,
+        4.774029089818564,
+        4.225970910181436,
+        4.664417453891137,
+        4.664417453891137,
+        4.445194182036287,
+        4.006747638326586,
+        4.116359274254011,
+        4.445194182036287,
+        4.225970910181436,
+        4.993252361673414,
+        4.883640725745988,
+        4.774029089818564,
+        4.554805817963713,
+        4.883640725745989,
+        4.993252361673414,
+        4.006747638326586,
+        4.554805817963713,
+        4.116359274254011
+      ],
       "gates": {
         "session_count": true,
         "mae": true,
         "correlation": true,
         "improvement": true
-      },
-      "held_out_predictions": [
-        8.748290033613333,
-        1.1951259857782675,
-        5.916679349953013,
-        6.860937607101372,
-        6.860937607101372,
-        4.972245129261319,
-        4.027754870738681,
-        0.2517099663866693,
-        7.804874014221733,
-        3.0833206500469874,
-        2.1390623928986265,
-        4.972245129261319,
-        3.083320650046987,
-        8.74829003361333,
-        0.2517099663866684,
-        7.804874014221733,
-        4.027754870738681,
-        5.916679349953013,
-        1.1951259857782675,
-        2.1390623928986283
-      ],
-      "context_predictions": [
-        4.006747638326586,
-        4.883640725745989,
-        4.335582546108863,
-        4.225970910181436,
-        4.225970910181436,
-        4.445194182036287,
-        4.554805817963713,
-        4.993252361673414,
-        4.116359274254012,
-        4.664417453891137,
-        4.774029089818564,
-        4.445194182036287,
-        4.664417453891137,
-        4.006747638326586,
-        4.993252361673414,
-        4.116359274254011,
-        4.554805817963713,
-        4.335582546108863,
-        4.883640725745989,
-        4.774029089818564
-      ]
+      }
     },
     "means": [
-      2.2204460492503132e-17,
+      3.3306690738754695e-17,
       -1.3877787807814458e-18,
       220.0,
       0.20000000000000004,
@@ -196,7 +196,7 @@
       1.0
     ],
     "scales": [
-      0.9574271077563384,
+      0.9574271077563385,
       0.09999999999999981,
       1.0,
       1.0,
@@ -207,18 +207,18 @@
     ],
     "coefficients": [
       2.735506022160966,
-      -5.088573701805342e-18,
+      1.2978503927590883e-16,
       0.0,
-      1.5407439555097887e-33,
-      7.703719777548943e-34,
-      9.608194174496355e-17,
-      -1.0844189912402937e-16,
+      3.0814879110195774e-32,
+      -6.938893903907204e-18,
+      -7.018275860814297e-17,
+      5.973193132077684e-17,
       0.0
     ],
     "intercept": 4.5,
     "backgrounds": [
-      "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-      "4742faec-89b5-4e41-895c-da7b63fa53a3"
+      "316582ef-0432-4235-9472-05973aa28e78",
+      "78f7d49c-717e-4c6a-9221-e34db55fbc71"
     ],
     "eyes": [
       "closed"
@@ -229,8 +229,8 @@
       "carrier_hz",
       "tone_gain",
       "background_gain",
-      "background:1986f1f5-6d4a-4ca9-a304-202316e130e2",
-      "background:4742faec-89b5-4e41-895c-da7b63fa53a3",
+      "background:316582ef-0432-4235-9472-05973aa28e78",
+      "background:78f7d49c-717e-4c6a-9221-e34db55fbc71",
       "eye:closed"
     ],
     "training_ranges": {
@@ -249,293 +249,21 @@
     },
     "supported_contexts": [
       {
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
         "eye_state": "closed",
         "session_count": 10
       },
       {
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
         "eye_state": "closed",
         "session_count": 10
       }
     ],
     "fixed_minutes": [
       {
-        "session_id": "0ecb5cb0-190f-4449-9e60-066ce0700b20",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          1.5,
-          -0.09999999999999983
-        ],
-        "score": 8.785714285714285
-      },
-      {
-        "session_id": "1f3556b8-43cf-4a11-80d1-e26793baccfa",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          -1.1666666666666683,
-          -0.09999999999999983
-        ],
-        "score": 1.1666666666666634
-      },
-      {
-        "session_id": "2027bc66-ba88-4d83-a774-509f86da67db",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          0.5000000000000001,
-          -0.09999999999999983
-        ],
-        "score": 5.928571428571429
-      },
-      {
-        "session_id": "254f5e7b-5876-42ae-94ac-2c009d4e230d",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          0.833333333333333,
-          -0.09999999999999983
-        ],
-        "score": 6.88095238095238
-      },
-      {
-        "session_id": "30aee789-d798-4e37-9ae1-588c0e425921",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          0.833333333333333,
-          0.09999999999999983
-        ],
-        "score": 6.88095238095238
-      },
-      {
-        "session_id": "31f422cb-e472-46d4-a25b-9a9542899aa6",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          0.16666666666666646,
-          -0.09999999999999983
-        ],
-        "score": 4.976190476190475
-      },
-      {
-        "session_id": "3f68c1c9-6e8b-4837-98b0-9530249e7705",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          -0.16666666666666646,
-          -0.09999999999999983
-        ],
-        "score": 4.023809523809525
-      },
-      {
-        "session_id": "3ff53c61-0df8-4ccf-b4bc-25aa47ef7fd6",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          -1.5,
-          0.09999999999999983
-        ],
-        "score": 0.2142857142857162
-      },
-      {
-        "session_id": "4267b011-4fb6-4487-8213-f813d4a33327",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          1.1666666666666685,
-          0.09999999999999983
-        ],
-        "score": 7.8333333333333375
-      },
-      {
-        "session_id": "5729849a-bdef-4028-ae9f-4dd68122ed9c",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          -0.5,
-          -0.09999999999999983
-        ],
-        "score": 3.071428571428572
-      },
-      {
-        "session_id": "5d37d340-07ac-44cc-9fa8-3765578a8b49",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          -0.833333333333333,
-          -0.09999999999999983
-        ],
-        "score": 2.119047619047621
-      },
-      {
-        "session_id": "77fac3f0-f9ce-4566-b4b9-2ec4df31b989",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          0.16666666666666646,
-          0.09999999999999983
-        ],
-        "score": 4.976190476190475
-      },
-      {
-        "session_id": "a6f50c06-b936-44dd-b8d3-f53f2d35802e",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          -0.5,
-          0.09999999999999983
-        ],
-        "score": 3.071428571428572
-      },
-      {
-        "session_id": "a84f567c-4242-4fba-b656-942fcb429353",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          1.5,
-          0.09999999999999983
-        ],
-        "score": 8.785714285714285
-      },
-      {
-        "session_id": "ba0f1649-5473-444f-8b94-459edf200b9c",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          -1.5,
-          -0.09999999999999983
-        ],
-        "score": 0.2142857142857162
-      },
-      {
-        "session_id": "cf425d81-93e2-4044-9e4b-4c598d814ef0",
-        "profile_version_id": "a7f4b2cd-b6e0-485a-adff-97481905be4b",
-        "background_asset_id": "1986f1f5-6d4a-4ca9-a304-202316e130e2",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          1.1666666666666685,
-          -0.09999999999999983
-        ],
-        "score": 7.8333333333333375
-      },
-      {
-        "session_id": "d68e6abf-c4bb-4578-8038-1f99c85aba1e",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
-        "eye_state": "closed",
-        "carrier_hz": 220.0,
-        "tone_gain": 0.2,
-        "background_gain": 0.6,
-        "fixed_action": "control",
-        "minute": 0,
-        "features": [
-          -0.16666666666666646,
-          0.09999999999999983
-        ],
-        "score": 4.023809523809525
-      },
-      {
-        "session_id": "deacc681-87b2-46fa-98af-85308f588569",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
+        "session_id": "0121237d-ecfc-4f75-bdad-5f106202f731",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
         "eye_state": "closed",
         "carrier_hz": 220.0,
         "tone_gain": 0.2,
@@ -549,9 +277,9 @@
         "score": 5.928571428571429
       },
       {
-        "session_id": "e54a9805-dcd9-42ce-bb21-53a2253a26d5",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
+        "session_id": "10d59de3-9e5f-467d-b28e-04f64cb75b34",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
         "eye_state": "closed",
         "carrier_hz": 220.0,
         "tone_gain": 0.2,
@@ -559,15 +287,15 @@
         "fixed_action": "control",
         "minute": 0,
         "features": [
-          -1.1666666666666683,
-          0.09999999999999983
+          0.5000000000000001,
+          -0.09999999999999983
         ],
-        "score": 1.1666666666666634
+        "score": 5.928571428571428
       },
       {
-        "session_id": "e886fe94-ddfb-4edd-9ede-984beae134a6",
-        "profile_version_id": "90a83ad0-f8ea-4825-81b3-bf7af11bc36a",
-        "background_asset_id": "4742faec-89b5-4e41-895c-da7b63fa53a3",
+        "session_id": "12ce605d-95a0-4d70-9cfb-bd099e0b42d1",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
         "eye_state": "closed",
         "carrier_hz": 220.0,
         "tone_gain": 0.2,
@@ -579,16 +307,432 @@
           0.09999999999999983
         ],
         "score": 2.119047619047621
+      },
+      {
+        "session_id": "15cb24d1-2486-42f0-a933-7a0e03e84339",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          0.833333333333333,
+          -0.09999999999999983
+        ],
+        "score": 6.88095238095238
+      },
+      {
+        "session_id": "4abaf462-19f9-42f2-86ec-d718f552cf01",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          -0.5,
+          0.09999999999999983
+        ],
+        "score": 3.071428571428572
+      },
+      {
+        "session_id": "4ae140c9-d621-48b8-b037-863ab6998f4b",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          -0.5,
+          -0.09999999999999983
+        ],
+        "score": 3.071428571428572
+      },
+      {
+        "session_id": "5eb1b99b-f09b-473f-a214-d5fe77232949",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          0.16666666666666646,
+          -0.09999999999999983
+        ],
+        "score": 4.976190476190475
+      },
+      {
+        "session_id": "6527de98-f2a7-4e79-a4bc-b9dbbe9ec89d",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          1.5,
+          -0.09999999999999983
+        ],
+        "score": 8.785714285714283
+      },
+      {
+        "session_id": "6d5c1533-4c64-4bb0-b53e-b2f257c69416",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          1.1666666666666685,
+          -0.09999999999999983
+        ],
+        "score": 7.8333333333333375
+      },
+      {
+        "session_id": "6e1bb755-58c1-442a-abf5-c548d6f859f2",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          0.16666666666666646,
+          0.09999999999999983
+        ],
+        "score": 4.976190476190475
+      },
+      {
+        "session_id": "8f7b3a2f-eceb-43f9-90c0-1370b66cb4d2",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          0.833333333333333,
+          0.09999999999999983
+        ],
+        "score": 6.88095238095238
+      },
+      {
+        "session_id": "9789d048-6487-42f2-9583-b4dd5fef0dc0",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          -1.5,
+          0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "be680662-dd66-4be9-b7ab-156afa107050",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          -1.1666666666666683,
+          -0.09999999999999983
+        ],
+        "score": 1.1666666666666639
+      },
+      {
+        "session_id": "c3118662-5394-456e-8115-64d26e646145",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          -0.833333333333333,
+          -0.09999999999999983
+        ],
+        "score": 2.119047619047621
+      },
+      {
+        "session_id": "d3369821-bfbd-4901-900c-8636bd810f11",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          -0.16666666666666646,
+          -0.09999999999999983
+        ],
+        "score": 4.023809523809525
+      },
+      {
+        "session_id": "d9245970-954f-4022-ab23-4bfdc2d958c6",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          -1.1666666666666683,
+          0.09999999999999983
+        ],
+        "score": 1.1666666666666639
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 1,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 2,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 3,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 4,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 5,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 6,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 7,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 8,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "e7a57afd-e332-47fb-bdb1-1ab4de2c309c",
+        "profile_version_id": "856fc4b9-0ff9-4508-ab74-fab5f67229b9",
+        "background_asset_id": "78f7d49c-717e-4c6a-9221-e34db55fbc71",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 9,
+        "features": [
+          -1.5,
+          -0.09999999999999983
+        ],
+        "score": 0.21428571428571708
+      },
+      {
+        "session_id": "efd10025-f7b7-4b7f-85d7-2d1b12cc7cf0",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          1.5,
+          0.09999999999999983
+        ],
+        "score": 8.785714285714283
+      },
+      {
+        "session_id": "f14c0691-d62d-4646-8b34-37e5a6500368",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          -0.16666666666666646,
+          0.09999999999999983
+        ],
+        "score": 4.023809523809525
+      },
+      {
+        "session_id": "f1561056-3488-45cb-8a6b-49be34c3cf4a",
+        "profile_version_id": "0ac4ee77-2e7a-44dd-a153-9689e9c21161",
+        "background_asset_id": "316582ef-0432-4235-9472-05973aa28e78",
+        "eye_state": "closed",
+        "carrier_hz": 220.0,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "fixed_action": "control",
+        "minute": 0,
+        "features": [
+          1.1666666666666685,
+          0.09999999999999983
+        ],
+        "score": 7.8333333333333375
       }
     ],
     "status": "ready",
     "reasons": [],
-    "id": "2c5768c9-c1f1-4535-97e4-69db25ab3b67",
-    "owner_account_id": "ef9be89b-6067-41aa-9b63-f33cfcd3701e",
+    "id": "4ffaaf83-56cf-4912-b463-cc655e09acdc",
+    "owner_account_id": "88980c8f-5bef-43ac-a787-1ca8f4f36a9b",
     "origin": "simulator",
-    "model_version": "v1",
-    "dataset_fingerprint": "da16b5e51094fa14f4625d327748c30f4c6c91e3a3d91661c9c94864ccdd55f2",
+    "model_version": "meditation-eeg-1:4ffaaf83-56cf-4912-b463-cc655e09acdc",
+    "dataset_fingerprint": "d4fd8638f82e82fedcff952bf4ba95a43323e6c56915ebecec0b34e6beac7c2b",
     "server_deletion_epoch": 0,
-    "created_at": "2026-10-08T21:31:08.248355+00:00"
+    "created_at": "2026-10-08T21:45:26.140376+00:00"
   }
 }

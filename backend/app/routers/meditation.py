@@ -112,6 +112,8 @@ def create_training(body: TrainingIn, db: Session = Depends(get_db), user: User 
             status='queued', created_at=datetime.now(UTC))
         db.add(job)
         db.flush()
+    if job.status == 'stale':
+        job.status, job.error = 'queued', None
     db.add(MeditationTrainingRequest(id=str(body.request_id), user_id=user.id, job_id=job.id, body_json=json.dumps(value)))
     db.commit()
     return job_body(job)

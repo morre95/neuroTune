@@ -83,3 +83,20 @@ def test_meditation_deletion_migration_scrubs_preexisting_deleted_evidence_and_k
     command.downgrade(config, '006_meditation_sync')
     assert 'owner_deletion_epochs' not in inspect(db).get_table_names()
     db.dispose()
+
+
+def test_personal_model_migration_follows_reviewed_deletion_epoch_and_preserves_jobs(tmp_path,monkeypatch):
+    url=f"sqlite:///{tmp_path/'model.db'}"
+    monkeypatch.setattr(settings,'database_url',url)
+    config=Config('alembic.ini')
+    command.upgrade(config,'007_meditation_deletions')
+    db=create_engine(url)
+    command.upgrade(config,'head')
+    schema=inspect(db)
+    assert 'personal_eeg_models' in schema.get_table_names()
+    fk=[fk for fk in schema.get_foreign_keys('personal_eeg_models') if fk['referred_table']=='meditation_training_jobs'][0]
+    assert fk['options']['ondelete']=='SET NULL'
+    command.downgrade(config,'007_meditation_deletions')
+    assert 'personal_eeg_models' not in inspect(db).get_table_names()
+    assert 'meditation_training_jobs' in inspect(db).get_table_names()
+    db.dispose()

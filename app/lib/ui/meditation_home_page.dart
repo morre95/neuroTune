@@ -23,6 +23,7 @@ class MeditationHomePage extends StatelessWidget {
     this.pendingFeedback = 0,
     this.manualAction = true,
     this.message,
+    this.modelStatus,
   });
   final List<LocalAudioProfile> profiles;
   final String? selectedProfileId;
@@ -42,6 +43,7 @@ class MeditationHomePage extends StatelessWidget {
   final VoidCallback? onCalibration;
   final bool connectingMuse;
   final String? message;
+  final Widget? modelStatus;
   @override
   Widget build(BuildContext context) {
     final selected = profiles.where((p) => p.profile.id == selectedProfileId);
@@ -134,6 +136,7 @@ class MeditationHomePage extends StatelessWidget {
             Text(
               '$pendingFeedback sessioner väntar på återkoppling i Kalibrering.',
             ),
+          ?modelStatus,
           if (onCalibration != null)
             TextButton(
               onPressed: onCalibration,

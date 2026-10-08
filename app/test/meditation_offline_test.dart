@@ -25,6 +25,19 @@ void main() {
       final (dir, db, api, audio, service) = (await tester.runAsync(() async {
         final dir = await Directory.systemTemp.createTemp('meditation-offline');
         final db = AppDatabase(NativeDatabase.memory());
+        final fixture =
+            jsonDecode(
+                  await File(
+                    '../contracts/fixtures/personal_eeg.json',
+                  ).readAsString(),
+                )
+                as Map;
+        final model = Map<String, dynamic>.from(fixture['model'] as Map)
+          ..['owner_account_id'] = owner;
+        await db.putKv(
+          'meditation_model:v1:$owner:simulator:meditation-1',
+          jsonEncode(model),
+        );
         final bytes = wave();
         final folder = await Directory(
           '${dir.path}/audio_profiles/$owner',
@@ -97,6 +110,9 @@ void main() {
       }
       expect(find.text('Meditation'), findsOneWidget);
       expect(requests, 0);
+      await tester.scrollUntilVisible(find.textContaining('Stödd'), 150);
+      expect(find.textContaining('Stödd'), findsOneWidget);
+      await tester.ensureVisible(find.text('Simulator'));
       await tester.tap(find.text('Simulator'));
       await tester.pump(const Duration(seconds: 1));
       await tester.ensureVisible(find.text('Starta meditation'));

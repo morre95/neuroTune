@@ -21,8 +21,9 @@ List<MeditationMinute> extractMeditationMinutes(Iterable<FeatureFrame> frames) {
         !t.isFinite ||
         !f.timeSeconds.isFinite ||
         t <= 0 ||
-        t > 600)
+        t > 600) {
       return null;
+    }
     final b = (t - 1e-9).ceil();
     return b >= 1 && b <= 600 ? b : null;
   }
@@ -57,8 +58,9 @@ List<MeditationMinute> extractMeditationMinutes(Iterable<FeatureFrame> frames) {
       final powers = [c.absoluteTheta, c.absoluteAlpha, c.absoluteBeta];
       if (!c.valid ||
           names[c.name] != 1 ||
-          powers.any((p) => !p.isFinite || p <= 0))
+          powers.any((p) => !p.isFinite || p <= 0)) {
         continue;
+      }
       final pair = [
         math.log(c.absoluteTheta) - math.log(c.absoluteAlpha),
         math.log(c.absoluteBeta) - math.log(c.absoluteAlpha),
@@ -104,29 +106,34 @@ class PersonalEegModel {
   String get modelVersion => _json['model_version'] as String;
   String get status => _json['status'] as String;
   Map<String, dynamic> get validation =>
-      Map<String, dynamic>.from(_json['validation'] as Map);
-  List<String> get reasons => (_json['reasons'] as List).cast<String>();
-  List<String> get backgrounds =>
-      (_json['backgrounds'] as List? ?? []).cast<String>();
-  List<String> get eyes => (_json['eyes'] as List? ?? []).cast<String>();
-  List<String> get includedSessionIds =>
-      (_json['included_session_ids'] as List).cast<String>();
+      _deepCopy(Map<String, dynamic>.from(_json['validation'] as Map));
+  List<String> get reasons =>
+      List<String>.unmodifiable((_json['reasons'] as List).cast<String>());
+  List<String> get backgrounds => List<String>.unmodifiable(
+    (_json['backgrounds'] as List? ?? []).cast<String>(),
+  );
+  List<String> get eyes =>
+      List<String>.unmodifiable((_json['eyes'] as List? ?? []).cast<String>());
+  List<String> get includedSessionIds => List<String>.unmodifiable(
+    (_json['included_session_ids'] as List).cast<String>(),
+  );
   List<Map<String, dynamic>> get evidence => [
     for (final e in _json['evidence'] as List)
-      Map<String, dynamic>.from(e as Map),
+      _deepCopy(Map<String, dynamic>.from(e as Map)),
   ];
   List<Map<String, dynamic>> get fixedMinutes => [
     for (final e in _json['fixed_minutes'] as List? ?? [])
-      Map<String, dynamic>.from(e as Map),
+      _deepCopy(Map<String, dynamic>.from(e as Map)),
   ];
   Map<String, dynamic> toJson() => _deepCopy(_json);
 
   factory PersonalEegModel.fromJson(Map<String, dynamic> json) {
     void require(bool condition) {
-      if (!condition)
+      if (!condition) {
         throw const FormatException(
           'Unsupported or malformed personal EEG model',
         );
+      }
     }
 
     bool number(dynamic v) => v is num && v.isFinite;
@@ -289,10 +296,11 @@ class PersonalEegModel {
     required double toneGain,
     required double backgroundGain,
   }) {
-    if (status != 'ready')
+    if (status != 'ready') {
       return reasons.isEmpty
           ? 'More rated fixed sessions are needed'
           : reasons.join('; ');
+    }
     final contexts = _json['supported_contexts'] as List;
     if (!eyes.contains(eyeState) ||
         !contexts.any(
@@ -310,8 +318,9 @@ class PersonalEegModel {
     };
     for (final e in values.entries) {
       final range = _json['training_ranges'][e.key] as List;
-      if (!e.value.isFinite || e.value < range[0] || e.value > range[1])
+      if (!e.value.isFinite || e.value < range[0] || e.value > range[1]) {
         return 'These audio settings are outside the training range';
+      }
     }
     return null;
   }
@@ -333,8 +342,9 @@ class PersonalEegModel {
     );
     if (reason != null ||
         features.length != 2 ||
-        features.any((v) => !v.isFinite))
+        features.any((v) => !v.isFinite)) {
       throw StateError(reason ?? 'Finite EEG feature pair required');
+    }
     final row = [
       ...features,
       carrierHz,

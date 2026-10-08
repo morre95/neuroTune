@@ -188,7 +188,7 @@ class PersonalEegModel(Base):
     __tablename__ = 'personal_eeg_models'
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
-    job_id: Mapped[str] = mapped_column(ForeignKey('meditation_training_jobs.id', ondelete='CASCADE'), unique=True)
+    job_id: Mapped[str | None] = mapped_column(ForeignKey('meditation_training_jobs.id', ondelete='SET NULL'), unique=True, nullable=True)
     origin: Mapped[str] = mapped_column(String(32))
     protocol_version: Mapped[str] = mapped_column(String(64))
     model_version: Mapped[str] = mapped_column(String(64))
