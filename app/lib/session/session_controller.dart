@@ -32,6 +32,7 @@ class SessionController extends ChangeNotifier {
     required this.eyeState,
     required this.origin,
     this.sampleRateHz = 256,
+    this.protocolFactory,
   });
 
   final SessionRepository repository;
@@ -44,8 +45,9 @@ class SessionController extends ChangeNotifier {
   final EyeState eyeState;
   final DataOrigin origin;
   final double sampleRateHz;
+  final SessionProtocolFactory? protocolFactory;
 
-  SessionEngine? engine;
+  SessionProtocol? engine;
   FeatureFrame? latest;
   String? error;
   bool waitingForUser = false;
@@ -59,7 +61,6 @@ class SessionController extends ChangeNotifier {
   final Stopwatch _diagnosticClock = Stopwatch();
   StreamSubscription<SessionDiagnostic>? _diagnosticSub;
   bool _museConnected = false;
-  final OpticsAccumulator _optics = OpticsAccumulator();
   SimulatorSource? _source;
   MuseChannel? _muse;
   DspHost? _dsp;
@@ -88,7 +89,15 @@ class SessionController extends ChangeNotifier {
   /// Acquires the foreground service, DSP isolate, data source and audio
   /// output. Returns false with [error] set if any of them fails, leaving the
   /// caller to dispose the controller and keep the user on the contact page.
-  Future<bool> start({MuseChannel? muse}) async {
+  Future<bool> start({MuseChannel? muse}) {
+    if (_closed || _finishing) return Future.value(false);
+    return _starting ??= _start(muse);
+  }
+
+  Future<bool>? _starting;
+
+  Future<bool> _start(MuseChannel? muse) async {
+    if (_closed || _finishing) return false;
     try {
       await _open(muse);
     } catch (failure) {
@@ -98,12 +107,17 @@ class SessionController extends ChangeNotifier {
       _muse = null;
       return false;
     }
+    if (_closed || _finishing) return false;
     notifyListeners();
     return true;
   }
 
   Future<void> _open(MuseChannel? muse) async {
     await keepAlive.start();
+    if (_closed || _finishing) {
+      await keepAlive.stop();
+      return;
+    }
     final seed = DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final channelNames = muse == null
         ? simulatorChannels
@@ -134,23 +148,39 @@ class SessionController extends ChangeNotifier {
         });
       });
     }
-    engine = SessionEngine(
-      config: config,
-      snapshot: snapshot,
+    final context = SessionContext(
       sessionId: newSessionId(Random(seed)),
       origin: origin,
-      mode: mode,
       eyeState: eyeState,
       sampleRateHz: sampleRateHz,
       channelNames: channelNames,
       seed: seed,
       startedAt: DateTime.now().toUtc(),
     );
+    engine =
+        protocolFactory?.call(context) ??
+        SessionEngine(
+          config: config,
+          snapshot: snapshot,
+          sessionId: context.sessionId,
+          origin: origin,
+          mode: mode,
+          eyeState: eyeState,
+          sampleRateHz: sampleRateHz,
+          channelNames: channelNames,
+          seed: seed,
+          startedAt: context.startedAt,
+        );
     _dsp = await DspHost.start(
       config: config,
       sampleRateHz: sampleRateHz,
       channelNames: channelNames,
     );
+    if (_closed || _finishing) {
+      _dsp!.close();
+      _dsp = null;
+      return;
+    }
     _frames = _dsp!.frames.listen(_onFrame, onError: _onDspFailure);
     if (_source != null) {
       _batches = _source!.batches.listen((batch) {
@@ -158,7 +188,7 @@ class SessionController extends ChangeNotifier {
         final optics = _source!.lastOptics;
         if (optics != null) {
           _opticsRaw.add(optics);
-          _optics.addBatch(optics);
+          engine?.queueOptics(optics);
         }
         _dsp?.addBatch(batch);
       });
@@ -208,7 +238,7 @@ class SessionController extends ChangeNotifier {
             samples: batch.values,
           ),
         );
-        _optics.addBatch(batch);
+        engine?.queueOptics(batch);
         _releaseFrames();
       });
       _lost = _muse!.disconnected.listen((_) {
@@ -231,20 +261,23 @@ class SessionController extends ChangeNotifier {
   SessionView get view {
     final current = engine;
     final frame = latest;
-    final selected = current?.selectedChannels ?? const <String>[];
+    // Experiment-only metrics stay in the NIR presentation path. Alternative
+    // protocols share lifecycle state without needing a baseline or optics.
+    final nirEngine = current is SessionEngine ? current : null;
+    final selected = nirEngine?.selectedChannels ?? const <String>[];
     final channels = frame?.channels ?? const <ChannelFeature>[];
     final valid = channels
         .where((channel) => channel.valid && frame?.rejected != true)
         .length;
     final names = selected.isEmpty ? config.outerNirChannels : selected;
     final nir = _outerNir(frame, names);
-    final nirZ = nir == null || current == null || current.baselineStd == 0
+    final nirZ = nir == null || nirEngine == null || nirEngine.baselineStd == 0
         ? null
-        : (nir - current.baselineMean) / current.baselineStd;
+        : (nir - nirEngine.baselineMean) / nirEngine.baselineStd;
     return SessionView(
       message: error ?? current?.message ?? 'Startar session.',
       phase: current?.phase.name ?? 'start',
-      blockLabel: '${current?.completedBlocks ?? 0}/${config.blockCount}',
+      blockLabel: '${nirEngine?.completedBlocks ?? 0}/${config.blockCount}',
       actionLabel: actionLabel(current?.currentAction?.id),
       theta: _mean(channels, (channel) => channel.relativeTheta),
       alpha: _mean(channels, (channel) => channel.relativeAlpha),
@@ -263,7 +296,7 @@ class SessionController extends ChangeNotifier {
     current.interrupt(reason);
     _lastInterruption = reason;
     _pauseOutputs();
-    waitingForUser = current.phase == SessionPhase.waitingStable;
+    waitingForUser = current.waitingForResume;
     if (current.terminal) {
       _finishInBackground();
       return;
@@ -320,11 +353,10 @@ class SessionController extends ChangeNotifier {
   /// an ongoing notification and a connected Muse that only a restart clears.
   Future<void> _finishOnce() async {
     try {
+      await _starting;
       await _resuming;
       final current = engine;
-      if (current != null && current.phase == SessionPhase.sound) {
-        current.interrupt(StopReason.manual);
-      }
+      current?.finish();
       _pauseOutputs();
       if (origin == DataOrigin.muse) {
         _recordDiagnostic('recording_end', {'connected': _museConnected});
@@ -392,7 +424,7 @@ class SessionController extends ChangeNotifier {
   }
 
   void _onFrame(FeatureFrame frame) {
-    _optics.addFrame(frame);
+    engine?.queueFrame(frame);
     _releaseFrames();
   }
 
@@ -401,7 +433,7 @@ class SessionController extends ChangeNotifier {
     // Do not advance or score the protocol while audio acceptance is unknown.
     // Frames stay queued until the packet succeeds or the watchdog aborts.
     if (current == null || _closed || _finishing || _audioWritePending) return;
-    final ready = _optics.takeReady(config);
+    final ready = current.takeReadyFrames();
     if (ready.isEmpty) return;
     for (final scored in ready) {
       current.onFrame(scored);
@@ -422,9 +454,10 @@ class SessionController extends ChangeNotifier {
   /// would hit the stopped output and end the session as lost audio instead
   /// of waiting for the user to continue.
   Future<bool> _startOutputs() async {
+    if (_closed || _finishing) return false;
     final generation = _audioGeneration;
     final latency = await audio.start(config.audioSampleRateHz);
-    if (generation != _audioGeneration) {
+    if (generation != _audioGeneration || _closed || _finishing) {
       unawaited(audio.stop());
       return false;
     }
@@ -486,7 +519,7 @@ class SessionController extends ChangeNotifier {
     audio.stop();
   }
 
-  Future<void> _persist(SessionEngine current) async {
+  Future<void> _persist(SessionProtocol current) async {
     final diagnostics = List<SessionDiagnostic>.of(_diagnostics)
       ..sort((a, b) => a.timeSeconds.compareTo(b.timeSeconds));
     final raw = encodeSessionRaw(

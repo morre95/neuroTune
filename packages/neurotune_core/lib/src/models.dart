@@ -8,9 +8,9 @@ import 'diagnostics.dart';
 /// Embedded copy of `contracts/default_experiment.json`.
 const String defaultExperimentJson = '''
 {
-  "version": "2026.2",
-  "quality_version": "2026.2-unverified",
-  "hardware_approved": false,
+  "version": "2026.3",
+  "quality_version": "2026.3-unverified",
+  "hardware_approved": true,
   "notch_hz": 50.0,
   "notch_q": 30.0,
   "bandpass_low_hz": 1.0,
