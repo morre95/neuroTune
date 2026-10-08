@@ -131,8 +131,9 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     if (_modelRefresh != null ||
         _networkQuiet ||
         _auth == null ||
-        _screen != _Screen.home)
+        _screen != _Screen.home) {
       return;
+    }
     final owner = widget.api.accountId;
     if (owner == null) return;
     final email = _auth!.email;
@@ -154,17 +155,19 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         await _personalModels.refresh(owner, origin, isCurrent: current);
         if (!current()) return;
         final model = await _personalModels.load(owner, origin);
-        if (current())
+        if (current()) {
           setState(() {
             _cachedModels[origin] = model;
             _modelMessage = null;
           });
+        }
       } catch (_) {
-        if (current())
+        if (current()) {
           setState(
             () => _modelMessage =
                 'Modellen kunde inte uppdateras. En giltig cache fungerar offline.',
           );
+        }
       }
     }();
     _modelRefresh = task;

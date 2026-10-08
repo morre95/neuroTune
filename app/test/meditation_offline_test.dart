@@ -91,8 +91,9 @@ void main() {
             httpClient: MockClient((request) async {
               requests++;
               if (heldRefresh &&
-                  request.url.path == '/v1/meditation/models/latest')
+                  request.url.path == '/v1/meditation/models/latest') {
                 return modelResponse.future;
+              }
               throw const SocketException('No network');
             }),
           );
@@ -126,7 +127,11 @@ void main() {
         await tester.scrollUntilVisible(find.textContaining('Stödd'), 150);
         expect(find.textContaining('Stödd'), findsOneWidget);
         if (heldRefresh) {
-          await tester.ensureVisible(find.text('Uppdatera EEG-modell').first);
+          await tester.scrollUntilVisible(
+            find.text('Uppdatera EEG-modell').first,
+            150,
+          );
+          await tester.pumpAndSettle();
           await tester.tap(find.text('Uppdatera EEG-modell').first);
           await tester.pump();
           for (var i = 0; i < 25 && requests == 0; i++) {
@@ -137,7 +142,8 @@ void main() {
           }
           expect(requests, 1);
         }
-        await tester.ensureVisible(find.text('Simulator'));
+        await tester.scrollUntilVisible(find.text('Simulator'), -150);
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Simulator'));
         await tester.pump(const Duration(seconds: 1));
         await tester.ensureVisible(find.text('Starta meditation'));

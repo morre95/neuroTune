@@ -209,4 +209,115 @@ void main() {
       await dir.delete(recursive: true);
     },
   );
+  test(
+    'synthetic API worker export remains ready offline after SQLite reopen with no phone history',
+    () async {
+      final artifact =
+          (jsonDecode(
+                    await File(
+                      '../contracts/fixtures/synthetic_simulator_model.json',
+                    ).readAsString(),
+                  )
+                  as Map)['model']
+              as Map<String, dynamic>;
+      final account = artifact['owner_account_id'] as String;
+      final folder = await Directory.systemTemp.createTemp(
+        'synthetic-model-cache',
+      );
+      final file = File('${folder.path}/cache.sqlite');
+      var db = AppDatabase(NativeDatabase(file));
+      var requests = 0;
+      final api = ApiClient(
+        baseUrl: 'http://synthetic-worker',
+        httpClient: MockClient((_) async {
+          requests++;
+          return http.Response(jsonEncode(artifact), 200);
+        }),
+      )..accessToken = token(account);
+      final sessions = SessionRepository(db);
+      final cache = PersonalEegRepository(
+        db,
+        sessions,
+        CalibrationRepository(db, sessions),
+        api,
+      );
+      expect(
+        await cache.refresh(
+          account,
+          DataOrigin.simulator,
+          isCurrent: () => true,
+        ),
+        isTrue,
+      );
+      await db.close();
+      db = AppDatabase(NativeDatabase(file));
+      final reopenedSessions = SessionRepository(db);
+      final reopened = PersonalEegRepository(
+        db,
+        reopenedSessions,
+        CalibrationRepository(db, reopenedSessions),
+        api,
+      );
+      final model = await reopened.load(account, DataOrigin.simulator);
+      expect(model!.status, 'ready');
+      expect(model.validation['session_count'], 20);
+      expect(model.fixedMinutes, hasLength(29));
+      expect(await reopenedSessions.listSessions(), isEmpty);
+      expect(
+        model.unsupportedReason(
+          backgroundAssetId: model.backgrounds.first,
+          eyeState: 'closed',
+          carrierHz: 220,
+          toneGain: .2,
+          backgroundGain: .6,
+        ),
+        isNull,
+      );
+      expect(
+        requests,
+        1,
+        reason: 'Cache load and readiness do not request a model in session',
+      );
+      await db.close();
+      await folder.delete(recursive: true);
+    },
+  );
+  test(
+    'completed HTTP response queued behind SQLite cannot publish after logout',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      final sessions = SessionRepository(db),
+          calibration = CalibrationRepository(db, SessionRepository(db));
+      final response = Completer<http.Response>(), entered = Completer<void>();
+      final api = ApiClient(
+        baseUrl: 'http://held-model',
+        httpClient: MockClient((_) {
+          entered.complete();
+          return response.future;
+        }),
+      )..accessToken = token(owner);
+      final cache = PersonalEegRepository(db, sessions, calibration, api);
+      final download = cache.refresh(
+        owner,
+        DataOrigin.simulator,
+        isCurrent: () => true,
+      );
+      await entered.future;
+      final hold = Completer<void>(), acquired = Completer<void>();
+      final transaction = db.transaction(() async {
+        await db.customSelect('SELECT 1').get();
+        acquired.complete();
+        await hold.future;
+      });
+      await acquired.future;
+      response.complete(http.Response(jsonEncode(json), 200));
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      api.accessToken = null;
+      hold.complete();
+      await transaction;
+      expect(await download, isFalse);
+      expect(await cache.load(owner, DataOrigin.simulator), isNull);
+      await db.close();
+    },
+  );
 }

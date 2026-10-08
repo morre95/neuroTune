@@ -118,7 +118,8 @@ void main() {
         }
         expect(find.text('Meditation'), findsOneWidget);
         expect(requests, 0);
-        await tester.ensureVisible(find.text('Experiments'));
+        await tester.scrollUntilVisible(find.text('Experiments'), 150);
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Experiments'));
         await tester.pump();
         expect(requests, 1);
@@ -145,7 +146,8 @@ void main() {
           await tester.pump();
           expect(find.text('Meditation'), findsOneWidget);
         }
-        await tester.ensureVisible(find.text('Simulator'));
+        await tester.scrollUntilVisible(find.text('Simulator'), -150);
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Simulator'));
         await tester.pump(const Duration(seconds: 1));
         await tester.ensureVisible(find.text('Starta meditation'));

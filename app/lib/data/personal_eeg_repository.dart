@@ -31,11 +31,13 @@ class PersonalEegRepository {
       // An authenticated artifact may include evidence from another device.
       if (record == null) continue;
       if (record.origin != model.origin ||
-          record.checksum != e['checksum_sha256'])
+          record.checksum != e['checksum_sha256']) {
         return false;
+      }
       final rating = await calibration.feedback(owner, sid);
-      if (rating != null && rating.revision != e['feedback_revision'])
+      if (rating != null && rating.revision != e['feedback_revision']) {
         return false;
+      }
     }
     return true;
   }
@@ -48,8 +50,9 @@ class PersonalEegRepository {
           final json = jsonDecode(raw) as Map<String, dynamic>;
           if (json['missing'] == true || json['invalid'] == true) return null;
           final model = PersonalEegModel.fromJson(json);
-          if (model.ownerAccountId != owner || model.origin != origin.name)
+          if (model.ownerAccountId != owner || model.origin != origin.name) {
             return null;
+          }
           if (!await _evidenceCurrent(owner, model)) {
             return PersonalEegModel.fromJson({
               ...model.toJson(),
@@ -97,9 +100,9 @@ class PersonalEegRepository {
     }
     return db.transaction(() async {
       if (!current()) return false;
-      final valid = model == null || await _evidenceCurrent(owner, model!);
+      final valid = model == null || await _evidenceCurrent(owner, model);
       final value = valid && model != null
-          ? model!.toJson()
+          ? model.toJson()
           : {
               'missing': !invalid && model == null,
               'invalid': invalid || !valid,
