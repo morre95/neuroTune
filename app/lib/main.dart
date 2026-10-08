@@ -496,12 +496,19 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     if (mounted) setState(() => _screen = _Screen.home);
   }
 
-  Future<void> _loadCalibration() async {
+  Future<void> _loadCalibration({bool Function()? stillCurrent}) async {
     final owner = widget.api.accountId;
     if (owner == null) return;
+    final generation = widget.api.authGeneration;
+    bool current() =>
+        mounted &&
+        widget.api.accountId == owner &&
+        widget.api.authGeneration == generation &&
+        (stillCurrent?.call() ?? true);
     final progress = await _calibration.allProgress(owner);
+    if (!current()) return;
     final pending = await _calibration.pendingFeedback(owner);
-    if (widget.api.accountId != owner || !mounted) return;
+    if (!current()) return;
     _calibrationProgress = progress;
     _pendingMeditationFeedback = pending;
     _revealedPlans = {
@@ -511,17 +518,29 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   }
 
   Future<void> _openCalibration() async {
-    _experimentNavigationGeneration++;
+    final owner = widget.api.accountId;
+    if (owner == null) return;
+    final generation = widget.api.authGeneration;
+    final navigation = ++_experimentNavigationGeneration;
+    bool current() =>
+        mounted &&
+        widget.api.accountId == owner &&
+        widget.api.authGeneration == generation &&
+        _experimentNavigationGeneration == navigation &&
+        _screen == _Screen.home &&
+        !_networkQuiet &&
+        !_startingSession &&
+        _session == null;
     try {
-      await _loadCalibration();
-      if (mounted) {
+      await _loadCalibration(stillCurrent: current);
+      if (current()) {
         setState(() {
           _error = null;
           _screen = _Screen.calibration;
         });
       }
     } catch (error) {
-      if (mounted) {
+      if (current()) {
         setState(() => _error = 'Kalibreringen kunde inte läsas: $error');
       }
     }
