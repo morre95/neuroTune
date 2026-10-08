@@ -2991,6 +2991,545 @@ class MeditationFeedbackRowsCompanion
   }
 }
 
+class $MeditationTrainingOutboxTable extends MeditationTrainingOutbox
+    with
+        TableInfo<
+          $MeditationTrainingOutboxTable,
+          MeditationTrainingOutboxData
+        > {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MeditationTrainingOutboxTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerAccountIdMeta = const VerificationMeta(
+    'ownerAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerAccountId = GeneratedColumn<String>(
+    'owner_account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _feedbackRevisionMeta = const VerificationMeta(
+    'feedbackRevision',
+  );
+  @override
+  late final GeneratedColumn<int> feedbackRevision = GeneratedColumn<int>(
+    'feedback_revision',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _requestIdMeta = const VerificationMeta(
+    'requestId',
+  );
+  @override
+  late final GeneratedColumn<String> requestId = GeneratedColumn<String>(
+    'request_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyJsonMeta = const VerificationMeta(
+    'bodyJson',
+  );
+  @override
+  late final GeneratedColumn<String> bodyJson = GeneratedColumn<String>(
+    'body_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncStateMeta = const VerificationMeta(
+    'syncState',
+  );
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+    'sync_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerAccountId,
+    sessionId,
+    feedbackRevision,
+    requestId,
+    bodyJson,
+    syncState,
+    attempts,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'meditation_training_outbox';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MeditationTrainingOutboxData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_account_id')) {
+      context.handle(
+        _ownerAccountIdMeta,
+        ownerAccountId.isAcceptableOrUnknown(
+          data['owner_account_id']!,
+          _ownerAccountIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerAccountIdMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('feedback_revision')) {
+      context.handle(
+        _feedbackRevisionMeta,
+        feedbackRevision.isAcceptableOrUnknown(
+          data['feedback_revision']!,
+          _feedbackRevisionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_feedbackRevisionMeta);
+    }
+    if (data.containsKey('request_id')) {
+      context.handle(
+        _requestIdMeta,
+        requestId.isAcceptableOrUnknown(data['request_id']!, _requestIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_requestIdMeta);
+    }
+    if (data.containsKey('body_json')) {
+      context.handle(
+        _bodyJsonMeta,
+        bodyJson.isAcceptableOrUnknown(data['body_json']!, _bodyJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyJsonMeta);
+    }
+    if (data.containsKey('sync_state')) {
+      context.handle(
+        _syncStateMeta,
+        syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {
+    ownerAccountId,
+    sessionId,
+    feedbackRevision,
+  };
+  @override
+  MeditationTrainingOutboxData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MeditationTrainingOutboxData(
+      ownerAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_account_id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      feedbackRevision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}feedback_revision'],
+      )!,
+      requestId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}request_id'],
+      )!,
+      bodyJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body_json'],
+      )!,
+      syncState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_state'],
+      )!,
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $MeditationTrainingOutboxTable createAlias(String alias) {
+    return $MeditationTrainingOutboxTable(attachedDatabase, alias);
+  }
+}
+
+class MeditationTrainingOutboxData extends DataClass
+    implements Insertable<MeditationTrainingOutboxData> {
+  final String ownerAccountId;
+  final String sessionId;
+  final int feedbackRevision;
+  final String requestId;
+  final String bodyJson;
+  final String syncState;
+  final int attempts;
+  final String? lastError;
+  const MeditationTrainingOutboxData({
+    required this.ownerAccountId,
+    required this.sessionId,
+    required this.feedbackRevision,
+    required this.requestId,
+    required this.bodyJson,
+    required this.syncState,
+    required this.attempts,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_account_id'] = Variable<String>(ownerAccountId);
+    map['session_id'] = Variable<String>(sessionId);
+    map['feedback_revision'] = Variable<int>(feedbackRevision);
+    map['request_id'] = Variable<String>(requestId);
+    map['body_json'] = Variable<String>(bodyJson);
+    map['sync_state'] = Variable<String>(syncState);
+    map['attempts'] = Variable<int>(attempts);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  MeditationTrainingOutboxCompanion toCompanion(bool nullToAbsent) {
+    return MeditationTrainingOutboxCompanion(
+      ownerAccountId: Value(ownerAccountId),
+      sessionId: Value(sessionId),
+      feedbackRevision: Value(feedbackRevision),
+      requestId: Value(requestId),
+      bodyJson: Value(bodyJson),
+      syncState: Value(syncState),
+      attempts: Value(attempts),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory MeditationTrainingOutboxData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MeditationTrainingOutboxData(
+      ownerAccountId: serializer.fromJson<String>(json['ownerAccountId']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      feedbackRevision: serializer.fromJson<int>(json['feedbackRevision']),
+      requestId: serializer.fromJson<String>(json['requestId']),
+      bodyJson: serializer.fromJson<String>(json['bodyJson']),
+      syncState: serializer.fromJson<String>(json['syncState']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerAccountId': serializer.toJson<String>(ownerAccountId),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'feedbackRevision': serializer.toJson<int>(feedbackRevision),
+      'requestId': serializer.toJson<String>(requestId),
+      'bodyJson': serializer.toJson<String>(bodyJson),
+      'syncState': serializer.toJson<String>(syncState),
+      'attempts': serializer.toJson<int>(attempts),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  MeditationTrainingOutboxData copyWith({
+    String? ownerAccountId,
+    String? sessionId,
+    int? feedbackRevision,
+    String? requestId,
+    String? bodyJson,
+    String? syncState,
+    int? attempts,
+    Value<String?> lastError = const Value.absent(),
+  }) => MeditationTrainingOutboxData(
+    ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+    sessionId: sessionId ?? this.sessionId,
+    feedbackRevision: feedbackRevision ?? this.feedbackRevision,
+    requestId: requestId ?? this.requestId,
+    bodyJson: bodyJson ?? this.bodyJson,
+    syncState: syncState ?? this.syncState,
+    attempts: attempts ?? this.attempts,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  MeditationTrainingOutboxData copyWithCompanion(
+    MeditationTrainingOutboxCompanion data,
+  ) {
+    return MeditationTrainingOutboxData(
+      ownerAccountId: data.ownerAccountId.present
+          ? data.ownerAccountId.value
+          : this.ownerAccountId,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      feedbackRevision: data.feedbackRevision.present
+          ? data.feedbackRevision.value
+          : this.feedbackRevision,
+      requestId: data.requestId.present ? data.requestId.value : this.requestId,
+      bodyJson: data.bodyJson.present ? data.bodyJson.value : this.bodyJson,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MeditationTrainingOutboxData(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('feedbackRevision: $feedbackRevision, ')
+          ..write('requestId: $requestId, ')
+          ..write('bodyJson: $bodyJson, ')
+          ..write('syncState: $syncState, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerAccountId,
+    sessionId,
+    feedbackRevision,
+    requestId,
+    bodyJson,
+    syncState,
+    attempts,
+    lastError,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MeditationTrainingOutboxData &&
+          other.ownerAccountId == this.ownerAccountId &&
+          other.sessionId == this.sessionId &&
+          other.feedbackRevision == this.feedbackRevision &&
+          other.requestId == this.requestId &&
+          other.bodyJson == this.bodyJson &&
+          other.syncState == this.syncState &&
+          other.attempts == this.attempts &&
+          other.lastError == this.lastError);
+}
+
+class MeditationTrainingOutboxCompanion
+    extends UpdateCompanion<MeditationTrainingOutboxData> {
+  final Value<String> ownerAccountId;
+  final Value<String> sessionId;
+  final Value<int> feedbackRevision;
+  final Value<String> requestId;
+  final Value<String> bodyJson;
+  final Value<String> syncState;
+  final Value<int> attempts;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const MeditationTrainingOutboxCompanion({
+    this.ownerAccountId = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.feedbackRevision = const Value.absent(),
+    this.requestId = const Value.absent(),
+    this.bodyJson = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MeditationTrainingOutboxCompanion.insert({
+    required String ownerAccountId,
+    required String sessionId,
+    required int feedbackRevision,
+    required String requestId,
+    required String bodyJson,
+    this.syncState = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerAccountId = Value(ownerAccountId),
+       sessionId = Value(sessionId),
+       feedbackRevision = Value(feedbackRevision),
+       requestId = Value(requestId),
+       bodyJson = Value(bodyJson);
+  static Insertable<MeditationTrainingOutboxData> custom({
+    Expression<String>? ownerAccountId,
+    Expression<String>? sessionId,
+    Expression<int>? feedbackRevision,
+    Expression<String>? requestId,
+    Expression<String>? bodyJson,
+    Expression<String>? syncState,
+    Expression<int>? attempts,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerAccountId != null) 'owner_account_id': ownerAccountId,
+      if (sessionId != null) 'session_id': sessionId,
+      if (feedbackRevision != null) 'feedback_revision': feedbackRevision,
+      if (requestId != null) 'request_id': requestId,
+      if (bodyJson != null) 'body_json': bodyJson,
+      if (syncState != null) 'sync_state': syncState,
+      if (attempts != null) 'attempts': attempts,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MeditationTrainingOutboxCompanion copyWith({
+    Value<String>? ownerAccountId,
+    Value<String>? sessionId,
+    Value<int>? feedbackRevision,
+    Value<String>? requestId,
+    Value<String>? bodyJson,
+    Value<String>? syncState,
+    Value<int>? attempts,
+    Value<String?>? lastError,
+    Value<int>? rowid,
+  }) {
+    return MeditationTrainingOutboxCompanion(
+      ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+      sessionId: sessionId ?? this.sessionId,
+      feedbackRevision: feedbackRevision ?? this.feedbackRevision,
+      requestId: requestId ?? this.requestId,
+      bodyJson: bodyJson ?? this.bodyJson,
+      syncState: syncState ?? this.syncState,
+      attempts: attempts ?? this.attempts,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerAccountId.present) {
+      map['owner_account_id'] = Variable<String>(ownerAccountId.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (feedbackRevision.present) {
+      map['feedback_revision'] = Variable<int>(feedbackRevision.value);
+    }
+    if (requestId.present) {
+      map['request_id'] = Variable<String>(requestId.value);
+    }
+    if (bodyJson.present) {
+      map['body_json'] = Variable<String>(bodyJson.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MeditationTrainingOutboxCompanion(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('feedbackRevision: $feedbackRevision, ')
+          ..write('requestId: $requestId, ')
+          ..write('bodyJson: $bodyJson, ')
+          ..write('syncState: $syncState, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3006,6 +3545,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $CalibrationAttemptsTable(this);
   late final $MeditationFeedbackRowsTable meditationFeedbackRows =
       $MeditationFeedbackRowsTable(this);
+  late final $MeditationTrainingOutboxTable meditationTrainingOutbox =
+      $MeditationTrainingOutboxTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3018,6 +3559,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     calibrationPlans,
     calibrationAttempts,
     meditationFeedbackRows,
+    meditationTrainingOutbox,
   ];
 }
 
@@ -4647,6 +5189,286 @@ typedef $$MeditationFeedbackRowsTableProcessedTableManager =
       MeditationFeedbackRow,
       PrefetchHooks Function()
     >;
+typedef $$MeditationTrainingOutboxTableCreateCompanionBuilder =
+    MeditationTrainingOutboxCompanion Function({
+      required String ownerAccountId,
+      required String sessionId,
+      required int feedbackRevision,
+      required String requestId,
+      required String bodyJson,
+      Value<String> syncState,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+typedef $$MeditationTrainingOutboxTableUpdateCompanionBuilder =
+    MeditationTrainingOutboxCompanion Function({
+      Value<String> ownerAccountId,
+      Value<String> sessionId,
+      Value<int> feedbackRevision,
+      Value<String> requestId,
+      Value<String> bodyJson,
+      Value<String> syncState,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+
+class $$MeditationTrainingOutboxTableFilterComposer
+    extends Composer<_$AppDatabase, $MeditationTrainingOutboxTable> {
+  $$MeditationTrainingOutboxTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get feedbackRevision => $composableBuilder(
+    column: $table.feedbackRevision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get requestId => $composableBuilder(
+    column: $table.requestId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bodyJson => $composableBuilder(
+    column: $table.bodyJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MeditationTrainingOutboxTableOrderingComposer
+    extends Composer<_$AppDatabase, $MeditationTrainingOutboxTable> {
+  $$MeditationTrainingOutboxTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get feedbackRevision => $composableBuilder(
+    column: $table.feedbackRevision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get requestId => $composableBuilder(
+    column: $table.requestId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bodyJson => $composableBuilder(
+    column: $table.bodyJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MeditationTrainingOutboxTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MeditationTrainingOutboxTable> {
+  $$MeditationTrainingOutboxTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<int> get feedbackRevision => $composableBuilder(
+    column: $table.feedbackRevision,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get requestId =>
+      $composableBuilder(column: $table.requestId, builder: (column) => column);
+
+  GeneratedColumn<String> get bodyJson =>
+      $composableBuilder(column: $table.bodyJson, builder: (column) => column);
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+}
+
+class $$MeditationTrainingOutboxTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MeditationTrainingOutboxTable,
+          MeditationTrainingOutboxData,
+          $$MeditationTrainingOutboxTableFilterComposer,
+          $$MeditationTrainingOutboxTableOrderingComposer,
+          $$MeditationTrainingOutboxTableAnnotationComposer,
+          $$MeditationTrainingOutboxTableCreateCompanionBuilder,
+          $$MeditationTrainingOutboxTableUpdateCompanionBuilder,
+          (
+            MeditationTrainingOutboxData,
+            BaseReferences<
+              _$AppDatabase,
+              $MeditationTrainingOutboxTable,
+              MeditationTrainingOutboxData
+            >,
+          ),
+          MeditationTrainingOutboxData,
+          PrefetchHooks Function()
+        > {
+  $$MeditationTrainingOutboxTableTableManager(
+    _$AppDatabase db,
+    $MeditationTrainingOutboxTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MeditationTrainingOutboxTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$MeditationTrainingOutboxTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$MeditationTrainingOutboxTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerAccountId = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<int> feedbackRevision = const Value.absent(),
+                Value<String> requestId = const Value.absent(),
+                Value<String> bodyJson = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MeditationTrainingOutboxCompanion(
+                ownerAccountId: ownerAccountId,
+                sessionId: sessionId,
+                feedbackRevision: feedbackRevision,
+                requestId: requestId,
+                bodyJson: bodyJson,
+                syncState: syncState,
+                attempts: attempts,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerAccountId,
+                required String sessionId,
+                required int feedbackRevision,
+                required String requestId,
+                required String bodyJson,
+                Value<String> syncState = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MeditationTrainingOutboxCompanion.insert(
+                ownerAccountId: ownerAccountId,
+                sessionId: sessionId,
+                feedbackRevision: feedbackRevision,
+                requestId: requestId,
+                bodyJson: bodyJson,
+                syncState: syncState,
+                attempts: attempts,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MeditationTrainingOutboxTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MeditationTrainingOutboxTable,
+      MeditationTrainingOutboxData,
+      $$MeditationTrainingOutboxTableFilterComposer,
+      $$MeditationTrainingOutboxTableOrderingComposer,
+      $$MeditationTrainingOutboxTableAnnotationComposer,
+      $$MeditationTrainingOutboxTableCreateCompanionBuilder,
+      $$MeditationTrainingOutboxTableUpdateCompanionBuilder,
+      (
+        MeditationTrainingOutboxData,
+        BaseReferences<
+          _$AppDatabase,
+          $MeditationTrainingOutboxTable,
+          MeditationTrainingOutboxData
+        >,
+      ),
+      MeditationTrainingOutboxData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4667,5 +5489,10 @@ class $AppDatabaseManager {
       $$MeditationFeedbackRowsTableTableManager(
         _db,
         _db.meditationFeedbackRows,
+      );
+  $$MeditationTrainingOutboxTableTableManager get meditationTrainingOutbox =>
+      $$MeditationTrainingOutboxTableTableManager(
+        _db,
+        _db.meditationTrainingOutbox,
       );
 }

@@ -243,6 +243,48 @@ class ApiClient {
     return response.statusCode;
   }
 
+  Future<void> createCalibrationPlan(CalibrationPlan plan) async {
+    final response = await _send(
+      'POST',
+      '/v1/meditation/calibration-plans',
+      plan.toJson(),
+    );
+    _expect(response);
+    final accepted = CalibrationPlan.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+    if (jsonEncode(accepted.toJson()) != jsonEncode(plan.toJson())) {
+      throw StateError('Calibration acknowledgement does not match');
+    }
+  }
+
+  Future<void> saveMeditationFeedback(MeditationFeedback feedback) async {
+    final response = await _send(
+      'POST',
+      '/v1/meditation/sessions/${feedback.sessionId}/feedback',
+      feedback.toJson(),
+    );
+    _expect(response);
+    final accepted = jsonDecode(response.body) as Map<String, dynamic>;
+    final expected = feedback.toJson();
+    if (accepted.length != expected.length ||
+        expected.entries.any((entry) => accepted[entry.key] != entry.value)) {
+      throw StateError('Feedback acknowledgement does not match');
+    }
+  }
+
+  Future<String> createMeditationTrainingJob(
+    Map<String, dynamic> request,
+  ) async {
+    final response = await _send(
+      'POST',
+      '/v1/meditation/training/jobs',
+      request,
+    );
+    _expect(response);
+    return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
+  }
+
   Future<String> createTrainingJob({
     required String origin,
     required String experimentVersion,

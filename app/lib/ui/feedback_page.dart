@@ -10,8 +10,10 @@ class FeedbackPage extends StatefulWidget {
     required this.onSave,
     required this.onLater,
     this.message,
+    this.syncStatus,
   });
   final String sessionId;
+  final Widget? syncStatus;
   final String? message;
   final MeditationFeedback? feedback;
   final Future<void> Function(int? mentalBusyness, int? relaxation) onSave;
@@ -68,6 +70,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
             'Hur upplevde du sessionen? Skattningarna sparas på mobilen och kan slutföras senare utan nätverk.',
           ),
           if (widget.message != null) Text(widget.message!),
+          if (widget.syncStatus != null) widget.syncStatus!,
           if (_error != null) Text(_error!),
           const SizedBox(height: 20),
           _rating(

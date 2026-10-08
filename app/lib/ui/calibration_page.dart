@@ -17,6 +17,7 @@ class CalibrationPage extends StatelessWidget {
     this.busy = false,
     this.pendingFeedback = const [],
     this.message,
+    this.syncStatus,
   });
   final List<CalibrationProgress> progress;
   final List<SavedSession> pendingFeedback;
@@ -27,6 +28,7 @@ class CalibrationPage extends StatelessWidget {
   final ValueChanged<SavedSession> onFeedback;
   final VoidCallback onBack;
   final bool busy;
+  final Widget? syncStatus;
   final String? message;
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -39,6 +41,7 @@ class CalibrationPage extends StatelessWidget {
           'Ljudprofil och ögonläge låses för hela serien. Båda skattningarna krävs efter varje session.',
         ),
         if (message != null) Text(message!),
+        ?syncStatus,
         const SizedBox(height: 16),
         if (profile case final p?) ...[
           Text(

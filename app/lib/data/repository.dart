@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import 'database.dart';
+import 'meditation_sync_repository.dart';
 
 class PendingUpload {
   PendingUpload({
@@ -227,7 +228,8 @@ class SessionRepository {
     final sessions = await listSessions();
     return [
       for (final session in sessions)
-        if (session.origin == origin &&
+        if (!isMeditation(session.manifest) &&
+            session.origin == origin &&
             session.manifest.experimentVersion == experimentVersion)
           LocalSessionRewards(
             sessionId: session.id,
@@ -282,11 +284,25 @@ class SessionRepository {
   }
 
   Future<void> claimLegacyUploads(String ownerEmail) async {
-    await (db.update(
-      db.uploadJobs,
-    )..where((table) => table.ownerEmail.isNull())).write(
-      UploadJobsCompanion(ownerEmail: Value(ownerEmail.toLowerCase())),
-    );
+    final hasSessions =
+        (await db
+                .customSelect(
+                  "SELECT name FROM sqlite_master WHERE type='table' AND name='stored_sessions'",
+                )
+                .get())
+            .isNotEmpty;
+    final meditationIds = hasSessions
+        ? (await listSessions())
+              .where((s) => isMeditation(s.manifest))
+              .map((s) => s.id)
+              .toList()
+        : <String>[];
+    await (db.update(db.uploadJobs)..where(
+          (r) => r.ownerEmail.isNull() & r.sessionId.isNotIn(meditationIds),
+        ))
+        .write(
+          UploadJobsCompanion(ownerEmail: Value(ownerEmail.toLowerCase())),
+        );
   }
 
   Future<void> markUpload(
@@ -295,15 +311,20 @@ class SessionRepository {
     int? attempts,
     String? error,
   }) {
-    return (db.update(
-      db.uploadJobs,
-    )..where((table) => table.sessionId.equals(sessionId))).write(
-      UploadJobsCompanion(
-        state: Value(state),
-        attempts: attempts == null ? const Value.absent() : Value(attempts),
-        lastError: Value(error),
-      ),
-    );
+    return (db.update(db.uploadJobs)..where(
+          (table) =>
+              table.sessionId.equals(sessionId) &
+              table.state.equals(
+                state == 'delete_pending' ? 'delete_pending' : 'pending',
+              ),
+        ))
+        .write(
+          UploadJobsCompanion(
+            state: Value(state),
+            attempts: attempts == null ? const Value.absent() : Value(attempts),
+            lastError: Value(error),
+          ),
+        );
   }
 
   SavedSession _saved(StoredSession row) {

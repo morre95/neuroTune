@@ -19,6 +19,7 @@ import 'data/profile_library.dart';
 import 'data/calibration_repository.dart';
 import 'ui/calibration_page.dart';
 import 'ui/feedback_page.dart';
+import 'ui/meditation_sync_status.dart';
 import 'ui/profiles_page.dart';
 import 'platform/channels.dart';
 import 'session/session_controller.dart';
@@ -634,6 +635,17 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     });
   }
 
+  Widget? get _syncStatus {
+    final owner = widget.api.accountId;
+    final email = _auth?.email;
+    return owner == null || email == null
+        ? null
+        : MeditationSyncStatusView(
+            key: ValueKey('sync:$owner'),
+            status: _uploadSync.meditation.watchStatus(owner, email),
+          );
+  }
+
   Future<void> _saveFeedback(int? busy, int? relaxed) async {
     final owner = widget.api.accountId;
     final id = _feedbackSession?.id;
@@ -645,6 +657,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       relaxation: relaxed,
     );
     await _loadCalibration();
+    if (widget.api.accountId == owner) _retryUploads();
   }
 
   Future<void> _leaveFeedback() async {
@@ -1142,6 +1155,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         revealedPlans: _revealedPlans,
         onDelete: _deleteSessions,
         message: _historyMessage,
+        syncStatus: _syncStatus,
         onOpen: (session) => setState(() {
           _playback = session;
           _screen = _Screen.playback;
@@ -1158,6 +1172,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         onFeedback: _openFeedback,
         busy: _calibrationBusy,
         message: _error,
+        syncStatus: _syncStatus,
         onBack: () => setState(() => _screen = _Screen.home),
       ),
       _Screen.feedback => FeedbackPage(
@@ -1166,6 +1181,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         feedback: _feedbackDraft,
         onSave: _saveFeedback,
         message: _error,
+        syncStatus: _syncStatus,
         onLater: _leaveFeedback,
       ),
       _Screen.profiles => ProfilesPage(

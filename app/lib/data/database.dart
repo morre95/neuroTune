@@ -85,6 +85,23 @@ class MeditationFeedbackRows extends Table {
   Set<Column<Object>> get primaryKey => {ownerAccountId, sessionId};
 }
 
+class MeditationTrainingOutbox extends Table {
+  TextColumn get ownerAccountId => text()();
+  TextColumn get sessionId => text()();
+  IntColumn get feedbackRevision => integer()();
+  TextColumn get requestId => text()();
+  TextColumn get bodyJson => text()();
+  TextColumn get syncState => text().withDefault(const Constant('pending'))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  @override
+  Set<Column<Object>> get primaryKey => {
+    ownerAccountId,
+    sessionId,
+    feedbackRevision,
+  };
+}
+
 @DriftDatabase(
   tables: [
     StoredSessions,
@@ -94,6 +111,7 @@ class MeditationFeedbackRows extends Table {
     CalibrationPlans,
     CalibrationAttempts,
     MeditationFeedbackRows,
+    MeditationTrainingOutbox,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -101,7 +119,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'neurotune'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -114,6 +132,7 @@ class AppDatabase extends _$AppDatabase {
         await m.createTable(calibrationAttempts);
         await m.createTable(meditationFeedbackRows);
       }
+      if (from < 5) await m.createTable(meditationTrainingOutbox);
     },
   );
 

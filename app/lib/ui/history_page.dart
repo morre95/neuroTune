@@ -13,6 +13,7 @@ class HistoryPage extends StatefulWidget {
     this.revealedPlans = const {},
     this.onDelete,
     this.message,
+    this.syncStatus,
   });
 
   final List<SavedSession> sessions;
@@ -20,6 +21,7 @@ class HistoryPage extends StatefulWidget {
   final VoidCallback onBack;
   final Set<String> revealedPlans;
   final Future<void> Function(List<String>)? onDelete;
+  final Widget? syncStatus;
   final String? message;
 
   @override
@@ -130,6 +132,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       body: ListView(
         children: [
+          if (widget.syncStatus != null) widget.syncStatus!,
           if (widget.message != null)
             Padding(
               padding: const EdgeInsets.all(16),
