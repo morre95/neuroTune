@@ -20,7 +20,7 @@
           "items": {
             "$ref": "#/$defs/TrackRecipe"
           },
-          "maxItems": 1,
+          "maxItems": 4,
           "minItems": 1,
           "title": "Tracks",
           "type": "array"

@@ -1,5 +1,6 @@
 import hashlib
 import io
+import struct
 import uuid
 import wave
 
@@ -7,6 +8,53 @@ from app.config import settings
 from app.db import SessionLocal
 from app.worker import run_once
 from test_api import auth, client, register
+
+
+def upload_pcm(token, frames, channels=2):
+    pcm = io.BytesIO()
+    with wave.open(pcm, 'wb') as wav:
+        wav.setparams((channels, 2, 48000, 0, 'NONE', ''))
+        wav.writeframes(frames)
+    response = client.post('/v1/audio/assets', headers=auth(token) | {'X-Audio-Filename': 'mix.wav'}, content=pcm.getvalue())
+    assert response.status_code == 202, response.text
+    with SessionLocal() as db:
+        run_once(db)
+    return response.json()['id']
+
+
+def test_four_tracks_start_together_with_one_static_factor_and_exact_preview(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, 'audio_data_dir', str(tmp_path))
+    token = register(f'{uuid.uuid4()}@example.com')['access_token']
+    stereo = upload_pcm(token, struct.pack('<hh', 8192, 4096) * 4800)
+    mono = upload_pcm(token, struct.pack('<h', 8192) * 2400 + struct.pack('<h', 24576) * 2400, channels=1)
+    tracks = [
+        {'asset_id': stereo, 'trim_start_seconds': .05, 'trim_end_seconds': .1, 'gain': 2, 'loop': True},
+        {'asset_id': mono, 'trim_start_seconds': 0, 'trim_end_seconds': .1, 'gain': 2, 'loop': False},
+        {'asset_id': stereo, 'trim_end_seconds': .1, 'gain': 0, 'loop': True},
+        {'asset_id': mono, 'trim_end_seconds': .1, 'gain': 0, 'loop': False},
+    ]
+    recipe = {'schema_version': 1, 'duration_seconds': 45, 'tracks': tracks}
+    response = client.post('/v1/audio/renders', headers=auth(token), json=recipe)
+    assert response.status_code == 202, response.text
+    render_id = response.json()['id']
+    with SessionLocal() as db:
+        run_once(db)
+    render = client.get(f'/v1/audio/renders/{render_id}', headers=auth(token)).json()
+    assert render['status'] == 'ready', render
+    assert render['normalization_factor'] == .5
+    profile = client.post('/v1/audio/profiles', headers=auth(token), json={'name': 'Music and rain', 'render_id': render_id}).json()
+    assert profile['recipe']['tracks'] == [dict(trim_start_seconds=0, gain=1, loop=False) | track for track in tracks]
+    preview = client.get(f'/v1/audio/renders/{render_id}/preview', headers=auth(token)).content
+    background = client.get(f"/v1/audio/profiles/versions/{profile['id']}/download", headers=auth(token)).content
+    with wave.open(io.BytesIO(preview)) as a, wave.open(io.BytesIO(background)) as b:
+        assert (b.getnchannels(), b.getsampwidth(), b.getframerate(), b.getnframes()) == (2, 2, 48000, 45 * 48000)
+        assert a.readframes(a.getnframes()) == b.readframes(30 * 48000)
+        b.setpos(0)
+        assert struct.unpack('<hh', b.readframes(1)) == (16384, 12288)
+        b.setpos(3000)
+        assert struct.unpack('<hh', b.readframes(1)) == (32767, 28672)
+        b.setpos(48000)
+        assert struct.unpack('<hh', b.readframes(1)) == (8192, 4096)
 
 
 def source(token):
@@ -129,7 +177,8 @@ def test_pending_render_recovers_expired_lease_and_failure_cannot_be_saved(tmp_p
     monkeypatch.setattr(settings, 'audio_data_dir', str(tmp_path))
     token = register(f'{uuid.uuid4()}@example.com')['access_token']
     asset_id = source(token)
-    render_id = client.post('/v1/audio/renders', headers=auth(token), json={'duration_seconds': 30, 'tracks': [{'asset_id': asset_id, 'trim_end_seconds': .1, 'loop': True}]}).json()['id']
+    recipe = {'duration_seconds': 30, 'tracks': [{'asset_id': asset_id, 'trim_end_seconds': .1, 'loop': True}, {'asset_id': asset_id, 'trim_start_seconds': .05, 'trim_end_seconds': .1, 'gain': .5}]}
+    render_id = client.post('/v1/audio/renders', headers=auth(token), json=recipe).json()['id']
     with SessionLocal() as db:
         render = db.get(AudioRender, render_id)
         render.lease_token = str(uuid.uuid4())
@@ -137,7 +186,7 @@ def test_pending_render_recovers_expired_lease_and_failure_cannot_be_saved(tmp_p
         db.commit()
         run_once(db)
     assert client.get(f'/v1/audio/renders/{render_id}', headers=auth(token)).json()['status'] == 'ready'
-    failed_id = client.post('/v1/audio/renders', headers=auth(token), json={'duration_seconds': 30, 'tracks': [{'asset_id': asset_id, 'trim_end_seconds': .1}]}).json()['id']
+    failed_id = client.post('/v1/audio/renders', headers=auth(token), json=recipe).json()['id']
     monkeypatch.setattr(settings, 'audio_process_timeout_seconds', 0)
     with SessionLocal() as db:
         run_once(db)
@@ -146,6 +195,26 @@ def test_pending_render_recovers_expired_lease_and_failure_cannot_be_saved(tmp_p
     assert 'timed out' in failed['error']
     assert client.get(f'/v1/audio/renders/{failed_id}/preview', headers=auth(token)).status_code == 409
     assert client.post('/v1/audio/profiles', headers=auth(token), json={'name': 'Invalid', 'render_id': failed_id}).status_code == 409
+
+
+def test_each_mix_track_is_validated_before_queueing_and_owned_by_the_caller(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, 'audio_data_dir', str(tmp_path))
+    owner = register(f'{uuid.uuid4()}@example.com')['access_token']
+    other = register(f'{uuid.uuid4()}@example.com')['access_token']
+    valid = {'asset_id': source(owner), 'trim_end_seconds': .1}
+    foreign = source(other)
+    pending = client.post('/v1/audio/assets', headers=auth(owner) | {'X-Audio-Filename': 'waiting.wav'}, content=b'bad').json()['id']
+    for tracks, expected in [([], 422), ([valid] * 5, 422),
+        ([valid, valid | {'asset_id': foreign}], 404),
+        ([valid, valid | {'asset_id': str(uuid.uuid4())}], 404),
+        ([valid, valid | {'asset_id': pending}], 409),
+        ([valid, valid | {'trim_end_seconds': .2}], 422),
+        ([valid, valid | {'trim_start_seconds': .1}], 422),
+        ([valid, valid | {'gain': -1}], 422),
+        ([valid, valid | {'gain': 5}], 422),
+        ([valid, valid | {'offset_seconds': 1}], 422)]:
+        response = client.post('/v1/audio/renders', headers=auth(owner), json={'duration_seconds': 30, 'tracks': tracks})
+        assert response.status_code == expected, response.text
 
 
 def test_decimal_headroom_boundary_accepts_exact_sum_but_rejects_excess(tmp_path, monkeypatch):
