@@ -99,7 +99,9 @@ def run_once(db: Session) -> int:
     from app.audio import run_audio_jobs
     from app.profiles import run_render_jobs
 
-    return len(jobs) + run_audio_jobs(db) + run_render_jobs(db)
+    from app.personal_eeg import run_jobs
+
+    return len(jobs) + run_audio_jobs(db) + run_render_jobs(db) + run_jobs(db)
 
 
 def main() -> None:

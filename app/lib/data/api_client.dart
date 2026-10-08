@@ -303,6 +303,18 @@ class ApiClient {
     return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
   }
 
+  Future<PersonalEegModel?> latestMeditationModel(DataOrigin origin) async {
+    final response = await _send(
+      'GET',
+      '/v1/meditation/models/latest?origin=${origin.name}&protocol_version=meditation-1',
+    );
+    if (response.statusCode == 404) return null;
+    _expect(response);
+    return PersonalEegModel.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   Future<void> deleteSessions(List<String> sessionIds) async {
     final response = await _send('POST', '/v1/sessions/delete', {
       'session_ids': sessionIds,

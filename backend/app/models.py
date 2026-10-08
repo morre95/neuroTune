@@ -182,3 +182,15 @@ class MeditationTrainingRequest(Base):
     user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
     job_id: Mapped[str] = mapped_column(ForeignKey('meditation_training_jobs.id'))
     body_json: Mapped[str] = mapped_column(Text)
+
+
+class PersonalEegModel(Base):
+    __tablename__ = 'personal_eeg_models'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey('meditation_training_jobs.id', ondelete='CASCADE'), unique=True)
+    origin: Mapped[str] = mapped_column(String(32))
+    protocol_version: Mapped[str] = mapped_column(String(64))
+    model_version: Mapped[str] = mapped_column(String(64))
+    body_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

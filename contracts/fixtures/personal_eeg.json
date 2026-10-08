@@ -1,0 +1,309 @@
+{
+  "description": "Independent literal extraction/ridge/inference expectations; synthetic, not measured EEG.",
+  "model": {
+    "schema_version": 1,
+    "preprocessing_version": "meditation-eeg-1",
+    "protocol_version": "meditation-1",
+    "quality_version": "2026.3-unverified",
+    "owner_account_id": "11111111-1111-4111-8111-111111111111",
+    "origin": "simulator",
+    "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "model_version": "v1",
+    "status": "ready",
+    "reasons": [],
+    "dataset_fingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "server_deletion_epoch": 0,
+    "included_session_ids": [
+      "literal-0",
+      "literal-1",
+      "literal-2",
+      "literal-3",
+      "literal-4",
+      "literal-5",
+      "literal-6",
+      "literal-7",
+      "literal-8",
+      "literal-9",
+      "literal-10",
+      "literal-11",
+      "literal-12",
+      "literal-13",
+      "literal-14",
+      "literal-15",
+      "literal-16",
+      "literal-17",
+      "literal-18",
+      "literal-19"
+    ],
+    "evidence": [
+      {
+        "session_id": "literal-0",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-1",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-2",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-3",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-4",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-5",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-6",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-7",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-8",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-9",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-10",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-11",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-12",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-13",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-14",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-15",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-16",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-17",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-18",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      },
+      {
+        "session_id": "literal-19",
+        "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "feedback_revision": 1
+      }
+    ],
+    "feature_order": [
+      "log_theta_alpha",
+      "log_beta_alpha",
+      "carrier_hz",
+      "tone_gain",
+      "background_gain",
+      "background:44444444-4444-4444-8444-444444444444",
+      "eye:closed"
+    ],
+    "backgrounds": [
+      "44444444-4444-4444-8444-444444444444"
+    ],
+    "eyes": [
+      "closed"
+    ],
+    "means": [
+      2.0,
+      0.0,
+      220.0,
+      0.2,
+      0.6,
+      1.0,
+      1.0
+    ],
+    "scales": [
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "coefficients": [
+      0.6666666666666666,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "intercept": 3.0,
+    "validation": {
+      "session_count": 20,
+      "mae": 0.5,
+      "correlation": 0.9,
+      "context_mae": 1.0,
+      "gates": {
+        "session_count": true,
+        "mae": true,
+        "correlation": true,
+        "improvement": true
+      }
+    },
+    "training_ranges": {
+      "carrier_hz": [
+        220.0,
+        220.0
+      ],
+      "tone_gain": [
+        0.2,
+        0.2
+      ],
+      "background_gain": [
+        0.6,
+        0.6
+      ]
+    },
+    "supported_contexts": [
+      {
+        "background_asset_id": "44444444-4444-4444-8444-444444444444",
+        "eye_state": "closed",
+        "session_count": 20
+      }
+    ],
+    "fixed_minutes": [],
+    "created_at": "2026-10-08T00:00:00Z"
+  },
+  "inference": [
+    {
+      "features": [
+        1.0,
+        0.0
+      ],
+      "prediction": 2.3333333333333335
+    },
+    {
+      "features": [
+        2.0,
+        0.0
+      ],
+      "prediction": 3.0
+    },
+    {
+      "features": [
+        3.0,
+        0.0
+      ],
+      "prediction": 3.6666666666666665
+    }
+  ],
+  "ratio_channels": [
+    {
+      "name": "A",
+      "valid": true,
+      "absolute_theta": 4.0,
+      "absolute_alpha": 2.0,
+      "absolute_beta": 8.0
+    },
+    {
+      "name": "B",
+      "valid": true,
+      "absolute_theta": 2.0,
+      "absolute_alpha": 2.0,
+      "absolute_beta": 2.0
+    },
+    {
+      "name": "bad",
+      "valid": false,
+      "absolute_theta": 10000.0,
+      "absolute_alpha": 1.0,
+      "absolute_beta": 10000.0
+    }
+  ],
+  "extraction": [
+    {
+      "start": 11,
+      "end": 60,
+      "active_offset": 0,
+      "source_offset": 100,
+      "expected_minutes": [
+        0
+      ],
+      "expected_coverage": 50
+    },
+    {
+      "start": 21,
+      "end": 60,
+      "active_offset": 0,
+      "source_offset": 100,
+      "expected_minutes": [
+        0
+      ],
+      "expected_coverage": 40
+    },
+    {
+      "start": 22,
+      "end": 60,
+      "active_offset": 0,
+      "source_offset": 100,
+      "expected_minutes": [],
+      "expected_coverage": 39
+    },
+    {
+      "start": 10,
+      "end": 59,
+      "active_offset": 0.25,
+      "source_offset": 100,
+      "expected_minutes": [
+        0
+      ],
+      "expected_coverage": 50
+    }
+  ],
+  "expected_ratios": [
+    0.34657359027997264,
+    0.6931471805599453
+  ]
+}

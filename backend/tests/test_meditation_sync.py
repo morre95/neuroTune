@@ -112,7 +112,7 @@ def test_training_requests_are_durable_source_scoped_and_never_build_nir_policy(
     with SessionLocal() as db:
         run_once(db)
     job = client.get(f"{endpoint}/{first.json()['id']}", headers=auth(token)).json()
-    assert job['status'] == 'queued'
+    assert job['status'] == 'done'
     assert job['origin'] == 'muse' and job['protocol_version'] == 'meditation-1'
     assert 'model_version' not in job
     policy = client.get('/v1/bandit/latest', headers=auth(token), params={'origin': 'muse', 'experiment_version': 'meditation-1'}).json()

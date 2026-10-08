@@ -15,3 +15,4 @@ export 'src/audio_profile.dart';
 export 'src/meditation.dart';
 export 'src/calibration.dart';
 export 'src/recommendation.dart';
+export 'src/personal_eeg.dart';

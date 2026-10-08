@@ -123,3 +123,20 @@ def read_training(job_id: str, db: Session = Depends(get_db), user: User = Depen
     if job is None or job.user_id != user.id:
         raise HTTPException(404, 'Job not found')
     return job_body(job)
+
+
+@router.get('/models/latest')
+def latest_model(origin: str = 'muse', protocol_version: str = 'meditation-1',
+    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    from app.models import PersonalEegModel
+    from app.personal_eeg import evidence_current
+    if origin not in {'muse','simulator','playback'} or protocol_version != 'meditation-1':
+        raise HTTPException(422, 'Unsupported model scope')
+    db.query(User).filter_by(id=user.id).with_for_update().one()
+    row = db.query(PersonalEegModel).filter_by(user_id=user.id,origin=origin,protocol_version=protocol_version).order_by(PersonalEegModel.created_at.desc(),PersonalEegModel.id.desc()).first()
+    if row is None:
+        raise HTTPException(404, 'Model not found; collect rated fixed sessions')
+    body = json.loads(row.body_json)
+    if not evidence_current(db,user.id,body['evidence']):
+        return body | dict(status='revoked',reasons=['Included evidence was deleted or changed'],coefficients=[],fixed_minutes=[])
+    return body

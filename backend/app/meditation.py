@@ -25,7 +25,7 @@ class PlanIn(BaseModel):
     profile_version_id: uuid.UUID
     profile: ProfileVersion
     eye_state: Literal['open', 'closed']
-    origin: Literal['muse', 'simulator']
+    origin: Literal['muse', 'simulator', 'playback']
     duration_seconds: int = Field(strict=True, ge=600, le=600)
     schedule: list[str] = Field(min_length=10, max_length=10)
     created_at: datetime
@@ -98,7 +98,7 @@ def validate_meditation(db, owner, manifest, completed=False):
         or meta.get('owner_account_id', owner) != owner
         or meta.get('profile_version_id') != str(profile.id)
         or meta.get('fixed_action') not in ACTIONS
-        or meta.get('origin') not in {'muse', 'simulator'}
+        or meta.get('origin') not in {'muse', 'simulator', 'playback'}
         or meta.get('origin') != manifest.get('data_origin')
         or meta.get('eye_state') not in {'open', 'closed'} or meta.get('eye_state') != manifest.get('eye_state')
         or type(frames) is not int or not 0 <= frames <= 28800000
@@ -143,7 +143,7 @@ class TrainingIn(BaseModel):
     request_id: uuid.UUID
     session_id: str = Field(pattern=r'^[A-Za-z0-9_-]{1,64}$')
     feedback_revision: int = Field(strict=True, ge=1)
-    origin: Literal['muse', 'simulator']
+    origin: Literal['muse', 'simulator', 'playback']
     protocol_version: Literal['meditation-1']
 
 
