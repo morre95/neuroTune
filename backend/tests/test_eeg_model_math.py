@@ -94,3 +94,11 @@ def test_paused_unmapped_invalid_canonical_and_duplicate_channels_never_supply_c
     later=[f | {'time_seconds':f['time_seconds']+.1} for f in frames(range(11,61))]
     assert extract_minutes(invalid+later)==[]
     assert extract_minutes(frames(range(11,61),channels=[channel('A'),channel('B'),channel('A')]))==[]
+
+
+def test_population_scaling_does_not_underflow_for_small_finite_settings():
+    fit=fit_ridge([[1e-200],[3e-200]],[2.,4.])
+    assert fit['means'][0]==pytest.approx(2e-200,abs=0)
+    assert fit['scales'][0]==pytest.approx(1e-200,abs=0)
+    assert fit['coefficients'][0]==pytest.approx(2/3)
+    assert predict_ridge(fit,[1e-200])==pytest.approx(7/3)

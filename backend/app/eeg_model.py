@@ -63,9 +63,15 @@ def fit_ridge(x, y):
     if x.ndim != 2 or y.ndim != 1 or len(x) != len(y) or len(x) == 0 or not np.isfinite(x).all() or not np.isfinite(y).all():
         raise ValueError('Finite training rows are required')
     means = np.mean(x, axis=0)
-    scales = np.std(x, axis=0, ddof=0)
+    centered = x - means
+    magnitude = np.max(np.abs(centered), axis=0)
+    denominator = np.where(magnitude == 0, 1., magnitude)
+    # Population scaling, normalized first to avoid squared-value underflow.
+    scales = magnitude * np.std(centered / denominator, axis=0, ddof=0)
     scales[np.ptp(x, axis=0) == 0] = 1.
-    standardized = (x - means) / scales
+    if not np.isfinite(scales).all() or np.any(scales <= 0):
+        raise ValueError('Finite nonzero population scales required')
+    standardized = centered / scales
     intercept = float(np.mean(y))
     augmented = np.concatenate([standardized, np.eye(x.shape[1])], axis=0)
     target = np.concatenate([y - intercept, np.zeros(x.shape[1])])
