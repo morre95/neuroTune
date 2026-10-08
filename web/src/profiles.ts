@@ -56,8 +56,8 @@ export function mountProfiles(hooks:Hooks) {
     const row=document.createElement('fieldset');row.className='mix-track';
     row.innerHTML=`<legend></legend>
       <label>Source recording<select required aria-label="Source recording"></select></label>
-      <label>Trim start (seconds)<input name="start" type="number" min="0" step="0.001" required></label>
-      <label>Trim end (seconds)<input name="end" type="number" min="0.001" step="0.001" required></label>
+      <label>Trim start (seconds)<input name="start" type="number" min="0" step="any" required></label>
+      <label>Trim end (seconds)<input name="end" type="number" min="${1 / 48000}" step="any" required></label>
       <label>Track gain<input name="gain" type="number" min="0" max="4" step="any" required></label>
       <label><input name="track-loop" type="checkbox"> Loop source recording</label>
       <button type="button">Remove track</button>`;

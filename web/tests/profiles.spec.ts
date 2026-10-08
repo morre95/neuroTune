@@ -142,3 +142,50 @@ test('gain headroom accepts the exact decimal boundary and rejects a real excess
   await expect(page.locator('#message')).toHaveText('Tone and background gains must total at most 0.95.');
   expect(saved).toBe(1);
 });
+
+test('sample-precision trims survive creating, adding, selecting and editing tracks', async ({page})=> {
+  const fractionalDuration=0.10002083333333334;
+  const singleSampleDuration=0.000020833333333333333;
+  const fractionalStart=0.000041666666666666665;
+  const assets=[{id:'fractional',filename:'Fractional.wav',status:'ready',duration_seconds:fractionalDuration},{id:'single',filename:'One sample.wav',status:'ready',duration_seconds:singleSampleDuration}];
+  const recipes:any[]=[];
+  const versions:any[]=[];
+  await page.route('**/v1/auth/login',route=>route.fulfill({json:{access_token:'access',refresh_token:'refresh'}}));
+  await page.route('**/v1/audio/assets',route=>route.fulfill({json:assets}));
+  await page.route('**/v1/audio/renders',async route=> {
+    const recipe=route.request().postDataJSON();recipes.push(recipe);
+    await route.fulfill({status:202,json:{id:'r1',status:'pending',recipe}});
+  });
+  await page.route('**/v1/audio/renders/r1',route=>route.fulfill({json:{id:'r1',status:'ready',progress:1,recipe:recipes.at(-1)}}));
+  await page.route('**/v1/audio/profiles**',async route=> {
+    if(route.request().method()==='GET') await route.fulfill({json:versions});
+    else {
+      const version={...route.request().postDataJSON(),id:'v1',profile_id:'p1',version:1,recipe:recipes.at(-1),duration_seconds:30};
+      versions.push(version);await route.fulfill({status:201,json:version});
+    }
+  });
+  await page.goto('/editor/');
+  await page.getByLabel('Email').fill('person@example.com');await page.getByLabel('Password').fill('correct-horse');
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await page.getByRole('button',{name:'Create profile from Fractional.wav'}).click();
+  await page.getByLabel('Profile name').fill('Precise trims');await page.getByLabel('Background duration').fill('30');
+  await page.getByRole('button',{name:'Render background',exact:true}).click();
+  await expect.poll(()=>recipes.length).toBe(1);
+  expect(recipes[0].tracks[0].trim_end_seconds).toBe(fractionalDuration);
+  await page.getByRole('button',{name:'Add track',exact:true}).click();
+  const tracks=page.locator('.mix-track');
+  await expect(tracks.nth(1).getByLabel('Trim end')).toHaveValue(String(fractionalDuration));
+  await tracks.nth(1).getByLabel('Source recording',{exact:true}).selectOption('single');
+  await tracks.nth(0).getByLabel('Trim start').fill(String(fractionalStart));
+  await page.getByRole('button',{name:'Render background',exact:true}).click();
+  await expect.poll(()=>recipes.length).toBe(2);
+  expect(recipes[1].tracks).toMatchObject([{trim_start_seconds:fractionalStart,trim_end_seconds:fractionalDuration},{asset_id:'single',trim_start_seconds:0,trim_end_seconds:singleSampleDuration}]);
+  await expect(page.getByRole('button',{name:'Save profile',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Save profile',exact:true}).click();
+  await page.getByRole('button',{name:'Edit Precise trims version 1'}).click();
+  await expect(tracks.nth(0).getByLabel('Trim start')).toHaveValue(String(fractionalStart));
+  await expect(tracks.nth(1).getByLabel('Trim end')).toHaveValue(String(singleSampleDuration));
+  await page.getByRole('button',{name:'Render background',exact:true}).click();
+  await expect.poll(()=>recipes.length).toBe(3);
+  expect(recipes[2]).toEqual(recipes[1]);
+});
