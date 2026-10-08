@@ -21,6 +21,7 @@ class MeditationHomePage extends StatelessWidget {
     this.connectingMuse = false,
     this.onCalibration,
     this.pendingFeedback = 0,
+    this.manualAction = true,
     this.message,
   });
   final List<LocalAudioProfile> profiles;
@@ -37,6 +38,7 @@ class MeditationHomePage extends StatelessWidget {
       onHistory,
       onLogout;
   final int pendingFeedback;
+  final bool manualAction;
   final VoidCallback? onCalibration;
   final bool connectingMuse;
   final String? message;
@@ -81,7 +83,7 @@ class MeditationHomePage extends StatelessWidget {
               'Ladda ned och verifiera en ljudprofil innan du börjar.',
             ),
           const SizedBox(height: 12),
-          const Text('Fast frekvensskillnad'),
+          const Text('Eget tonval för nästa session'),
           Wrap(
             spacing: 8,
             children: [
@@ -94,7 +96,7 @@ class MeditationHomePage extends StatelessWidget {
               ])
                 ChoiceChip(
                   label: Text('${a.beatHz.toInt()} Hz'),
-                  selected: action == a,
+                  selected: manualAction && action == a,
                   onSelected: (_) => onAction(a),
                 ),
             ],
@@ -137,6 +139,9 @@ class MeditationHomePage extends StatelessWidget {
               onPressed: onCalibration,
               child: const Text('Kalibrering'),
             ),
+          const Text(
+            'Utan ett eget tonval används ditt sparade val eller rekommendationen för den profil, ögoninställning och datakälla du startar.',
+          ),
         ],
       ),
     );

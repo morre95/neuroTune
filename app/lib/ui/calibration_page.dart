@@ -18,6 +18,8 @@ class CalibrationPage extends StatelessWidget {
     this.pendingFeedback = const [],
     this.message,
     this.syncStatus,
+    this.onResults,
+    this.onPreference,
   });
   final List<CalibrationProgress> progress;
   final List<SavedSession> pendingFeedback;
@@ -27,6 +29,8 @@ class CalibrationPage extends StatelessWidget {
   final ValueChanged<CalibrationPlan> onResume;
   final ValueChanged<SavedSession> onFeedback;
   final VoidCallback onBack;
+  final ValueChanged<CalibrationPlan>? onResults;
+  final ValueChanged<DataOrigin>? onPreference;
   final bool busy;
   final Widget? syncStatus;
   final String? message;
@@ -59,6 +63,13 @@ class CalibrationPage extends StatelessWidget {
           const Text(
             'Välj en nedladdad ljudprofil på meditationssidan för att börja en ny serie.',
           ),
+        if (profile != null && onPreference != null)
+          for (final origin in [DataOrigin.simulator, DataOrigin.muse])
+            if (progress.any((p) => p.complete && p.plan.origin == origin))
+              TextButton(
+                onPressed: busy ? null : () => onPreference!(origin),
+                child: Text('Fast ton för vald profil · ${origin.name}'),
+              ),
         for (final session in pendingFeedback.where(
           (s) => s.manifest.meditation?['mode'] != 'calibration',
         )) ...[
@@ -94,6 +105,11 @@ class CalibrationPage extends StatelessWidget {
               child: Text(
                 'Fortsätt serie · session ${(progress[index].nextSlot ?? 0) + 1}',
               ),
+            ),
+          if (progress[index].complete && onResults != null)
+            FilledButton(
+              onPressed: busy ? null : () => onResults!(progress[index].plan),
+              child: const Text('Resultat och fast ton'),
             ),
           if (progress[index].complete)
             for (var slot = 0; slot < 10; slot++)

@@ -17,6 +17,8 @@ import 'data/repository.dart';
 import 'data/upload_sync.dart';
 import 'data/profile_library.dart';
 import 'data/calibration_repository.dart';
+import 'data/meditation_preference_repository.dart';
+import 'ui/meditation_preference_page.dart';
 import 'ui/calibration_page.dart';
 import 'ui/feedback_page.dart';
 import 'ui/meditation_sync_status.dart';
@@ -59,6 +61,7 @@ enum _Screen {
   profiles,
   calibration,
   feedback,
+  preference,
 }
 
 typedef _Remote = ({
@@ -104,6 +107,11 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     widget.database,
     _repository,
   );
+  late final MeditationPreferenceRepository _preferences =
+      MeditationPreferenceRepository(widget.database, _calibration);
+  FixedMeditationChoice? _preferenceChoice;
+  List<CalibrationSlotResult> _preferenceResults = [];
+  bool _manualFixedAction = false;
   List<CalibrationProgress> _calibrationProgress = [];
   List<SavedSession> _pendingMeditationFeedback = [];
   Set<String> _revealedPlans = {};
@@ -417,6 +425,10 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     _revealedPlans = {};
     _feedbackSession = null;
     _feedbackDraft = null;
+    _preferenceChoice = null;
+    _preferenceResults = [];
+    _manualFixedAction = false;
+    _fixedAction = StimulusAction.control;
     widget.api.accessToken = null;
     widget.api.refreshToken = null;
     setState(() => _screen = _Screen.auth);
@@ -545,6 +557,102 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         setState(() => _error = 'Kalibreringen kunde inte läsas: $error');
       }
     }
+  }
+
+  Future<void> _openCurrentPreference(DataOrigin origin) async {
+    final profile = _readyProfile;
+    if (profile == null) return;
+    await _openPreference(
+      MeditationSetupContext(profile: profile, eyeState: _eyes, origin: origin),
+    );
+  }
+
+  Future<void> _openResults(CalibrationPlan plan) => _openPreference(
+    MeditationSetupContext(
+      profile: plan.profile,
+      eyeState: plan.eyeState,
+      origin: plan.origin,
+    ),
+    planId: plan.id,
+  );
+
+  Future<void> _openPreference(
+    MeditationSetupContext setup, {
+    String? planId,
+  }) async {
+    final owner = widget.api.accountId;
+    final auth = widget.api.authGeneration;
+    final navigation = ++_experimentNavigationGeneration;
+    bool current() =>
+        mounted &&
+        owner != null &&
+        widget.api.accountId == owner &&
+        widget.api.authGeneration == auth &&
+        _experimentNavigationGeneration == navigation &&
+        _screen == _Screen.calibration;
+    if (!current()) return;
+    try {
+      final choice = await _preferences.resolve(owner!, setup);
+      if (!current()) return;
+      final results = planId == null
+          ? <CalibrationSlotResult>[]
+          : await _preferences.revealedResults(owner, planId);
+      if (!current() || (planId != null && results.isEmpty)) return;
+      setState(() {
+        _preferenceChoice = choice;
+        _preferenceResults = results;
+        _screen = _Screen.preference;
+      });
+    } catch (e) {
+      if (current()) setState(() => _error = 'Resultaten kunde inte läsas: $e');
+    }
+  }
+
+  Future<void> _choosePreference(StimulusAction action) async {
+    final setup = _preferenceChoice!.setup;
+    final owner = widget.api.accountId!;
+    final auth = widget.api.authGeneration;
+    await _preferences.choose(owner, setup, action);
+    final choice = await _preferences.resolve(owner, setup);
+    if (!mounted ||
+        widget.api.accountId != owner ||
+        widget.api.authGeneration != auth ||
+        _screen != _Screen.preference ||
+        _preferenceChoice?.setup.key != setup.key) {
+      return;
+    }
+    setState(() {
+      _preferenceChoice = choice;
+      _manualFixedAction = false;
+      _fixedAction = choice.action;
+    });
+  }
+
+  Future<void> _additionalSeries() async {
+    final setup = _preferenceChoice!.setup;
+    final owner = widget.api.accountId!;
+    final auth = widget.api.authGeneration;
+    final plan = await _calibration.createPlan(
+      ownerAccountId: owner,
+      profile: setup.profile,
+      eyeState: setup.eyeState,
+      origin: setup.origin,
+    );
+    if (!mounted ||
+        widget.api.accountId != owner ||
+        widget.api.authGeneration != auth ||
+        _screen != _Screen.preference) {
+      return;
+    }
+    await _loadCalibration();
+    if (!mounted ||
+        widget.api.accountId != owner ||
+        widget.api.authGeneration != auth ||
+        _screen != _Screen.preference) {
+      return;
+    }
+    setState(() => _screen = _Screen.calibration);
+    await _startCalibration(plan);
   }
 
   AudioProfileVersion? get _readyProfile => _profileLibrary?.profiles
@@ -810,12 +918,33 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
           }
         };
       }
+      var fixedAction = _fixedAction;
+      if (plan == null) {
+        final owner = widget.api.accountId!;
+        final generation = widget.api.authGeneration;
+        final setup = MeditationSetupContext(
+          profile: profile,
+          eyeState: _eyes,
+          origin: origin,
+        );
+        if (_manualFixedAction) {
+          await _preferences.choose(owner, setup, _fixedAction);
+        }
+        final choice = await _preferences.resolve(owner, setup);
+        if (!mounted ||
+            attempt != _startAttempt ||
+            widget.api.accountId != owner ||
+            widget.api.authGeneration != generation) {
+          return;
+        }
+        fixedAction = choice.action;
+        _fixedAction = fixedAction;
+        _manualFixedAction = false;
+      }
       meditation = MeditationSetup(
         profile: profile,
         file: file,
-        action: plan == null
-            ? _fixedAction
-            : plan.schedule[progress!.nextSlot!],
+        action: plan == null ? fixedAction : plan.schedule[progress!.nextSlot!],
         metadata: plan == null
             ? {'owner_account_id': widget.api.accountId}
             : plan.sessionMetadata(progress!.nextSlot!),
@@ -1079,10 +1208,22 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
                   profiles: _profileLibrary?.profiles ?? [],
                   selectedProfileId: _selectedProfileId,
                   action: _fixedAction,
+                  manualAction: _manualFixedAction,
                   eyeState: _eyes,
-                  onProfile: (id) => setState(() => _selectedProfileId = id),
-                  onAction: (a) => setState(() => _fixedAction = a),
-                  onEyeState: (e) => setState(() => _eyes = e),
+                  onProfile: (id) => setState(() {
+                    _selectedProfileId = id;
+                    _manualFixedAction = false;
+                    _fixedAction = StimulusAction.control;
+                  }),
+                  onAction: (a) => setState(() {
+                    _fixedAction = a;
+                    _manualFixedAction = true;
+                  }),
+                  onEyeState: (e) => setState(() {
+                    _eyes = e;
+                    _manualFixedAction = false;
+                    _fixedAction = StimulusAction.control;
+                  }),
                   onCalibration: _openCalibration,
                   pendingFeedback: _pendingMeditationFeedback.length,
                   onSimulator: _openContact,
@@ -1170,6 +1311,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         onNewSeries: _newCalibration,
         onResume: _startCalibration,
         onFeedback: _openFeedback,
+        onResults: _openResults,
+        onPreference: _openCurrentPreference,
         busy: _calibrationBusy,
         message: _error,
         syncStatus: _syncStatus,
@@ -1183,6 +1326,13 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         message: _error,
         syncStatus: _syncStatus,
         onLater: _leaveFeedback,
+      ),
+      _Screen.preference => MeditationPreferencePage(
+        choice: _preferenceChoice!,
+        results: _preferenceResults,
+        onChoose: _choosePreference,
+        onAdditionalSeries: _additionalSeries,
+        onBack: () => setState(() => _screen = _Screen.calibration),
       ),
       _Screen.profiles => ProfilesPage(
         library: _profileLibrary!,
