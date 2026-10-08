@@ -194,3 +194,11 @@ class PersonalEegModel(Base):
     model_version: Mapped[str] = mapped_column(String(64))
     body_json: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class OwnerDeletionEpoch(Base):
+    """Publication invalidation state; not a model or statistics artifact."""
+    __tablename__ = 'owner_deletion_epochs'
+
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    epoch: Mapped[int] = mapped_column(Integer, default=0)

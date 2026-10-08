@@ -59,3 +59,27 @@ def test_meditation_sync_migration_preserves_legacy_and_durable_revision_queues(
     command.downgrade(config, '005_audio_profiles')
     assert 'meditation_feedback' not in inspect(db).get_table_names()
     db.dispose()
+
+
+def test_meditation_deletion_migration_scrubs_preexisting_deleted_evidence_and_keeps_retained_data(tmp_path, monkeypatch):
+    url = f"sqlite:///{tmp_path / 'deletion-migration.db'}"
+    monkeypatch.setattr(settings, 'database_url', url)
+    config = Config('alembic.ini')
+    command.upgrade(config, '006_meditation_sync')
+    db = create_engine(url)
+    with db.begin() as connection:
+        connection.execute(text("INSERT INTO users VALUES ('owner','owner@test','hash','2026-01-01')"))
+        connection.execute(text("INSERT INTO session_deletions VALUES ('owner','deleted',NULL,'2026-01-01')"))
+        connection.execute(text("INSERT INTO meditation_feedback VALUES ('owner','deleted',1,'{}','2026-01-01')"))
+        connection.execute(text("INSERT INTO meditation_training_jobs VALUES ('old-job','owner','muse','meditation-1','old','[{\"session_id\":\"deleted\"}]','queued',NULL,'2026-01-01'), ('kept-job','owner','simulator','meditation-1','kept','[{\"session_id\":\"kept\"}]','queued',NULL,'2026-01-01')"))
+        connection.execute(text("INSERT INTO meditation_training_requests VALUES ('old-request','owner','old-job','{\"session_id\":\"deleted\"}')"))
+    command.upgrade(config, 'head')
+    with db.connect() as connection:
+        assert connection.execute(text('SELECT count(*) FROM meditation_feedback')).scalar_one() == 0
+        assert connection.execute(text('SELECT id FROM meditation_training_jobs')).scalars().all() == ['kept-job']
+        assert connection.execute(text('SELECT count(*) FROM meditation_training_requests')).scalar_one() == 0
+        assert connection.execute(text('SELECT epoch FROM owner_deletion_epochs')).scalar_one() == 1
+        assert connection.execute(text('SELECT count(*) FROM session_deletions')).scalar_one() == 1
+    command.downgrade(config, '006_meditation_sync')
+    assert 'owner_deletion_epochs' not in inspect(db).get_table_names()
+    db.dispose()
