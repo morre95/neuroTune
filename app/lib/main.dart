@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
+import 'dart:math' show Random;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +16,9 @@ import 'data/database.dart';
 import 'data/repository.dart';
 import 'data/upload_sync.dart';
 import 'data/profile_library.dart';
+import 'data/calibration_repository.dart';
+import 'ui/calibration_page.dart';
+import 'ui/feedback_page.dart';
 import 'ui/profiles_page.dart';
 import 'platform/channels.dart';
 import 'session/session_controller.dart';
@@ -44,7 +48,17 @@ void main() {
   );
 }
 
-enum _Screen { auth, home, contact, session, history, playback, profiles }
+enum _Screen {
+  auth,
+  home,
+  contact,
+  session,
+  history,
+  playback,
+  profiles,
+  calibration,
+  feedback,
+}
 
 typedef _Remote = ({
   ExperimentConfig config,
@@ -85,6 +99,17 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     repository: _repository,
     api: widget.api,
   );
+  late final CalibrationRepository _calibration = CalibrationRepository(
+    widget.database,
+    _repository,
+  );
+  List<CalibrationProgress> _calibrationProgress = [];
+  List<SavedSession> _pendingMeditationFeedback = [];
+  Set<String> _revealedPlans = {};
+  CalibrationPlan? _activePlan;
+  SavedSession? _feedbackSession;
+  MeditationFeedback? _feedbackDraft;
+  bool _calibrationBusy = false;
   Timer? _uploadRetryTimer;
   _Screen _screen = _Screen.auth;
   ExperimentConfig _config = ExperimentConfig.defaults();
@@ -219,6 +244,11 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         await _ensureProfileLibrary();
         await _profileLibrary?.loadCached();
         _chooseReadyProfile();
+        final owner = widget.api.accountId;
+        if (owner != null) {
+          await _calibration.recoverInterruptedAttempts(owner);
+          await _loadCalibration();
+        }
       } else {
         _applyRemote(await _loadRemote(DataOrigin.simulator));
       }
@@ -380,6 +410,12 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     } catch (_) {}
     await widget.authStore.clear();
     _auth = null;
+    _activePlan = null;
+    _calibrationProgress = [];
+    _pendingMeditationFeedback = [];
+    _revealedPlans = {};
+    _feedbackSession = null;
+    _feedbackDraft = null;
     widget.api.accessToken = null;
     widget.api.refreshToken = null;
     setState(() => _screen = _Screen.auth);
@@ -460,7 +496,151 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     if (mounted) setState(() => _screen = _Screen.home);
   }
 
-  void _openContact() {
+  Future<void> _loadCalibration() async {
+    final owner = widget.api.accountId;
+    if (owner == null) return;
+    final progress = await _calibration.allProgress(owner);
+    final pending = await _calibration.pendingFeedback(owner);
+    if (widget.api.accountId != owner || !mounted) return;
+    _calibrationProgress = progress;
+    _pendingMeditationFeedback = pending;
+    _revealedPlans = {
+      for (final p in progress)
+        if (p.complete) p.plan.id,
+    };
+  }
+
+  Future<void> _openCalibration() async {
+    _experimentNavigationGeneration++;
+    try {
+      await _loadCalibration();
+      if (mounted) {
+        setState(() {
+          _error = null;
+          _screen = _Screen.calibration;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = 'Kalibreringen kunde inte läsas: $error');
+      }
+    }
+  }
+
+  AudioProfileVersion? get _readyProfile => _profileLibrary?.profiles
+      .where((p) => p.profile.id == _selectedProfileId && p.downloaded)
+      .firstOrNull
+      ?.profile;
+
+  Future<void> _newCalibration(DataOrigin origin) async {
+    if (_calibrationBusy) return;
+    final owner = widget.api.accountId;
+    final profile = _readyProfile;
+    if (owner == null || profile == null) return;
+    setState(() => _calibrationBusy = true);
+    try {
+      final plan = await _calibration.createPlan(
+        ownerAccountId: owner,
+        profile: profile,
+        eyeState: _eyes,
+        origin: origin,
+      );
+      if (!mounted || widget.api.accountId != owner) return;
+      await _loadCalibration();
+      await _launchCalibration(plan);
+    } catch (error) {
+      if (mounted && widget.api.accountId == owner) {
+        setState(() => _error = 'Serien kunde inte starta: $error');
+      }
+    } finally {
+      if (mounted) setState(() => _calibrationBusy = false);
+    }
+  }
+
+  Future<void> _startCalibration(CalibrationPlan plan) async {
+    if (_calibrationBusy) return;
+    setState(() => _calibrationBusy = true);
+    try {
+      await _launchCalibration(plan);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = 'Serien kunde inte fortsätta: $error');
+      }
+    } finally {
+      if (mounted) setState(() => _calibrationBusy = false);
+    }
+  }
+
+  Future<void> _launchCalibration(CalibrationPlan plan) async {
+    final owner = widget.api.accountId;
+    if (owner != plan.ownerAccountId) return;
+    final progress = await _calibration.progress(owner!, plan.id);
+    if (!mounted || widget.api.accountId != owner) return;
+    if (progress.awaitingFeedback.isNotEmpty) {
+      await _openFeedback(progress.awaitingFeedback.first);
+      return;
+    }
+    if (progress.complete) return;
+    final file = await _profileLibrary?.playableFile(plan.profile.id);
+    if (!mounted ||
+        widget.api.accountId != owner ||
+        _screen != _Screen.calibration) {
+      return;
+    }
+    if (file == null) {
+      setState(
+        () => _error =
+            'Ladda ned seriens låsta profilversion i ljudbiblioteket innan du fortsätter.',
+      );
+      return;
+    }
+    if (plan.origin == DataOrigin.muse) {
+      await _muse(calibrationPlan: plan);
+    } else {
+      _openContact(calibrationPlan: plan);
+    }
+  }
+
+  Future<void> _openFeedback(SavedSession session) async {
+    final owner = widget.api.accountId;
+    if (owner == null) return;
+    final pending = await _calibration.pendingFeedback(owner);
+    if (!pending.any((s) => s.id == session.id)) return;
+    final draft = await _calibration.feedback(owner, session.id);
+    if (!mounted || widget.api.accountId != owner) return;
+    setState(() {
+      _feedbackSession = session;
+      _feedbackDraft = draft;
+      _screen = _Screen.feedback;
+    });
+  }
+
+  Future<void> _saveFeedback(int? busy, int? relaxed) async {
+    final owner = widget.api.accountId;
+    final id = _feedbackSession?.id;
+    if (owner == null || id == null) throw StateError('Kontot ändrades.');
+    await _calibration.saveFeedback(
+      owner,
+      id,
+      mentalBusyness: busy,
+      relaxation: relaxed,
+    );
+    await _loadCalibration();
+  }
+
+  Future<void> _leaveFeedback() async {
+    await _loadCalibration();
+    if (mounted) {
+      setState(() {
+        _feedbackSession = null;
+        _feedbackDraft = null;
+        _screen = _Screen.calibration;
+      });
+    }
+  }
+
+  void _openContact({CalibrationPlan? calibrationPlan}) {
+    _activePlan = calibrationPlan;
     _experimentNavigationGeneration++;
     _usingMuse = false;
     _startSimulatorPreview();
@@ -552,6 +732,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       await _previewSub?.cancel();
     }
     MeditationSetup? meditation;
+    String? reservedId;
+    Future<void> Function(String)? beforeAcquire;
     if (_meditating) {
       // A prior navigation may still own an HTTP request (including refresh).
       // Join it before audio, and suppress every follow-up request in its chain.
@@ -563,17 +745,48 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       } catch (_) {}
       await _profileLibrary!.suspendNetwork();
       if (attempt != _startAttempt) return;
-      final id = _selectedProfileId;
+      final plan = _activePlan;
+      final id = plan?.profile.id ?? _selectedProfileId;
       if (id == null) throw StateError('Välj en nedladdad profil');
       final file = await _profileLibrary!.playableFile(id);
       if (file == null) throw StateError('Profilen är inte verifierad lokalt');
-      final profile = _profileLibrary!.profiles
-          .firstWhere((p) => p.profile.id == id)
-          .profile;
+      final profile =
+          plan?.profile ??
+          _profileLibrary!.profiles
+              .firstWhere((p) => p.profile.id == id)
+              .profile;
+      CalibrationProgress? progress;
+      if (plan != null) {
+        if (plan.ownerAccountId != widget.api.accountId ||
+            plan.origin != origin) {
+          throw StateError('Seriens konto eller datakälla ändrades.');
+        }
+        progress = await _calibration.progress(plan.ownerAccountId, plan.id);
+        if (progress.nextSlot == null || progress.awaitingFeedback.isNotEmpty) {
+          throw StateError('Slutför återkopplingen innan nästa session.');
+        }
+        reservedId = newSessionId(Random.secure());
+        final slot = progress.nextSlot!;
+        beforeAcquire = (id) async {
+          final reservedSlot = await _calibration.reserveAttempt(
+            plan.ownerAccountId,
+            plan.id,
+            id,
+          );
+          if (reservedSlot != slot) {
+            throw StateError('Kalibreringssessionen ändrades.');
+          }
+        };
+      }
       meditation = MeditationSetup(
         profile: profile,
         file: file,
-        action: _fixedAction,
+        action: plan == null
+            ? _fixedAction
+            : plan.schedule[progress!.nextSlot!],
+        metadata: plan == null
+            ? {'owner_account_id': widget.api.accountId}
+            : plan.sessionMetadata(progress!.nextSlot!),
       );
       _snapshot = BanditSnapshot.empty(
         experimentVersion: _config.version,
@@ -589,13 +802,15 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     final controller = SessionController(
       repository: _repository,
       meditation: meditation,
+      reservedSessionId: reservedId,
+      beforeAcquire: beforeAcquire,
       ownerEmail: _auth!.email,
       audio: widget.audio,
       keepAlive: widget.keepAlive,
       config: _config,
       snapshot: _snapshot!,
       mode: _mode,
-      eyeState: _eyes,
+      eyeState: _activePlan?.eyeState ?? _eyes,
       origin: origin,
     );
     final started = await controller.start(
@@ -603,6 +818,13 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     );
     if (!started) {
       controller.dispose();
+      if (_activePlan != null && reservedId != null) {
+        await _calibration.interruptAttempt(
+          _activePlan!.ownerAccountId,
+          reservedId,
+        );
+        await _loadCalibration();
+      }
       _showStartFailure(controller.error);
       return;
     }
@@ -655,7 +877,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     });
   }
 
-  Future<void> _muse() async {
+  Future<void> _muse({CalibrationPlan? calibrationPlan}) async {
+    _activePlan = calibrationPlan;
     _experimentNavigationGeneration++;
     if (_connectingMuse) return;
     _usingMuse = true;
@@ -699,23 +922,49 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
           ? 'Sessionen är sparad, men resurserna kunde inte stängas: $error'
           : 'Sessionen kunde inte sparas: $error';
     }
+    final wasMeditation = controller.isMeditation;
+    final feedbackOwner = widget.api.accountId;
+    final calibrationPlan = _activePlan;
+    final sessionId = controller.engine?.sessionId;
     controller.dispose();
     _session = null;
+    _activePlan = null;
     _usingMuse = false;
     _endingSession = false;
     _networkQuiet = false;
     _profileLibrary?.resumeNetwork();
     _retryUploads();
+    if (wasMeditation && feedbackOwner != null) {
+      try {
+        if (sessionId != null && calibrationPlan != null) {
+          await _calibration.interruptAttempt(
+            calibrationPlan.ownerAccountId,
+            sessionId,
+          );
+        }
+        await _loadCalibration();
+        final pending = await _calibration.pendingFeedback(feedbackOwner);
+        final session = pending.where((s) => s.id == sessionId).firstOrNull;
+        if (session != null) {
+          _error = failure;
+          await _openFeedback(session);
+          return;
+        }
+      } catch (error) {
+        failure ??= 'Kalibreringsresultatet kunde inte läsas: $error';
+      }
+    }
     if (mounted) {
       setState(() {
         _error = failure;
-        _screen = _Screen.home;
+        _screen = calibrationPlan == null ? _Screen.home : _Screen.calibration;
       });
     }
   }
 
   Future<void> _openHistory() async {
     _experimentNavigationGeneration++;
+    await _loadCalibration();
     _history = await _repository.listOwnedSessions(_auth!.email);
     final pending = await _repository.pendingDeletions(_auth!.email);
     _historyMessage = pending.isEmpty
@@ -802,6 +1051,8 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
                   onProfile: (id) => setState(() => _selectedProfileId = id),
                   onAction: (a) => setState(() => _fixedAction = a),
                   onEyeState: (e) => setState(() => _eyes = e),
+                  onCalibration: _openCalibration,
+                  pendingFeedback: _pendingMeditationFeedback.length,
                   onSimulator: _openContact,
                   onMuse: _muse,
                   connectingMuse: _connectingMuse,
@@ -834,7 +1085,11 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
               ),
       _Screen.contact => ContactPage(
         requireSignal: !_meditating,
-        startLabel: _meditating ? 'Starta meditation' : 'Starta baslinje',
+        startLabel: _activePlan != null
+            ? 'Starta kalibrering'
+            : _meditating
+            ? 'Starta meditation'
+            : 'Starta baslinje',
         batteryPercent: _usingMuse ? widget.muse.batteryPercent : null,
         batch: _contactBatch,
         onStereoTest: _toggleStereoTest,
@@ -851,13 +1106,21 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       ),
       _Screen.session => SessionPage(
         batteryPercent: _usingMuse ? widget.muse.batteryPercent : null,
-        view: _session!.view,
+        view: _activePlan == null
+            ? _session!.view
+            : _session!.view.withActionLabel(
+                meditationActionLabel(
+                  _session!.engine!.manifest(),
+                  revealedPlans: _revealedPlans,
+                ),
+              ),
         onStop: () => _session?.interrupt(StopReason.manual),
         onContinue: () => _session?.continueSession(),
         onFinish: _endingSession ? null : _finishSession,
       ),
       _Screen.history => HistoryPage(
         sessions: _history,
+        revealedPlans: _revealedPlans,
         onDelete: _deleteSessions,
         message: _historyMessage,
         onOpen: (session) => setState(() {
@@ -865,6 +1128,26 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
           _screen = _Screen.playback;
         }),
         onBack: () => setState(() => _screen = _Screen.home),
+      ),
+      _Screen.calibration => CalibrationPage(
+        progress: _calibrationProgress,
+        pendingFeedback: _pendingMeditationFeedback,
+        profile: _readyProfile,
+        eyeState: _eyes,
+        onNewSeries: _newCalibration,
+        onResume: _startCalibration,
+        onFeedback: _openFeedback,
+        busy: _calibrationBusy,
+        message: _error,
+        onBack: () => setState(() => _screen = _Screen.home),
+      ),
+      _Screen.feedback => FeedbackPage(
+        key: ValueKey(_feedbackSession!.id),
+        sessionId: _feedbackSession!.id,
+        feedback: _feedbackDraft,
+        onSave: _saveFeedback,
+        message: _error,
+        onLater: _leaveFeedback,
       ),
       _Screen.profiles => ProfilesPage(
         library: _profileLibrary!,
@@ -877,6 +1160,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       ),
       _Screen.playback => PlaybackPage(
         session: _playback!,
+        revealedPlans: _revealedPlans,
         onBack: () => setState(() => _screen = _Screen.history),
       ),
     };

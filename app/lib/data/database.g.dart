@@ -1631,6 +1631,1366 @@ class CachedAudioProfilesCompanion extends UpdateCompanion<CachedAudioProfile> {
   }
 }
 
+class $CalibrationPlansTable extends CalibrationPlans
+    with TableInfo<$CalibrationPlansTable, StoredCalibrationPlan> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CalibrationPlansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerAccountIdMeta = const VerificationMeta(
+    'ownerAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerAccountId = GeneratedColumn<String>(
+    'owner_account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _bodyJsonMeta = const VerificationMeta(
+    'bodyJson',
+  );
+  @override
+  late final GeneratedColumn<String> bodyJson = GeneratedColumn<String>(
+    'body_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncStateMeta = const VerificationMeta(
+    'syncState',
+  );
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+    'sync_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerAccountId,
+    id,
+    bodyJson,
+    syncState,
+    attempts,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'calibration_plans';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredCalibrationPlan> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_account_id')) {
+      context.handle(
+        _ownerAccountIdMeta,
+        ownerAccountId.isAcceptableOrUnknown(
+          data['owner_account_id']!,
+          _ownerAccountIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerAccountIdMeta);
+    }
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('body_json')) {
+      context.handle(
+        _bodyJsonMeta,
+        bodyJson.isAcceptableOrUnknown(data['body_json']!, _bodyJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_bodyJsonMeta);
+    }
+    if (data.containsKey('sync_state')) {
+      context.handle(
+        _syncStateMeta,
+        syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerAccountId, id};
+  @override
+  StoredCalibrationPlan map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredCalibrationPlan(
+      ownerAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_account_id'],
+      )!,
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      bodyJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body_json'],
+      )!,
+      syncState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_state'],
+      )!,
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $CalibrationPlansTable createAlias(String alias) {
+    return $CalibrationPlansTable(attachedDatabase, alias);
+  }
+}
+
+class StoredCalibrationPlan extends DataClass
+    implements Insertable<StoredCalibrationPlan> {
+  final String ownerAccountId;
+  final String id;
+  final String bodyJson;
+  final String syncState;
+  final int attempts;
+  final String? lastError;
+  const StoredCalibrationPlan({
+    required this.ownerAccountId,
+    required this.id,
+    required this.bodyJson,
+    required this.syncState,
+    required this.attempts,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_account_id'] = Variable<String>(ownerAccountId);
+    map['id'] = Variable<String>(id);
+    map['body_json'] = Variable<String>(bodyJson);
+    map['sync_state'] = Variable<String>(syncState);
+    map['attempts'] = Variable<int>(attempts);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  CalibrationPlansCompanion toCompanion(bool nullToAbsent) {
+    return CalibrationPlansCompanion(
+      ownerAccountId: Value(ownerAccountId),
+      id: Value(id),
+      bodyJson: Value(bodyJson),
+      syncState: Value(syncState),
+      attempts: Value(attempts),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory StoredCalibrationPlan.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredCalibrationPlan(
+      ownerAccountId: serializer.fromJson<String>(json['ownerAccountId']),
+      id: serializer.fromJson<String>(json['id']),
+      bodyJson: serializer.fromJson<String>(json['bodyJson']),
+      syncState: serializer.fromJson<String>(json['syncState']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerAccountId': serializer.toJson<String>(ownerAccountId),
+      'id': serializer.toJson<String>(id),
+      'bodyJson': serializer.toJson<String>(bodyJson),
+      'syncState': serializer.toJson<String>(syncState),
+      'attempts': serializer.toJson<int>(attempts),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  StoredCalibrationPlan copyWith({
+    String? ownerAccountId,
+    String? id,
+    String? bodyJson,
+    String? syncState,
+    int? attempts,
+    Value<String?> lastError = const Value.absent(),
+  }) => StoredCalibrationPlan(
+    ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+    id: id ?? this.id,
+    bodyJson: bodyJson ?? this.bodyJson,
+    syncState: syncState ?? this.syncState,
+    attempts: attempts ?? this.attempts,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  StoredCalibrationPlan copyWithCompanion(CalibrationPlansCompanion data) {
+    return StoredCalibrationPlan(
+      ownerAccountId: data.ownerAccountId.present
+          ? data.ownerAccountId.value
+          : this.ownerAccountId,
+      id: data.id.present ? data.id.value : this.id,
+      bodyJson: data.bodyJson.present ? data.bodyJson.value : this.bodyJson,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredCalibrationPlan(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('id: $id, ')
+          ..write('bodyJson: $bodyJson, ')
+          ..write('syncState: $syncState, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(ownerAccountId, id, bodyJson, syncState, attempts, lastError);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredCalibrationPlan &&
+          other.ownerAccountId == this.ownerAccountId &&
+          other.id == this.id &&
+          other.bodyJson == this.bodyJson &&
+          other.syncState == this.syncState &&
+          other.attempts == this.attempts &&
+          other.lastError == this.lastError);
+}
+
+class CalibrationPlansCompanion extends UpdateCompanion<StoredCalibrationPlan> {
+  final Value<String> ownerAccountId;
+  final Value<String> id;
+  final Value<String> bodyJson;
+  final Value<String> syncState;
+  final Value<int> attempts;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const CalibrationPlansCompanion({
+    this.ownerAccountId = const Value.absent(),
+    this.id = const Value.absent(),
+    this.bodyJson = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CalibrationPlansCompanion.insert({
+    required String ownerAccountId,
+    required String id,
+    required String bodyJson,
+    this.syncState = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerAccountId = Value(ownerAccountId),
+       id = Value(id),
+       bodyJson = Value(bodyJson);
+  static Insertable<StoredCalibrationPlan> custom({
+    Expression<String>? ownerAccountId,
+    Expression<String>? id,
+    Expression<String>? bodyJson,
+    Expression<String>? syncState,
+    Expression<int>? attempts,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerAccountId != null) 'owner_account_id': ownerAccountId,
+      if (id != null) 'id': id,
+      if (bodyJson != null) 'body_json': bodyJson,
+      if (syncState != null) 'sync_state': syncState,
+      if (attempts != null) 'attempts': attempts,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CalibrationPlansCompanion copyWith({
+    Value<String>? ownerAccountId,
+    Value<String>? id,
+    Value<String>? bodyJson,
+    Value<String>? syncState,
+    Value<int>? attempts,
+    Value<String?>? lastError,
+    Value<int>? rowid,
+  }) {
+    return CalibrationPlansCompanion(
+      ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+      id: id ?? this.id,
+      bodyJson: bodyJson ?? this.bodyJson,
+      syncState: syncState ?? this.syncState,
+      attempts: attempts ?? this.attempts,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerAccountId.present) {
+      map['owner_account_id'] = Variable<String>(ownerAccountId.value);
+    }
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (bodyJson.present) {
+      map['body_json'] = Variable<String>(bodyJson.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalibrationPlansCompanion(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('id: $id, ')
+          ..write('bodyJson: $bodyJson, ')
+          ..write('syncState: $syncState, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CalibrationAttemptsTable extends CalibrationAttempts
+    with TableInfo<$CalibrationAttemptsTable, CalibrationAttempt> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CalibrationAttemptsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerAccountIdMeta = const VerificationMeta(
+    'ownerAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerAccountId = GeneratedColumn<String>(
+    'owner_account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _planIdMeta = const VerificationMeta('planId');
+  @override
+  late final GeneratedColumn<String> planId = GeneratedColumn<String>(
+    'plan_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _slotMeta = const VerificationMeta('slot');
+  @override
+  late final GeneratedColumn<int> slot = GeneratedColumn<int>(
+    'slot',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+    'state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('reserved'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerAccountId,
+    sessionId,
+    planId,
+    slot,
+    state,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'calibration_attempts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CalibrationAttempt> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_account_id')) {
+      context.handle(
+        _ownerAccountIdMeta,
+        ownerAccountId.isAcceptableOrUnknown(
+          data['owner_account_id']!,
+          _ownerAccountIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerAccountIdMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('plan_id')) {
+      context.handle(
+        _planIdMeta,
+        planId.isAcceptableOrUnknown(data['plan_id']!, _planIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_planIdMeta);
+    }
+    if (data.containsKey('slot')) {
+      context.handle(
+        _slotMeta,
+        slot.isAcceptableOrUnknown(data['slot']!, _slotMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_slotMeta);
+    }
+    if (data.containsKey('state')) {
+      context.handle(
+        _stateMeta,
+        state.isAcceptableOrUnknown(data['state']!, _stateMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {sessionId};
+  @override
+  CalibrationAttempt map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CalibrationAttempt(
+      ownerAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_account_id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      planId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}plan_id'],
+      )!,
+      slot: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}slot'],
+      )!,
+      state: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}state'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CalibrationAttemptsTable createAlias(String alias) {
+    return $CalibrationAttemptsTable(attachedDatabase, alias);
+  }
+}
+
+class CalibrationAttempt extends DataClass
+    implements Insertable<CalibrationAttempt> {
+  final String ownerAccountId;
+  final String sessionId;
+  final String planId;
+  final int slot;
+  final String state;
+  final DateTime createdAt;
+  const CalibrationAttempt({
+    required this.ownerAccountId,
+    required this.sessionId,
+    required this.planId,
+    required this.slot,
+    required this.state,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_account_id'] = Variable<String>(ownerAccountId);
+    map['session_id'] = Variable<String>(sessionId);
+    map['plan_id'] = Variable<String>(planId);
+    map['slot'] = Variable<int>(slot);
+    map['state'] = Variable<String>(state);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  CalibrationAttemptsCompanion toCompanion(bool nullToAbsent) {
+    return CalibrationAttemptsCompanion(
+      ownerAccountId: Value(ownerAccountId),
+      sessionId: Value(sessionId),
+      planId: Value(planId),
+      slot: Value(slot),
+      state: Value(state),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory CalibrationAttempt.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CalibrationAttempt(
+      ownerAccountId: serializer.fromJson<String>(json['ownerAccountId']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      planId: serializer.fromJson<String>(json['planId']),
+      slot: serializer.fromJson<int>(json['slot']),
+      state: serializer.fromJson<String>(json['state']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerAccountId': serializer.toJson<String>(ownerAccountId),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'planId': serializer.toJson<String>(planId),
+      'slot': serializer.toJson<int>(slot),
+      'state': serializer.toJson<String>(state),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  CalibrationAttempt copyWith({
+    String? ownerAccountId,
+    String? sessionId,
+    String? planId,
+    int? slot,
+    String? state,
+    DateTime? createdAt,
+  }) => CalibrationAttempt(
+    ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+    sessionId: sessionId ?? this.sessionId,
+    planId: planId ?? this.planId,
+    slot: slot ?? this.slot,
+    state: state ?? this.state,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  CalibrationAttempt copyWithCompanion(CalibrationAttemptsCompanion data) {
+    return CalibrationAttempt(
+      ownerAccountId: data.ownerAccountId.present
+          ? data.ownerAccountId.value
+          : this.ownerAccountId,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      planId: data.planId.present ? data.planId.value : this.planId,
+      slot: data.slot.present ? data.slot.value : this.slot,
+      state: data.state.present ? data.state.value : this.state,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalibrationAttempt(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('planId: $planId, ')
+          ..write('slot: $slot, ')
+          ..write('state: $state, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(ownerAccountId, sessionId, planId, slot, state, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CalibrationAttempt &&
+          other.ownerAccountId == this.ownerAccountId &&
+          other.sessionId == this.sessionId &&
+          other.planId == this.planId &&
+          other.slot == this.slot &&
+          other.state == this.state &&
+          other.createdAt == this.createdAt);
+}
+
+class CalibrationAttemptsCompanion extends UpdateCompanion<CalibrationAttempt> {
+  final Value<String> ownerAccountId;
+  final Value<String> sessionId;
+  final Value<String> planId;
+  final Value<int> slot;
+  final Value<String> state;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const CalibrationAttemptsCompanion({
+    this.ownerAccountId = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.planId = const Value.absent(),
+    this.slot = const Value.absent(),
+    this.state = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CalibrationAttemptsCompanion.insert({
+    required String ownerAccountId,
+    required String sessionId,
+    required String planId,
+    required int slot,
+    this.state = const Value.absent(),
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : ownerAccountId = Value(ownerAccountId),
+       sessionId = Value(sessionId),
+       planId = Value(planId),
+       slot = Value(slot),
+       createdAt = Value(createdAt);
+  static Insertable<CalibrationAttempt> custom({
+    Expression<String>? ownerAccountId,
+    Expression<String>? sessionId,
+    Expression<String>? planId,
+    Expression<int>? slot,
+    Expression<String>? state,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerAccountId != null) 'owner_account_id': ownerAccountId,
+      if (sessionId != null) 'session_id': sessionId,
+      if (planId != null) 'plan_id': planId,
+      if (slot != null) 'slot': slot,
+      if (state != null) 'state': state,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CalibrationAttemptsCompanion copyWith({
+    Value<String>? ownerAccountId,
+    Value<String>? sessionId,
+    Value<String>? planId,
+    Value<int>? slot,
+    Value<String>? state,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return CalibrationAttemptsCompanion(
+      ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+      sessionId: sessionId ?? this.sessionId,
+      planId: planId ?? this.planId,
+      slot: slot ?? this.slot,
+      state: state ?? this.state,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerAccountId.present) {
+      map['owner_account_id'] = Variable<String>(ownerAccountId.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (planId.present) {
+      map['plan_id'] = Variable<String>(planId.value);
+    }
+    if (slot.present) {
+      map['slot'] = Variable<int>(slot.value);
+    }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalibrationAttemptsCompanion(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('planId: $planId, ')
+          ..write('slot: $slot, ')
+          ..write('state: $state, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MeditationFeedbackRowsTable extends MeditationFeedbackRows
+    with TableInfo<$MeditationFeedbackRowsTable, MeditationFeedbackRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MeditationFeedbackRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _ownerAccountIdMeta = const VerificationMeta(
+    'ownerAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> ownerAccountId = GeneratedColumn<String>(
+    'owner_account_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sessionIdMeta = const VerificationMeta(
+    'sessionId',
+  );
+  @override
+  late final GeneratedColumn<String> sessionId = GeneratedColumn<String>(
+    'session_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mentalBusynessMeta = const VerificationMeta(
+    'mentalBusyness',
+  );
+  @override
+  late final GeneratedColumn<int> mentalBusyness = GeneratedColumn<int>(
+    'mental_busyness',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _relaxationMeta = const VerificationMeta(
+    'relaxation',
+  );
+  @override
+  late final GeneratedColumn<int> relaxation = GeneratedColumn<int>(
+    'relaxation',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _revisionMeta = const VerificationMeta(
+    'revision',
+  );
+  @override
+  late final GeneratedColumn<int> revision = GeneratedColumn<int>(
+    'revision',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncStateMeta = const VerificationMeta(
+    'syncState',
+  );
+  @override
+  late final GeneratedColumn<String> syncState = GeneratedColumn<String>(
+    'sync_state',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _attemptsMeta = const VerificationMeta(
+    'attempts',
+  );
+  @override
+  late final GeneratedColumn<int> attempts = GeneratedColumn<int>(
+    'attempts',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _lastErrorMeta = const VerificationMeta(
+    'lastError',
+  );
+  @override
+  late final GeneratedColumn<String> lastError = GeneratedColumn<String>(
+    'last_error',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    ownerAccountId,
+    sessionId,
+    mentalBusyness,
+    relaxation,
+    revision,
+    syncState,
+    attempts,
+    lastError,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'meditation_feedback_rows';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MeditationFeedbackRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('owner_account_id')) {
+      context.handle(
+        _ownerAccountIdMeta,
+        ownerAccountId.isAcceptableOrUnknown(
+          data['owner_account_id']!,
+          _ownerAccountIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_ownerAccountIdMeta);
+    }
+    if (data.containsKey('session_id')) {
+      context.handle(
+        _sessionIdMeta,
+        sessionId.isAcceptableOrUnknown(data['session_id']!, _sessionIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sessionIdMeta);
+    }
+    if (data.containsKey('mental_busyness')) {
+      context.handle(
+        _mentalBusynessMeta,
+        mentalBusyness.isAcceptableOrUnknown(
+          data['mental_busyness']!,
+          _mentalBusynessMeta,
+        ),
+      );
+    }
+    if (data.containsKey('relaxation')) {
+      context.handle(
+        _relaxationMeta,
+        relaxation.isAcceptableOrUnknown(data['relaxation']!, _relaxationMeta),
+      );
+    }
+    if (data.containsKey('revision')) {
+      context.handle(
+        _revisionMeta,
+        revision.isAcceptableOrUnknown(data['revision']!, _revisionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_revisionMeta);
+    }
+    if (data.containsKey('sync_state')) {
+      context.handle(
+        _syncStateMeta,
+        syncState.isAcceptableOrUnknown(data['sync_state']!, _syncStateMeta),
+      );
+    }
+    if (data.containsKey('attempts')) {
+      context.handle(
+        _attemptsMeta,
+        attempts.isAcceptableOrUnknown(data['attempts']!, _attemptsMeta),
+      );
+    }
+    if (data.containsKey('last_error')) {
+      context.handle(
+        _lastErrorMeta,
+        lastError.isAcceptableOrUnknown(data['last_error']!, _lastErrorMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {ownerAccountId, sessionId};
+  @override
+  MeditationFeedbackRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MeditationFeedbackRow(
+      ownerAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}owner_account_id'],
+      )!,
+      sessionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}session_id'],
+      )!,
+      mentalBusyness: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}mental_busyness'],
+      ),
+      relaxation: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}relaxation'],
+      ),
+      revision: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}revision'],
+      )!,
+      syncState: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sync_state'],
+      )!,
+      attempts: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}attempts'],
+      )!,
+      lastError: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}last_error'],
+      ),
+    );
+  }
+
+  @override
+  $MeditationFeedbackRowsTable createAlias(String alias) {
+    return $MeditationFeedbackRowsTable(attachedDatabase, alias);
+  }
+}
+
+class MeditationFeedbackRow extends DataClass
+    implements Insertable<MeditationFeedbackRow> {
+  final String ownerAccountId;
+  final String sessionId;
+  final int? mentalBusyness;
+  final int? relaxation;
+  final int revision;
+  final String syncState;
+  final int attempts;
+  final String? lastError;
+  const MeditationFeedbackRow({
+    required this.ownerAccountId,
+    required this.sessionId,
+    this.mentalBusyness,
+    this.relaxation,
+    required this.revision,
+    required this.syncState,
+    required this.attempts,
+    this.lastError,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['owner_account_id'] = Variable<String>(ownerAccountId);
+    map['session_id'] = Variable<String>(sessionId);
+    if (!nullToAbsent || mentalBusyness != null) {
+      map['mental_busyness'] = Variable<int>(mentalBusyness);
+    }
+    if (!nullToAbsent || relaxation != null) {
+      map['relaxation'] = Variable<int>(relaxation);
+    }
+    map['revision'] = Variable<int>(revision);
+    map['sync_state'] = Variable<String>(syncState);
+    map['attempts'] = Variable<int>(attempts);
+    if (!nullToAbsent || lastError != null) {
+      map['last_error'] = Variable<String>(lastError);
+    }
+    return map;
+  }
+
+  MeditationFeedbackRowsCompanion toCompanion(bool nullToAbsent) {
+    return MeditationFeedbackRowsCompanion(
+      ownerAccountId: Value(ownerAccountId),
+      sessionId: Value(sessionId),
+      mentalBusyness: mentalBusyness == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mentalBusyness),
+      relaxation: relaxation == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relaxation),
+      revision: Value(revision),
+      syncState: Value(syncState),
+      attempts: Value(attempts),
+      lastError: lastError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastError),
+    );
+  }
+
+  factory MeditationFeedbackRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MeditationFeedbackRow(
+      ownerAccountId: serializer.fromJson<String>(json['ownerAccountId']),
+      sessionId: serializer.fromJson<String>(json['sessionId']),
+      mentalBusyness: serializer.fromJson<int?>(json['mentalBusyness']),
+      relaxation: serializer.fromJson<int?>(json['relaxation']),
+      revision: serializer.fromJson<int>(json['revision']),
+      syncState: serializer.fromJson<String>(json['syncState']),
+      attempts: serializer.fromJson<int>(json['attempts']),
+      lastError: serializer.fromJson<String?>(json['lastError']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'ownerAccountId': serializer.toJson<String>(ownerAccountId),
+      'sessionId': serializer.toJson<String>(sessionId),
+      'mentalBusyness': serializer.toJson<int?>(mentalBusyness),
+      'relaxation': serializer.toJson<int?>(relaxation),
+      'revision': serializer.toJson<int>(revision),
+      'syncState': serializer.toJson<String>(syncState),
+      'attempts': serializer.toJson<int>(attempts),
+      'lastError': serializer.toJson<String?>(lastError),
+    };
+  }
+
+  MeditationFeedbackRow copyWith({
+    String? ownerAccountId,
+    String? sessionId,
+    Value<int?> mentalBusyness = const Value.absent(),
+    Value<int?> relaxation = const Value.absent(),
+    int? revision,
+    String? syncState,
+    int? attempts,
+    Value<String?> lastError = const Value.absent(),
+  }) => MeditationFeedbackRow(
+    ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+    sessionId: sessionId ?? this.sessionId,
+    mentalBusyness: mentalBusyness.present
+        ? mentalBusyness.value
+        : this.mentalBusyness,
+    relaxation: relaxation.present ? relaxation.value : this.relaxation,
+    revision: revision ?? this.revision,
+    syncState: syncState ?? this.syncState,
+    attempts: attempts ?? this.attempts,
+    lastError: lastError.present ? lastError.value : this.lastError,
+  );
+  MeditationFeedbackRow copyWithCompanion(
+    MeditationFeedbackRowsCompanion data,
+  ) {
+    return MeditationFeedbackRow(
+      ownerAccountId: data.ownerAccountId.present
+          ? data.ownerAccountId.value
+          : this.ownerAccountId,
+      sessionId: data.sessionId.present ? data.sessionId.value : this.sessionId,
+      mentalBusyness: data.mentalBusyness.present
+          ? data.mentalBusyness.value
+          : this.mentalBusyness,
+      relaxation: data.relaxation.present
+          ? data.relaxation.value
+          : this.relaxation,
+      revision: data.revision.present ? data.revision.value : this.revision,
+      syncState: data.syncState.present ? data.syncState.value : this.syncState,
+      attempts: data.attempts.present ? data.attempts.value : this.attempts,
+      lastError: data.lastError.present ? data.lastError.value : this.lastError,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MeditationFeedbackRow(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('mentalBusyness: $mentalBusyness, ')
+          ..write('relaxation: $relaxation, ')
+          ..write('revision: $revision, ')
+          ..write('syncState: $syncState, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    ownerAccountId,
+    sessionId,
+    mentalBusyness,
+    relaxation,
+    revision,
+    syncState,
+    attempts,
+    lastError,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MeditationFeedbackRow &&
+          other.ownerAccountId == this.ownerAccountId &&
+          other.sessionId == this.sessionId &&
+          other.mentalBusyness == this.mentalBusyness &&
+          other.relaxation == this.relaxation &&
+          other.revision == this.revision &&
+          other.syncState == this.syncState &&
+          other.attempts == this.attempts &&
+          other.lastError == this.lastError);
+}
+
+class MeditationFeedbackRowsCompanion
+    extends UpdateCompanion<MeditationFeedbackRow> {
+  final Value<String> ownerAccountId;
+  final Value<String> sessionId;
+  final Value<int?> mentalBusyness;
+  final Value<int?> relaxation;
+  final Value<int> revision;
+  final Value<String> syncState;
+  final Value<int> attempts;
+  final Value<String?> lastError;
+  final Value<int> rowid;
+  const MeditationFeedbackRowsCompanion({
+    this.ownerAccountId = const Value.absent(),
+    this.sessionId = const Value.absent(),
+    this.mentalBusyness = const Value.absent(),
+    this.relaxation = const Value.absent(),
+    this.revision = const Value.absent(),
+    this.syncState = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  MeditationFeedbackRowsCompanion.insert({
+    required String ownerAccountId,
+    required String sessionId,
+    this.mentalBusyness = const Value.absent(),
+    this.relaxation = const Value.absent(),
+    required int revision,
+    this.syncState = const Value.absent(),
+    this.attempts = const Value.absent(),
+    this.lastError = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : ownerAccountId = Value(ownerAccountId),
+       sessionId = Value(sessionId),
+       revision = Value(revision);
+  static Insertable<MeditationFeedbackRow> custom({
+    Expression<String>? ownerAccountId,
+    Expression<String>? sessionId,
+    Expression<int>? mentalBusyness,
+    Expression<int>? relaxation,
+    Expression<int>? revision,
+    Expression<String>? syncState,
+    Expression<int>? attempts,
+    Expression<String>? lastError,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (ownerAccountId != null) 'owner_account_id': ownerAccountId,
+      if (sessionId != null) 'session_id': sessionId,
+      if (mentalBusyness != null) 'mental_busyness': mentalBusyness,
+      if (relaxation != null) 'relaxation': relaxation,
+      if (revision != null) 'revision': revision,
+      if (syncState != null) 'sync_state': syncState,
+      if (attempts != null) 'attempts': attempts,
+      if (lastError != null) 'last_error': lastError,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  MeditationFeedbackRowsCompanion copyWith({
+    Value<String>? ownerAccountId,
+    Value<String>? sessionId,
+    Value<int?>? mentalBusyness,
+    Value<int?>? relaxation,
+    Value<int>? revision,
+    Value<String>? syncState,
+    Value<int>? attempts,
+    Value<String?>? lastError,
+    Value<int>? rowid,
+  }) {
+    return MeditationFeedbackRowsCompanion(
+      ownerAccountId: ownerAccountId ?? this.ownerAccountId,
+      sessionId: sessionId ?? this.sessionId,
+      mentalBusyness: mentalBusyness ?? this.mentalBusyness,
+      relaxation: relaxation ?? this.relaxation,
+      revision: revision ?? this.revision,
+      syncState: syncState ?? this.syncState,
+      attempts: attempts ?? this.attempts,
+      lastError: lastError ?? this.lastError,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (ownerAccountId.present) {
+      map['owner_account_id'] = Variable<String>(ownerAccountId.value);
+    }
+    if (sessionId.present) {
+      map['session_id'] = Variable<String>(sessionId.value);
+    }
+    if (mentalBusyness.present) {
+      map['mental_busyness'] = Variable<int>(mentalBusyness.value);
+    }
+    if (relaxation.present) {
+      map['relaxation'] = Variable<int>(relaxation.value);
+    }
+    if (revision.present) {
+      map['revision'] = Variable<int>(revision.value);
+    }
+    if (syncState.present) {
+      map['sync_state'] = Variable<String>(syncState.value);
+    }
+    if (attempts.present) {
+      map['attempts'] = Variable<int>(attempts.value);
+    }
+    if (lastError.present) {
+      map['last_error'] = Variable<String>(lastError.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MeditationFeedbackRowsCompanion(')
+          ..write('ownerAccountId: $ownerAccountId, ')
+          ..write('sessionId: $sessionId, ')
+          ..write('mentalBusyness: $mentalBusyness, ')
+          ..write('relaxation: $relaxation, ')
+          ..write('revision: $revision, ')
+          ..write('syncState: $syncState, ')
+          ..write('attempts: $attempts, ')
+          ..write('lastError: $lastError, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1639,6 +2999,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $KvStoreTable kvStore = $KvStoreTable(this);
   late final $CachedAudioProfilesTable cachedAudioProfiles =
       $CachedAudioProfilesTable(this);
+  late final $CalibrationPlansTable calibrationPlans = $CalibrationPlansTable(
+    this,
+  );
+  late final $CalibrationAttemptsTable calibrationAttempts =
+      $CalibrationAttemptsTable(this);
+  late final $MeditationFeedbackRowsTable meditationFeedbackRows =
+      $MeditationFeedbackRowsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1648,6 +3015,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     uploadJobs,
     kvStore,
     cachedAudioProfiles,
+    calibrationPlans,
+    calibrationAttempts,
+    meditationFeedbackRows,
   ];
 }
 
@@ -2527,6 +3897,756 @@ typedef $$CachedAudioProfilesTableProcessedTableManager =
       CachedAudioProfile,
       PrefetchHooks Function()
     >;
+typedef $$CalibrationPlansTableCreateCompanionBuilder =
+    CalibrationPlansCompanion Function({
+      required String ownerAccountId,
+      required String id,
+      required String bodyJson,
+      Value<String> syncState,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+typedef $$CalibrationPlansTableUpdateCompanionBuilder =
+    CalibrationPlansCompanion Function({
+      Value<String> ownerAccountId,
+      Value<String> id,
+      Value<String> bodyJson,
+      Value<String> syncState,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+
+class $$CalibrationPlansTableFilterComposer
+    extends Composer<_$AppDatabase, $CalibrationPlansTable> {
+  $$CalibrationPlansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bodyJson => $composableBuilder(
+    column: $table.bodyJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CalibrationPlansTableOrderingComposer
+    extends Composer<_$AppDatabase, $CalibrationPlansTable> {
+  $$CalibrationPlansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bodyJson => $composableBuilder(
+    column: $table.bodyJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CalibrationPlansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CalibrationPlansTable> {
+  $$CalibrationPlansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get bodyJson =>
+      $composableBuilder(column: $table.bodyJson, builder: (column) => column);
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+}
+
+class $$CalibrationPlansTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CalibrationPlansTable,
+          StoredCalibrationPlan,
+          $$CalibrationPlansTableFilterComposer,
+          $$CalibrationPlansTableOrderingComposer,
+          $$CalibrationPlansTableAnnotationComposer,
+          $$CalibrationPlansTableCreateCompanionBuilder,
+          $$CalibrationPlansTableUpdateCompanionBuilder,
+          (
+            StoredCalibrationPlan,
+            BaseReferences<
+              _$AppDatabase,
+              $CalibrationPlansTable,
+              StoredCalibrationPlan
+            >,
+          ),
+          StoredCalibrationPlan,
+          PrefetchHooks Function()
+        > {
+  $$CalibrationPlansTableTableManager(
+    _$AppDatabase db,
+    $CalibrationPlansTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CalibrationPlansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CalibrationPlansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CalibrationPlansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerAccountId = const Value.absent(),
+                Value<String> id = const Value.absent(),
+                Value<String> bodyJson = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CalibrationPlansCompanion(
+                ownerAccountId: ownerAccountId,
+                id: id,
+                bodyJson: bodyJson,
+                syncState: syncState,
+                attempts: attempts,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerAccountId,
+                required String id,
+                required String bodyJson,
+                Value<String> syncState = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CalibrationPlansCompanion.insert(
+                ownerAccountId: ownerAccountId,
+                id: id,
+                bodyJson: bodyJson,
+                syncState: syncState,
+                attempts: attempts,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CalibrationPlansTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CalibrationPlansTable,
+      StoredCalibrationPlan,
+      $$CalibrationPlansTableFilterComposer,
+      $$CalibrationPlansTableOrderingComposer,
+      $$CalibrationPlansTableAnnotationComposer,
+      $$CalibrationPlansTableCreateCompanionBuilder,
+      $$CalibrationPlansTableUpdateCompanionBuilder,
+      (
+        StoredCalibrationPlan,
+        BaseReferences<
+          _$AppDatabase,
+          $CalibrationPlansTable,
+          StoredCalibrationPlan
+        >,
+      ),
+      StoredCalibrationPlan,
+      PrefetchHooks Function()
+    >;
+typedef $$CalibrationAttemptsTableCreateCompanionBuilder =
+    CalibrationAttemptsCompanion Function({
+      required String ownerAccountId,
+      required String sessionId,
+      required String planId,
+      required int slot,
+      Value<String> state,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$CalibrationAttemptsTableUpdateCompanionBuilder =
+    CalibrationAttemptsCompanion Function({
+      Value<String> ownerAccountId,
+      Value<String> sessionId,
+      Value<String> planId,
+      Value<int> slot,
+      Value<String> state,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$CalibrationAttemptsTableFilterComposer
+    extends Composer<_$AppDatabase, $CalibrationAttemptsTable> {
+  $$CalibrationAttemptsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get planId => $composableBuilder(
+    column: $table.planId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get slot => $composableBuilder(
+    column: $table.slot,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CalibrationAttemptsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CalibrationAttemptsTable> {
+  $$CalibrationAttemptsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get planId => $composableBuilder(
+    column: $table.planId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get slot => $composableBuilder(
+    column: $table.slot,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get state => $composableBuilder(
+    column: $table.state,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CalibrationAttemptsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CalibrationAttemptsTable> {
+  $$CalibrationAttemptsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<String> get planId =>
+      $composableBuilder(column: $table.planId, builder: (column) => column);
+
+  GeneratedColumn<int> get slot =>
+      $composableBuilder(column: $table.slot, builder: (column) => column);
+
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$CalibrationAttemptsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CalibrationAttemptsTable,
+          CalibrationAttempt,
+          $$CalibrationAttemptsTableFilterComposer,
+          $$CalibrationAttemptsTableOrderingComposer,
+          $$CalibrationAttemptsTableAnnotationComposer,
+          $$CalibrationAttemptsTableCreateCompanionBuilder,
+          $$CalibrationAttemptsTableUpdateCompanionBuilder,
+          (
+            CalibrationAttempt,
+            BaseReferences<
+              _$AppDatabase,
+              $CalibrationAttemptsTable,
+              CalibrationAttempt
+            >,
+          ),
+          CalibrationAttempt,
+          PrefetchHooks Function()
+        > {
+  $$CalibrationAttemptsTableTableManager(
+    _$AppDatabase db,
+    $CalibrationAttemptsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CalibrationAttemptsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CalibrationAttemptsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CalibrationAttemptsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerAccountId = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<String> planId = const Value.absent(),
+                Value<int> slot = const Value.absent(),
+                Value<String> state = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CalibrationAttemptsCompanion(
+                ownerAccountId: ownerAccountId,
+                sessionId: sessionId,
+                planId: planId,
+                slot: slot,
+                state: state,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerAccountId,
+                required String sessionId,
+                required String planId,
+                required int slot,
+                Value<String> state = const Value.absent(),
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CalibrationAttemptsCompanion.insert(
+                ownerAccountId: ownerAccountId,
+                sessionId: sessionId,
+                planId: planId,
+                slot: slot,
+                state: state,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CalibrationAttemptsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CalibrationAttemptsTable,
+      CalibrationAttempt,
+      $$CalibrationAttemptsTableFilterComposer,
+      $$CalibrationAttemptsTableOrderingComposer,
+      $$CalibrationAttemptsTableAnnotationComposer,
+      $$CalibrationAttemptsTableCreateCompanionBuilder,
+      $$CalibrationAttemptsTableUpdateCompanionBuilder,
+      (
+        CalibrationAttempt,
+        BaseReferences<
+          _$AppDatabase,
+          $CalibrationAttemptsTable,
+          CalibrationAttempt
+        >,
+      ),
+      CalibrationAttempt,
+      PrefetchHooks Function()
+    >;
+typedef $$MeditationFeedbackRowsTableCreateCompanionBuilder =
+    MeditationFeedbackRowsCompanion Function({
+      required String ownerAccountId,
+      required String sessionId,
+      Value<int?> mentalBusyness,
+      Value<int?> relaxation,
+      required int revision,
+      Value<String> syncState,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+typedef $$MeditationFeedbackRowsTableUpdateCompanionBuilder =
+    MeditationFeedbackRowsCompanion Function({
+      Value<String> ownerAccountId,
+      Value<String> sessionId,
+      Value<int?> mentalBusyness,
+      Value<int?> relaxation,
+      Value<int> revision,
+      Value<String> syncState,
+      Value<int> attempts,
+      Value<String?> lastError,
+      Value<int> rowid,
+    });
+
+class $$MeditationFeedbackRowsTableFilterComposer
+    extends Composer<_$AppDatabase, $MeditationFeedbackRowsTable> {
+  $$MeditationFeedbackRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get mentalBusyness => $composableBuilder(
+    column: $table.mentalBusyness,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get relaxation => $composableBuilder(
+    column: $table.relaxation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get revision => $composableBuilder(
+    column: $table.revision,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MeditationFeedbackRowsTableOrderingComposer
+    extends Composer<_$AppDatabase, $MeditationFeedbackRowsTable> {
+  $$MeditationFeedbackRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sessionId => $composableBuilder(
+    column: $table.sessionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get mentalBusyness => $composableBuilder(
+    column: $table.mentalBusyness,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get relaxation => $composableBuilder(
+    column: $table.relaxation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get revision => $composableBuilder(
+    column: $table.revision,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get syncState => $composableBuilder(
+    column: $table.syncState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get attempts => $composableBuilder(
+    column: $table.attempts,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get lastError => $composableBuilder(
+    column: $table.lastError,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MeditationFeedbackRowsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MeditationFeedbackRowsTable> {
+  $$MeditationFeedbackRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get ownerAccountId => $composableBuilder(
+    column: $table.ownerAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sessionId =>
+      $composableBuilder(column: $table.sessionId, builder: (column) => column);
+
+  GeneratedColumn<int> get mentalBusyness => $composableBuilder(
+    column: $table.mentalBusyness,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get relaxation => $composableBuilder(
+    column: $table.relaxation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get revision =>
+      $composableBuilder(column: $table.revision, builder: (column) => column);
+
+  GeneratedColumn<String> get syncState =>
+      $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  GeneratedColumn<int> get attempts =>
+      $composableBuilder(column: $table.attempts, builder: (column) => column);
+
+  GeneratedColumn<String> get lastError =>
+      $composableBuilder(column: $table.lastError, builder: (column) => column);
+}
+
+class $$MeditationFeedbackRowsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MeditationFeedbackRowsTable,
+          MeditationFeedbackRow,
+          $$MeditationFeedbackRowsTableFilterComposer,
+          $$MeditationFeedbackRowsTableOrderingComposer,
+          $$MeditationFeedbackRowsTableAnnotationComposer,
+          $$MeditationFeedbackRowsTableCreateCompanionBuilder,
+          $$MeditationFeedbackRowsTableUpdateCompanionBuilder,
+          (
+            MeditationFeedbackRow,
+            BaseReferences<
+              _$AppDatabase,
+              $MeditationFeedbackRowsTable,
+              MeditationFeedbackRow
+            >,
+          ),
+          MeditationFeedbackRow,
+          PrefetchHooks Function()
+        > {
+  $$MeditationFeedbackRowsTableTableManager(
+    _$AppDatabase db,
+    $MeditationFeedbackRowsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MeditationFeedbackRowsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$MeditationFeedbackRowsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$MeditationFeedbackRowsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> ownerAccountId = const Value.absent(),
+                Value<String> sessionId = const Value.absent(),
+                Value<int?> mentalBusyness = const Value.absent(),
+                Value<int?> relaxation = const Value.absent(),
+                Value<int> revision = const Value.absent(),
+                Value<String> syncState = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MeditationFeedbackRowsCompanion(
+                ownerAccountId: ownerAccountId,
+                sessionId: sessionId,
+                mentalBusyness: mentalBusyness,
+                relaxation: relaxation,
+                revision: revision,
+                syncState: syncState,
+                attempts: attempts,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String ownerAccountId,
+                required String sessionId,
+                Value<int?> mentalBusyness = const Value.absent(),
+                Value<int?> relaxation = const Value.absent(),
+                required int revision,
+                Value<String> syncState = const Value.absent(),
+                Value<int> attempts = const Value.absent(),
+                Value<String?> lastError = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => MeditationFeedbackRowsCompanion.insert(
+                ownerAccountId: ownerAccountId,
+                sessionId: sessionId,
+                mentalBusyness: mentalBusyness,
+                relaxation: relaxation,
+                revision: revision,
+                syncState: syncState,
+                attempts: attempts,
+                lastError: lastError,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MeditationFeedbackRowsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MeditationFeedbackRowsTable,
+      MeditationFeedbackRow,
+      $$MeditationFeedbackRowsTableFilterComposer,
+      $$MeditationFeedbackRowsTableOrderingComposer,
+      $$MeditationFeedbackRowsTableAnnotationComposer,
+      $$MeditationFeedbackRowsTableCreateCompanionBuilder,
+      $$MeditationFeedbackRowsTableUpdateCompanionBuilder,
+      (
+        MeditationFeedbackRow,
+        BaseReferences<
+          _$AppDatabase,
+          $MeditationFeedbackRowsTable,
+          MeditationFeedbackRow
+        >,
+      ),
+      MeditationFeedbackRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2539,4 +4659,13 @@ class $AppDatabaseManager {
       $$KvStoreTableTableManager(_db, _db.kvStore);
   $$CachedAudioProfilesTableTableManager get cachedAudioProfiles =>
       $$CachedAudioProfilesTableTableManager(_db, _db.cachedAudioProfiles);
+  $$CalibrationPlansTableTableManager get calibrationPlans =>
+      $$CalibrationPlansTableTableManager(_db, _db.calibrationPlans);
+  $$CalibrationAttemptsTableTableManager get calibrationAttempts =>
+      $$CalibrationAttemptsTableTableManager(_db, _db.calibrationAttempts);
+  $$MeditationFeedbackRowsTableTableManager get meditationFeedbackRows =>
+      $$MeditationFeedbackRowsTableTableManager(
+        _db,
+        _db.meditationFeedbackRows,
+      );
 }

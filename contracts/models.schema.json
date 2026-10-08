@@ -82,6 +82,10 @@
             "adaptive"
           ]
         },
+        "owner_account_id": {"type": "string", "format": "uuid"},
+        "calibration_plan_id": {"type": "string", "format": "uuid"},
+        "calibration_slot": {"type": "integer", "minimum": 0, "maximum": 9},
+        "calibration_schema_version": {"const": 1},
         "profile_version_id": {
           "type": "string",
           "format": "uuid"

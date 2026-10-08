@@ -19,6 +19,8 @@ class MeditationHomePage extends StatelessWidget {
     required this.onHistory,
     required this.onLogout,
     this.connectingMuse = false,
+    this.onCalibration,
+    this.pendingFeedback = 0,
     this.message,
   });
   final List<LocalAudioProfile> profiles;
@@ -34,6 +36,8 @@ class MeditationHomePage extends StatelessWidget {
       onExperiments,
       onHistory,
       onLogout;
+  final int pendingFeedback;
+  final VoidCallback? onCalibration;
   final bool connectingMuse;
   final String? message;
   @override
@@ -124,6 +128,15 @@ class MeditationHomePage extends StatelessWidget {
             onPressed: onExperiments,
             child: const Text('Experiments'),
           ),
+          if (pendingFeedback > 0)
+            Text(
+              '$pendingFeedback sessioner väntar på återkoppling i Kalibrering.',
+            ),
+          if (onCalibration != null)
+            TextButton(
+              onPressed: onCalibration,
+              child: const Text('Kalibrering'),
+            ),
         ],
       ),
     );

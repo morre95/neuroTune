@@ -10,6 +10,7 @@ class HistoryPage extends StatefulWidget {
     required this.sessions,
     required this.onOpen,
     required this.onBack,
+    this.revealedPlans = const {},
     this.onDelete,
     this.message,
   });
@@ -17,6 +18,7 @@ class HistoryPage extends StatefulWidget {
   final List<SavedSession> sessions;
   final ValueChanged<SavedSession> onOpen;
   final VoidCallback onBack;
+  final Set<String> revealedPlans;
   final Future<void> Function(List<String>)? onDelete;
   final String? message;
 
@@ -173,7 +175,7 @@ class _HistoryPageState extends State<HistoryPage> {
               title: Text(session.manifest.startedAtIso),
               subtitle: Text(
                 '${session.origin} · ${session.manifest.meditation == null ? session.mode : 'Meditation'} · '
-                '${session.manifest.meditation == null ? '${session.decisions.length} block' : meditationActionLabel(session.manifest)} · '
+                '${session.manifest.meditation == null ? '${session.decisions.length} block' : meditationActionLabel(session.manifest, revealedPlans: widget.revealedPlans)} · '
                 '${_duration(session.manifest.durationSeconds)}\n'
                 '${_outcome(session)}',
               ),

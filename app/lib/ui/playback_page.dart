@@ -6,10 +6,16 @@ import 'session_page.dart';
 import 'session_diagnostics.dart';
 
 class PlaybackPage extends StatefulWidget {
-  const PlaybackPage({super.key, required this.session, required this.onBack});
+  const PlaybackPage({
+    super.key,
+    required this.session,
+    required this.onBack,
+    this.revealedPlans = const {},
+  });
 
   final SavedSession session;
   final VoidCallback onBack;
+  final Set<String> revealedPlans;
 
   @override
   State<PlaybackPage> createState() => _PlaybackPageState();
@@ -38,7 +44,7 @@ class _PlaybackPageState extends State<PlaybackPage> {
         children: [
           Text('Tid ${frame?.timeSeconds.toStringAsFixed(0) ?? '-'} s'),
           Text(
-            'Åtgärd: ${widget.session.manifest.meditation == null ? actionLabel(decision?.action) : meditationActionLabel(widget.session.manifest)}',
+            'Åtgärd: ${widget.session.manifest.meditation == null ? actionLabel(decision?.action) : meditationActionLabel(widget.session.manifest, revealedPlans: widget.revealedPlans)}',
           ),
           Text('Theta ${_mean(frame, (channel) => channel.relativeTheta)}'),
           Text('Alpha ${_mean(frame, (channel) => channel.relativeAlpha)}'),

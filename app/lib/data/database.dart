@@ -49,15 +49,59 @@ class CachedAudioProfiles extends Table {
   Set<Column<Object>> get primaryKey => {ownerAccountId, versionId};
 }
 
+@DataClassName('StoredCalibrationPlan')
+class CalibrationPlans extends Table {
+  TextColumn get ownerAccountId => text()();
+  TextColumn get id => text()();
+  TextColumn get bodyJson => text()();
+  TextColumn get syncState => text().withDefault(const Constant('pending'))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  @override
+  Set<Column<Object>> get primaryKey => {ownerAccountId, id};
+}
+
+class CalibrationAttempts extends Table {
+  TextColumn get ownerAccountId => text()();
+  TextColumn get sessionId => text()();
+  TextColumn get planId => text()();
+  IntColumn get slot => integer()();
+  TextColumn get state => text().withDefault(const Constant('reserved'))();
+  DateTimeColumn get createdAt => dateTime()();
+  @override
+  Set<Column<Object>> get primaryKey => {sessionId};
+}
+
+class MeditationFeedbackRows extends Table {
+  TextColumn get ownerAccountId => text()();
+  TextColumn get sessionId => text()();
+  IntColumn get mentalBusyness => integer().nullable()();
+  IntColumn get relaxation => integer().nullable()();
+  IntColumn get revision => integer()();
+  TextColumn get syncState => text().withDefault(const Constant('pending'))();
+  IntColumn get attempts => integer().withDefault(const Constant(0))();
+  TextColumn get lastError => text().nullable()();
+  @override
+  Set<Column<Object>> get primaryKey => {ownerAccountId, sessionId};
+}
+
 @DriftDatabase(
-  tables: [StoredSessions, UploadJobs, KvStore, CachedAudioProfiles],
+  tables: [
+    StoredSessions,
+    UploadJobs,
+    KvStore,
+    CachedAudioProfiles,
+    CalibrationPlans,
+    CalibrationAttempts,
+    MeditationFeedbackRows,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
     : super(executor ?? driftDatabase(name: 'neurotune'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -65,6 +109,11 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.addColumn(uploadJobs, uploadJobs.ownerEmail);
       if (from < 3) await m.createTable(cachedAudioProfiles);
+      if (from < 4) {
+        await m.createTable(calibrationPlans);
+        await m.createTable(calibrationAttempts);
+        await m.createTable(meditationFeedbackRows);
+      }
     },
   );
 

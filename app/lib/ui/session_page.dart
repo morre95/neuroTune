@@ -36,6 +36,22 @@ class SessionView {
   final bool canStop;
   final bool meditation;
   final double? activeSeconds;
+  SessionView withActionLabel(String label) => SessionView(
+    message: message,
+    phase: phase,
+    blockLabel: blockLabel,
+    actionLabel: label,
+    theta: theta,
+    alpha: alpha,
+    beta: beta,
+    outerNir: outerNir,
+    nirZ: nirZ,
+    quality: quality,
+    canContinue: canContinue,
+    canStop: canStop,
+    meditation: meditation,
+    activeSeconds: activeSeconds,
+  );
 }
 
 class SessionPage extends StatelessWidget {
@@ -131,5 +147,14 @@ String actionLabel(String? action) {
 }
 
 /// Central presentation seam for fixed, calibration and adaptive sessions.
-String meditationActionLabel(SessionManifest manifest) =>
-    actionLabel(manifest.meditation?['fixed_action'] as String?);
+String meditationActionLabel(
+  SessionManifest manifest, {
+  Set<String> revealedPlans = const {},
+}) {
+  final meta = manifest.meditation;
+  if (meta?['mode'] == 'calibration' &&
+      !revealedPlans.contains(meta?['calibration_plan_id'])) {
+    return 'Dold till seriens slut';
+  }
+  return actionLabel(meta?['fixed_action'] as String?);
+}
