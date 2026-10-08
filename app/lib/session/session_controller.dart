@@ -607,6 +607,17 @@ class SessionController extends ChangeNotifier {
   void dispose() {
     _closed = true;
     _pauseOutputs();
+    if (isMeditation) {
+      // Resumable pauses retain focus. Terminal disposal must abandon it after
+      // a held start/checkpoint settles, including a start that acquired late.
+      _cleanupInBackground(() async {
+        try {
+          await _pausing;
+        } finally {
+          await audio.stop();
+        }
+      }, 'audio');
+    }
     _source?.stop();
     _audioEvents?.cancel();
     _frames?.cancel();

@@ -20,11 +20,16 @@ class InterruptedAudio extends PlaybackAudio implements PcmInterruptionSource {
   Stream<PcmInterruption> get interruptions => events.stream;
   @override
   Future<int> pauseAndCheckpoint() async {
-    final checkpoint = played;
-    await stop();
-    return checkpoint;
+    if (playing) pausedHead = played;
+    playing = false;
+    pending?.complete();
+    pending = null;
+    // Native pauses retain the focus request for a later gain notification.
+    return pausedHead;
   }
 
+  bool focusOwned = false;
+  int pausedHead = 0;
   final packets = <Uint8List>[];
   Completer<void>? pending;
   Completer<void>? heldStart;
@@ -40,7 +45,10 @@ class InterruptedAudio extends PlaybackAudio implements PcmInterruptionSource {
     await heldStart?.future;
     if (denyFocus) throw PlatformException(code: 'AUDIO_FOCUS_DENIED');
     if (failStart) throw StateError('Output unavailable');
-    return super.start(rate);
+    final latency = await super.start(rate);
+    pausedHead = 0;
+    focusOwned = true;
+    return latency;
   }
 
   @override
@@ -60,6 +68,8 @@ class InterruptedAudio extends PlaybackAudio implements PcmInterruptionSource {
 
   @override
   Future<void> stop() async {
+    focusOwned = false;
+    pausedHead = 0;
     playing = false;
     played = 0;
     pending?.complete();
@@ -220,6 +230,7 @@ void main() {
       await resuming;
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(audio.playing, false);
+      expect(audio.focusOwned, false);
       expect(service.active, false);
       expect(session.saved, false);
     },
@@ -390,6 +401,47 @@ void main() {
       session.interrupt(StopReason.background);
       await session.finish();
       expect((await repo.listSessions()).single.manifest.sessionId, id);
+      expect(service.active, false);
+    },
+  );
+  test(
+    'disposing releases retained native audio focus after a resumable pause',
+    () async {
+      final audio = InterruptedAudio();
+      final (session, _, service, _) = await setup(audio, dispose: false);
+      expect(await session.start(muse: SilentMuse()), true);
+      await session.pumpPlayback();
+      session.interrupt(StopReason.background);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(audio.playing, false);
+      expect(
+        audio.focusOwned,
+        true,
+        reason: 'A resumable native pause retains focus',
+      );
+      session.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(
+        audio.focusOwned,
+        false,
+        reason: 'Disposal must abandon retained focus',
+      );
+      expect(service.active, false);
+    },
+  );
+
+  test(
+    'ordinary disposal abandons focus while stopping playback and service',
+    () async {
+      final audio = InterruptedAudio();
+      final (session, _, service, _) = await setup(audio, dispose: false);
+      expect(await session.start(muse: SilentMuse()), true);
+      await session.pumpPlayback();
+      expect(audio.focusOwned, true);
+      session.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(audio.focusOwned, false);
+      expect(audio.playing, false);
       expect(service.active, false);
     },
   );
