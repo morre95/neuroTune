@@ -94,8 +94,9 @@ def run_once(db: Session) -> int:
             job.error = str(exc)
             db.commit()
     from app.audio import run_audio_jobs
+    from app.profiles import run_render_jobs
 
-    return len(jobs) + run_audio_jobs(db)
+    return len(jobs) + run_audio_jobs(db) + run_render_jobs(db)
 
 
 def main() -> None:

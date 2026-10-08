@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+test.beforeEach(async({page})=>{await page.route('**/v1/audio/profiles',route=>route.fulfill({json:[]}));});
 
 // HTTP is the system boundary. API/worker tests separately exercise real decoding.
 test('sign in, upload, follow durable status, and explicitly preview', async ({page}) => {
@@ -16,9 +17,9 @@ test('sign in, upload, follow durable status, and explicitly preview', async ({p
   await page.getByLabel('Email').fill('person@example.com');
   await page.getByLabel('Password').fill('correct-horse');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await page.getByLabel('Recording').setInputFiles({name:'rain.wav',mimeType:'audio/wav',buffer:Buffer.from('fixture')});
+  await page.getByLabel('Recording',{exact:true}).setInputFiles({name:'rain.wav',mimeType:'audio/wav',buffer:Buffer.from('fixture')});
   await page.getByRole('button',{name:'Upload recording'}).click();
-  await expect(page.getByText('rain.wav',{exact:true})).toBeVisible();
+  await expect(page.locator('#assets').getByText('rain.wav',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Preview rain.wav'})).toBeEnabled();
   await page.getByRole('button',{name:'Preview rain.wav'}).click();
   await expect(page.locator('audio')).toBeVisible();
@@ -45,9 +46,9 @@ test('upload refusal is actionable without losing the signed in library', async 
   await page.goto('/editor/');
   await page.getByLabel('Email').fill('person@example.com');await page.getByLabel('Password').fill('correct-horse');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await page.getByLabel('Recording').setInputFiles({name:'wrong.txt',mimeType:'text/plain',buffer:Buffer.from('text')});
+  await page.getByLabel('Recording',{exact:true}).setInputFiles({name:'wrong.txt',mimeType:'text/plain',buffer:Buffer.from('text')});
   await page.getByRole('button',{name:'Upload recording'}).click();
-  await expect(page.getByRole('status')).toHaveText('Choose a WAV, MP3, M4A/AAC, or FLAC recording.');
+  await expect(page.locator('#message')).toHaveText('Choose a WAV, MP3, M4A/AAC, or FLAC recording.');
   await expect(page.getByRole('button',{name:'Upload recording'})).toBeEnabled();
 });
 
@@ -85,6 +86,6 @@ test('a delayed refresh cannot cross sign-out and another account sign-in', asyn
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await expect.poll(()=>newRefreshStarted).toBe(true);
   await releaseOldRefresh!();
-  await expect(page.getByText('Bob private recording.wav',{exact:true})).toBeVisible();
+  await expect(page.locator('#assets').getByText('Bob private recording.wav',{exact:true})).toBeVisible();
   await expect(page.getByText('Alice private recording.wav',{exact:true})).toHaveCount(0);
 });

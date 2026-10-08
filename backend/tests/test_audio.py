@@ -75,7 +75,7 @@ def test_audio_migration_preserves_old_accounts(tmp_path, monkeypatch):
     with database.begin() as connection:
         connection.execute(text("INSERT INTO users (id,email,password_hash,created_at) VALUES ('old','old@example.com','hash','2026-01-01')"))
     command.upgrade(config, 'head')
-    assert 'audio_assets' in inspect(database).get_table_names()
+    assert {'audio_assets', 'audio_renders', 'audio_profile_versions'} <= set(inspect(database).get_table_names())
     with database.connect() as connection:
         assert connection.execute(text('SELECT email FROM users')).scalar() == 'old@example.com'
     database.dispose()

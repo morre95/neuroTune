@@ -1,0 +1,208 @@
+{
+  "$defs": {
+    "MixRecipe": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "duration_seconds": {
+          "default": 600,
+          "maximum": 600,
+          "minimum": 30,
+          "title": "Duration Seconds",
+          "type": "integer"
+        },
+        "tracks": {
+          "items": {
+            "$ref": "#/$defs/TrackRecipe"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "title": "Tracks",
+          "type": "array"
+        }
+      },
+      "required": [
+        "tracks"
+      ],
+      "title": "MixRecipe",
+      "type": "object"
+    },
+    "TrackRecipe": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "format": "uuid",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "trim_start_seconds": {
+          "default": 0,
+          "maximum": 600,
+          "minimum": 0,
+          "title": "Trim Start Seconds",
+          "type": "number"
+        },
+        "trim_end_seconds": {
+          "exclusiveMinimum": 0,
+          "maximum": 600,
+          "title": "Trim End Seconds",
+          "type": "number"
+        },
+        "gain": {
+          "default": 1,
+          "maximum": 4,
+          "minimum": 0,
+          "title": "Gain",
+          "type": "number"
+        },
+        "loop": {
+          "default": false,
+          "title": "Loop",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "asset_id",
+        "trim_end_seconds"
+      ],
+      "title": "TrackRecipe",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Published immutable metadata; tones contain no assigned binaural action.",
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "owner_account_id": {
+      "format": "uuid",
+      "title": "Owner Account Id",
+      "type": "string"
+    },
+    "profile_id": {
+      "format": "uuid",
+      "title": "Profile Id",
+      "type": "string"
+    },
+    "version": {
+      "minimum": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "name": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "background_asset_id": {
+      "format": "uuid",
+      "title": "Background Asset Id",
+      "type": "string"
+    },
+    "recipe": {
+      "$ref": "#/$defs/MixRecipe"
+    },
+    "carrier_hz": {
+      "maximum": 400,
+      "minimum": 100,
+      "title": "Carrier Hz",
+      "type": "number"
+    },
+    "tone_gain": {
+      "maximum": 0.95,
+      "minimum": 0,
+      "title": "Tone Gain",
+      "type": "number"
+    },
+    "background_gain": {
+      "maximum": 0.95,
+      "minimum": 0,
+      "title": "Background Gain",
+      "type": "number"
+    },
+    "loop": {
+      "title": "Loop",
+      "type": "boolean"
+    },
+    "duration_seconds": {
+      "maximum": 600,
+      "minimum": 30,
+      "title": "Duration Seconds",
+      "type": "integer"
+    },
+    "normalization_factor": {
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "title": "Normalization Factor",
+      "type": "number"
+    },
+    "checksum_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Checksum Sha256",
+      "type": "string"
+    },
+    "preview_checksum_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Preview Checksum Sha256",
+      "type": "string"
+    },
+    "sample_rate_hz": {
+      "const": 48000,
+      "title": "Sample Rate Hz",
+      "type": "integer"
+    },
+    "channels": {
+      "const": 2,
+      "title": "Channels",
+      "type": "integer"
+    },
+    "sample_width_bytes": {
+      "const": 2,
+      "title": "Sample Width Bytes",
+      "type": "integer"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "owner_account_id",
+    "profile_id",
+    "version",
+    "name",
+    "background_asset_id",
+    "recipe",
+    "carrier_hz",
+    "tone_gain",
+    "background_gain",
+    "loop",
+    "duration_seconds",
+    "normalization_factor",
+    "checksum_sha256",
+    "preview_checksum_sha256",
+    "sample_rate_hz",
+    "channels",
+    "sample_width_bytes",
+    "created_at"
+  ],
+  "title": "ProfileVersion",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

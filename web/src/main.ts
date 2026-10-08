@@ -1,4 +1,5 @@
 import './style.css';
+import {mountProfiles} from './profiles';
 
 type Tokens = {access_token:string;refresh_token:string};
 export type AudioAsset = {id:string;schema_version:number;filename:string;status:'pending'|'ready'|'failed';error:string|null;duration_seconds:number|null;checksum_sha256:string|null};
@@ -18,6 +19,15 @@ const library = document.querySelector<HTMLElement>('#library')!;
 const upload = document.querySelector<HTMLFormElement>('#upload')!;
 const message = document.querySelector<HTMLElement>('#message')!;
 const audio = document.querySelector<HTMLAudioElement>('audio')!;
+const profiles=mountProfiles({api,generation:()=>generation,audition,message:text=>{message.textContent=text;}});
+
+async function audition(path:string) {
+  clearPreview();const epoch=generation;
+  const response=await api(path);const blob=await response.blob();
+  if(!tokens || epoch!==generation) return;
+  previewUrl=URL.createObjectURL(blob);audio.src=previewUrl;audio.hidden=false;
+  await audio.play().catch(()=>{message.textContent='Press Play to audition your background.';});
+}
 
 function clearPreview() {
   audio.pause(); audio.removeAttribute('src'); audio.load(); audio.hidden=true;
@@ -26,6 +36,7 @@ function clearPreview() {
 }
 function signedOut() {
   generation++; tokens=null; refreshing=null; clearTimeout(poll); clearPreview();
+  profiles.clear();
   login.hidden=false; library.hidden=true; document.querySelector('#assets')!.replaceChildren();
 }
 export async function api(path:string, init:RequestInit = {}):Promise<Response> {
@@ -84,8 +95,10 @@ async function refreshLibrary() {
         } catch(error) {message.textContent=(error as Error).message;}
         finally {button.disabled=false;}
       };
-      item.append(name,status,button); list.append(item);
+      const create=document.createElement('button');create.textContent=`Create profile from ${asset.filename}`;create.disabled=asset.status!=='ready';create.onclick=()=>profiles.choose(asset);
+      item.append(name,status,button,create); list.append(item);
     }
+    await profiles.refresh(assets);
     if(assets.some(asset=>asset.status==='pending')) poll=window.setTimeout(refreshLibrary,1500);
   } catch(error) {message.textContent=(error as Error).message;}
 }

@@ -27,3 +27,32 @@ Only approved demuxers and local file/pipe protocols are enabled.
 Checks: `npm run build`; `npx playwright install chromium` then `npm test`.
 Browser tests exercise visible controls at the HTTP boundary; backend tests use
 real short codec fixtures and the durable worker.
+
+Create a profile from a ready recording. Trim it, choose a fixed source gain and
+loop setting, and render 30–600 seconds. Non-looping sources end in silence.
+The render is durable; status and progress survive restarting the worker. Audition
+the thirty-second background preview, then name and save the profile with carrier
+100–400 Hz (default 220), tone gain 0.2 and background gain 0.6. Their sum must not
+exceed 0.95. Tone settings are separate from the background: the preview never
+contains an assigned frequency difference. Editing creates a new immutable
+version and retains the old settings and downloadable checksum.
+
+`POST /v1/audio/renders` takes schema_version 1, duration_seconds and tracks (one
+in this increment), each with asset_id, trim_start_seconds, trim_end_seconds,
+gain 0–4, and loop. Poll `GET /v1/audio/renders/{id}`; `/preview` is available only
+when ready. Rendering uses a floating-point intermediate, scans its full-duration
+peak, and records one static normalization_factor (1 unless the peak exceeds 1).
+The saved PCM16 WAV and its exact thirty-second prefix use that same factor.
+The worker claims bounded batches with expiring leases and writes outputs through
+lease-specific temporary paths before publishing.
+
+`POST /v1/audio/profiles` takes name, render_id, carrier_hz, tone_gain,
+background_gain and saved-background loop (default true). It accepts only ready
+renders. `POST /v1/audio/profiles/{profile_id}/versions` creates a new version.
+`GET /v1/audio/profiles` returns all owned immutable versions. Read a version at
+`/v1/audio/profiles/versions/{version_id}`, with `/preview` and `/download` for
+its WAVs. Metadata includes schema_version 1, owner_account_id, profile_id,
+version, background_asset_id, complete source recipe, format, duration and
+SHA-256 checksums. The background_asset_id identifies the owned render; it is
+separate from each source asset_id in the recipe. File routes require bearer auth
+and never expose filesystem paths. Apply Alembic migration 005_audio_profiles.
