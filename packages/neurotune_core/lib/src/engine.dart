@@ -4,8 +4,10 @@ import 'bandit.dart';
 import 'dsp/pipeline.dart';
 import 'models.dart';
 import 'diagnostics.dart';
+import 'optics.dart';
+import 'session_protocol.dart';
 
-class SessionEngine {
+class SessionEngine implements SessionProtocol {
   SessionEngine({
     required this.config,
     required BanditSnapshot snapshot,
@@ -30,6 +32,7 @@ class SessionEngine {
   }
 
   final ExperimentConfig config;
+  @override
   final String sessionId;
   final DataOrigin origin;
   final SessionMode mode;
@@ -41,20 +44,27 @@ class SessionEngine {
   final EpsilonPolicy policy;
   final String policyVersion;
 
+  @override
   final List<FeatureFrame> frames = [];
+  @override
   final List<DecisionEvent> decisions = [];
   final List<FeatureFrame> _baseline = [];
   final List<FeatureFrame> _reward = [];
 
+  @override
   SessionPhase phase = SessionPhase.baseline;
+  @override
   StopReason? stopReason;
 
   /// Every signal loss, not only the ones that end the session. A session that
   /// never leaves [SessionPhase.waitingStable] ends with no stop reason at all,
   /// so without these the recording cannot say why it produced no blocks.
+  @override
   int interruptions = 0;
   StopReason? lastInterruption;
+  @override
   String message = 'Baslinje pågår. Håll samma ögonläge.';
+  @override
   StimulusAction? currentAction;
   List<String> selectedChannels = [];
   double baselineMean = 0;
@@ -72,9 +82,32 @@ class SessionEngine {
   double _lastTime = 0;
   bool _blockAborted = false;
 
+  @override
   bool get terminal =>
       phase == SessionPhase.completed || phase == SessionPhase.stopped;
 
+  final OpticsAccumulator _optics = OpticsAccumulator();
+
+  @override
+  bool get waitingForResume => phase == SessionPhase.waitingStable;
+
+  @override
+  void queueFrame(FeatureFrame frame) => _optics.addFrame(frame);
+
+  @override
+  void queueOptics(OpticsBatch batch) => _optics.addBatch(batch);
+
+  @override
+  List<FeatureFrame> takeReadyFrames() => _optics.takeReady(config);
+
+  /// Retain the experiment's manual-finish semantics: only a running sound
+  /// block is interrupted and logged as aborted before saving.
+  @override
+  void finish() {
+    if (phase == SessionPhase.sound) interrupt(StopReason.manual);
+  }
+
+  @override
   void onFrame(FeatureFrame frame) {
     if (terminal) return;
     frames.add(frame);
@@ -88,6 +121,7 @@ class SessionEngine {
     }
   }
 
+  @override
   void interrupt(StopReason reason) {
     if (terminal) return;
     interruptions += 1;
@@ -109,6 +143,7 @@ class SessionEngine {
 
   /// Ends the session on a failure that waiting for a stable signal cannot
   /// recover from. A running block is recorded as aborted.
+  @override
   void abort(StopReason reason, String text) {
     if (terminal) return;
     interruptions += 1;
@@ -119,12 +154,14 @@ class SessionEngine {
     _stop(reason, text);
   }
 
+  @override
   void resume() {
     if (phase != SessionPhase.waitingStable) return;
     _stableCount = 0;
     _resumeRequested = true;
   }
 
+  @override
   SessionManifest manifest({
     double? audioLatencyMs,
     String checksum = '',

@@ -14,9 +14,11 @@ import 'package:neurotune_core/neurotune_core.dart';
 
 class _Audio implements PcmOutput {
   var playing = false;
+  var starts = 0;
 
   @override
   Future<double?> start(int sampleRate) async {
+    starts += 1;
     playing = true;
     return 0;
   }
@@ -154,6 +156,7 @@ SessionController controller(
   ExperimentConfig? config,
   DataOrigin origin = DataOrigin.simulator,
   PcmOutput? audio,
+  SessionProtocolFactory? protocolFactory,
 }) {
   final protocol = config ?? ExperimentConfig.defaults();
   return SessionController(
@@ -169,6 +172,7 @@ SessionController controller(
     mode: SessionMode.personal,
     eyeState: EyeState.open,
     origin: origin,
+    protocolFactory: protocolFactory,
   );
 }
 
@@ -220,6 +224,84 @@ void main() {
     final documents = Directory.systemTemp.createTempSync('neurotune_test');
     addTearDown(() => documents.deleteSync(recursive: true));
     documentsAt(documents.path);
+  });
+
+  test('concurrent starts share one audio output and one recording', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final audio = _Audio();
+    final session = controller(database, keepAlive: _KeepAlive(), audio: audio);
+    addTearDown(session.dispose);
+
+    expect(await Future.wait([session.start(), session.start()]), [true, true]);
+    final sessionId = session.engine!.sessionId;
+    expect(audio.starts, 1);
+    expect(await session.start(), isTrue);
+    expect(session.engine!.sessionId, sessionId);
+    await Future.wait([session.finish(), session.finish()]);
+    expect(
+      (await session.repository.listSessions()).single.manifest.sessionId,
+      sessionId,
+    );
+    expect(await session.start(), isFalse);
+  });
+
+  test(
+    'another protocol records EEG without waiting for optical data',
+    () async {
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      final audio = _Audio();
+      final session = controller(
+        database,
+        keepAlive: _KeepAlive(),
+        config: shortProtocol,
+        origin: DataOrigin.muse,
+        audio: audio,
+        protocolFactory: (context) => _EegOnlyProtocol(context),
+      );
+      addTearDown(session.dispose);
+      final muse = _Muse();
+      expect(await session.start(muse: muse), isTrue);
+      final source = SimulatorSource(
+        config: shortProtocol,
+        sampleRateHz: 256,
+        seed: 1,
+      );
+      for (var index = 0; index < 14; index++) {
+        muse.eegOut.add(source.pull().shifted(300));
+      }
+      await until(() => session.saved);
+
+      final saved = (await session.repository.listSessions()).single;
+      expect(saved.status, 'completed');
+      expect(saved.frames.first.timeSeconds, closeTo(4, 1e-9));
+      expect(saved.frames.last.timeSeconds, 6);
+      expect(saved.frames.every((frame) => frame.optics.isEmpty), isTrue);
+      expect(audio.playing, isFalse);
+      expect(
+        (await session.repository.pendingUploads()).single.sessionId,
+        saved.manifest.sessionId,
+      );
+    },
+  );
+
+  test('disposing during audio startup does not reopen a session', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final audio = _HeldStartAudio()..holdStart = Completer<void>();
+    final keepAlive = _KeepAlive();
+    final session = controller(database, keepAlive: keepAlive, audio: audio);
+    final starting = session.start();
+    await audio.started.future;
+
+    session.dispose();
+    audio.holdStart!.complete();
+    expect(await starting, isFalse);
+    await until(() => !audio.playing);
+    expect(keepAlive.stopped, isTrue);
+    expect(await session.start(), isFalse);
+    expect(await session.repository.listSessions(), isEmpty);
   });
 
   test('start reports a failure instead of throwing', () async {
@@ -489,6 +571,32 @@ void main() {
     expect(audio.playing, isFalse);
   });
 
+  test('disposing during a reconnect leaves audio stopped', () async {
+    final database = AppDatabase(NativeDatabase.memory());
+    addTearDown(database.close);
+    final muse = _Muse();
+    final audio = _Audio();
+    final session = await _startMuseSession(database, muse, audio: audio);
+    muse.stream(
+      SimulatorSource(config: shortProtocol, sampleRateHz: 256, seed: 1),
+      12,
+      300,
+    );
+    await until(() => session.engine?.phase == SessionPhase.sound);
+    muse.lost.add(null);
+    await until(() => session.waitingForUser);
+
+    muse.reconnecting = Completer<void>();
+    final resuming = session.continueSession();
+    await until(() => muse.starts == 1);
+    session.dispose();
+    muse.reconnecting!.complete();
+    await resuming;
+
+    expect(audio.playing, isFalse);
+    expect(audio.starts, 1);
+  });
+
   test('audio starts written ahead of playback and stops on finish', () async {
     final database = AppDatabase(NativeDatabase.memory());
     addTearDown(database.close);
@@ -658,4 +766,49 @@ void main() {
       expect(session.latencyMs, 0);
     },
   );
+}
+
+/// A small alternative protocol exercises the extension contract through the
+/// real controller/DSP/persistence boundary, without replacing those modules.
+class _EegOnlyProtocol extends SessionEngine {
+  _EegOnlyProtocol(SessionContext context)
+    : super(
+        config: shortProtocol,
+        snapshot: BanditSnapshot.empty(
+          experimentVersion: shortProtocol.version,
+          origin: context.origin,
+        ),
+        sessionId: context.sessionId,
+        origin: context.origin,
+        mode: SessionMode.comparison,
+        eyeState: context.eyeState,
+        sampleRateHz: context.sampleRateHz,
+        channelNames: context.channelNames,
+        seed: context.seed,
+        startedAt: context.startedAt,
+      );
+
+  final _waiting = <FeatureFrame>[];
+
+  @override
+  void queueFrame(FeatureFrame frame) => _waiting.add(frame);
+
+  @override
+  void queueOptics(OpticsBatch batch) {}
+
+  @override
+  List<FeatureFrame> takeReadyFrames() {
+    final ready = List<FeatureFrame>.of(_waiting);
+    _waiting.clear();
+    return ready;
+  }
+
+  @override
+  void onFrame(FeatureFrame frame) {
+    if (terminal) return;
+    frames.add(frame);
+    phase = frame.timeSeconds >= 6
+        ? SessionPhase.completed
+        : SessionPhase.sound;
+  }
 }

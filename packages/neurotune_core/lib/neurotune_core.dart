@@ -10,3 +10,4 @@ export 'src/models.dart';
 export 'src/optics.dart';
 export 'src/recording.dart';
 export 'src/sources.dart';
+export 'src/session_protocol.dart';
