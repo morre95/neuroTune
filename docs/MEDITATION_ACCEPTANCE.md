@@ -157,7 +157,7 @@ Enhets-/byggrecord:
 | Uppgift | Värde |
 | --- | --- |
 | Testdatum och testare | 2026-10-09: användarprov och ADB-observationer; partiellt pass dokumenterat nedan |
-| Appcommit/APK och featureflagga | Senast installerat: 98d7073 debug, MEDITATION_ENABLED=true; verifierat 600 s-pass på 500b0e8 |
+| Appcommit/APK och featureflagga | Senast installerat: 6846b91 debug, version 1.0.0-test.6846b91/build 20261009, MEDITATION_ENABLED=true, API_BASE=http://127.0.0.1:8000; verifierat 600 s-pass på 500b0e8 |
 | Telefon / Android-version | Samsung SM-S921B / Android 16; full sessionsacceptans pending |
 | Muse/headset/SDK | Muse S Athena ansluten / Bose QC35 II Bluetooth-hörlurar, modell observerad i telefonens Bluetooth-vy / libmuse Android 8.0.9 |
 | Profilversion / checksumma / bärare / gains / ögonläge | Pending |
@@ -264,9 +264,13 @@ atomiskt till en inaktiv slutförandevy innan controller lämnas, håller
 avslutningsspärren till feedback/fallback och blockerar bakåt under övergången.
 Fullt avslutat pass, snabb dubbeltryckning, bakåt och återkopplingsrouting blev
 gröna i **14 fokuserade widgettester, 38 s**, med ren analys, 0,7 s.
-Fysisk omtestning av just UI-övergången återstår; ljudets verifierade
-600-sekundersresultat ovan gäller 500b0e8. Debug-APK från 98d7073 byggdes på
-**10,8 s** och installerades framgångsrikt på samma telefon.
+Debug-APK från 98d7073 byggdes på **10,8 s** och installerades framgångsrikt på
+samma telefon. Ett senare markerat 6846b91-bygge installerades med matchande
+APK-checksumma. Användaren bekräftade därefter ett kort fysiskt
+**Starta → Stoppa → Avsluta session**-prov utan synlig felsida eller övergående
+ErrorWidget. Denna UI-omtestning avser ett kort manuellt stoppat pass;
+övergången efter ett nytt fullt completed-pass på 600 s är ännu inte fysiskt
+omtestad. Ljudets verifierade 600-sekundersresultat ovan gäller fortsatt 500b0e8.
 
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
