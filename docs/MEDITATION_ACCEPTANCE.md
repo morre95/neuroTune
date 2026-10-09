@@ -233,16 +233,22 @@ läge. Motsvarande fulla session finns också på servern, verifierad mot samma
 sessions-ID utan att publicera persondata. Den lokala feedbackraden innehåller
 **båda efter-skattningarna, revision 2**. Servern har motsvarande revision med
 båda skattningarna; lokalt feedback-synkjobb är **done** utan fel. Serverråfilen
-finns, **3 403 234 bytes**; filens innehåll har inte använts som bevis för
-kontinuerlig rå-EEG-coverage.
+finns, **3 403 234 bytes zstd-komprimerad lagrad fil**. Skopad dekomprimering
+verifierade tids-/mängdmetadata nedan utan att publicera råa signalvärden.
 
 Sparad bearbetad inspelning innehåller **596 EEG-frames**, med loggade frame-tider
 **4,254–602,596 s** och största gap **4,342 s**. Det finns **11 589** spelklocke-
 checkpoints och inga `audio_failed`-/`audio_interruption`-diagnostikhändelser för
 passet. Detta verifierar inspelningsnärvaro och dessa tidsmått, inte att Muse-
 kontakten var godkänd eller att adaptationens kvalitetsgates uppfylldes.
-Detaljerad tids-/signalkvalitetsbedömning och coverage under ett avgränsat
-skärm-av-intervall återstår.
+Serverråfilen innehåller **1 206 EEG-batcher**, **1 202 optics-batcher** och
+**154 368 EEG-samples per kanal vid 256 Hz**. EEG-tidsstämplarna är monotona,
+med spann **0,253978–600,455071 s** och största positiva interbatch-gap
+**0,011211 s**. Detta stödjer fortsatt råinspelning över hela passet.
+Batchintervall kan överlappa: summerad sampletid är 603 s medan tidsstämpelspannet
+är cirka 600 s. Därför innebär dessa mått inte bevis för exakt förlustfri
+realtidsinsamling. Kontakt-/signalkvalitet och koppling till ett exakt markerat
+skärm-av-intervall i samma 600-sekunderspass är fortfarande inte verifierade.
 
 Flygplansläge var **av** under detta fulla pass och USB-reverselistan var tom.
 Det verifierar fullt lokalt ljud utan USB-API-förbindelse, men uppfyller inte
@@ -265,7 +271,7 @@ Fysisk omtestning av just UI-övergången återstår; ljudets verifierade
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
 | Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | Fullt lokalt 600 s completed verifierat på 500b0e8; flygplansläge var av, full offlinekontroll pending |
-| Skärm av | Släck skärmen under en väsentlig del av samma pass. Ljud och inspelning ska fortsätta; förgrundstjänsten kvarstår och sparade EEG-/tidsspår har fortsatt coverage. | Ljud användarbekräftat i partiellt 18f88c3-pass; sparad coverage och full kontroll pending |
+| Skärm av | Släck skärmen under en väsentlig del av samma pass. Ljud och inspelning ska fortsätta; förgrundstjänsten kvarstår och sparade EEG-/tidsspår har fortsatt coverage. | Ljud användarbekräftat; fortsatt råinspelning över 500b0e8-passets 600 s verifierad. Exakt skärm-av-intervall i samma pass är inte markerat/korrelerat; full kontroll pending |
 | Ljudinterruption/recovery | Använd ett verkligt fokusavbrott (t.ex. annat ljud eller samtal). Aktiv klocka pausar under tyst tid. Återuppta: samma ton och bakgrundscursor, inga hopp eller replay av gamla buffers; avsluta med 600 aktiva s. | Pending |
 | Muse-kvalitetsförlust | Under ett adaptivt pass med verkligt ready Muse-underlag, försämra kontakten så minst en utvärderingsminut blir otillräcklig. Ljud och aktuell ton kvarstår; sparat beslut visar kvalitet-hold och inga nya statistikobservationer för perioden. | Pending |
 | Kanal-/mixlyssning | Lyssna på vänster/höger-tonpar, bakgrundens stereokaraktär, loopskarv och minst ett mjukt tonbyte. Ingen hörbar clipping/klick eller bakgrundsreset. | Pending |
