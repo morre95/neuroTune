@@ -133,7 +133,8 @@ avser sina angivna versioner; deras kod ändrades inte av dessa ljudfixar.
 Debug-APK från 500b0e8 byggdes på 10,5 s och installerades på telefonen med
 `MEDITATION_ENABLED=true`, `API_BASE=http://127.0.0.1:8000` och SHA-256
 `c3b2b977903256bdeb182ef315d3248f16cd50469c57cd521afcb14927ff4230`.
-Nästa fulla fysiska offlinepass med detta bygge är pending.
+Ett fullt fysiskt 600-sekunderspass med detta bygge är verifierat nedan;
+full flygplanslägesacceptans är fortfarande pending.
 
 Koppla slutliga resultat till den testade committen; lägg till antal, datum,
 plattform och kvarstående fel här före release. Räkna inte en kodläsning som ett
@@ -152,7 +153,7 @@ Enhets-/byggrecord:
 | Testdatum och testare | 2026-10-09: användarprov och ADB-observationer; partiellt pass dokumenterat nedan |
 | Appcommit/APK och featureflagga | Senast installerat: 500b0e8 debug, MEDITATION_ENABLED=true; APK-checksumma ovan |
 | Telefon / Android-version | Samsung SM-S921B / Android 16; full sessionsacceptans pending |
-| Muse/headset/SDK | Muse S Athena ansluten / Bose Bluetooth-in-ear-hörlurar, exakt modell okänd / libmuse Android 8.0.9 |
+| Muse/headset/SDK | Muse S Athena ansluten / Bose QC35 II Bluetooth-hörlurar, modell observerad i telefonens Bluetooth-vy / libmuse Android 8.0.9 |
 | Profilversion / checksumma / bärare / gains / ögonläge | Pending |
 | Session-ID och logg/evidensplats | Pending |
 
@@ -161,14 +162,13 @@ på. Användaren rapporterade att toner och bakgrund hördes, men aktuella
 ADB-skärmbilder visade inloggningsvyn. Inloggning med testkontot och verifierad
 profilcache återstod; observationerna kunde inte knytas till ett sparat
 meditationspass. Ingen full 600-sekunderssession eller offlineacceptans är därmed
-bekräftad. Samtliga fysiska resultatrader förblir pending.
+bekräftad. Vid denna tidpunkt förblev samtliga fysiska resultatrader pending.
 
 **Fysiskt startfel, 2026-10-09 cirka 10:05 UTC:** på Samsung SM-S921B/Android 16
-med Muse och Bose Bluetooth-in-ear-hörlurar stoppades meditationen på **0/600 s**
+med Muse och Bose Bluetooth-hörlurar stoppades meditationen på **0/600 s**
 med `Audio playback stopped progressing`. Det testade debug-bygget var fcd601a
 och pekade på den lokala API-instansen på port 8000. Användaren bekräftade att
-Muse-sessionen inte kunde starta. Exakt hörlursmodell och full offlineacceptans
-är ännu inte verifierade.
+Muse-sessionen inte kunde starta. Full offlineacceptans är ännu inte verifierad.
 
 Koden begärde en 250 ms AudioTrack-buffer men matade högst 150 ms innan spelad
 progress krävdes. Androids stream behöver sin starttröskel uppfylld, vars standard
@@ -185,8 +185,8 @@ stopp blev gröna i fokuserade fake-PCM/controller-tester.
 **0/600 s** med samma watchdogfel. Buffertregressionen är täckt, men den kvarvarande
 fysiska orsaken är ännu inte bekräftad. Debug-bygget i **eab568c** tillför endast
 avgränsade AudioTrack-/controller-räknare (tröskel, accepterade/spelade frames,
-kö och stalltid), utan PCM, EEG eller kontodata, för nästa omtestning. Ingen
-Androidsession är godkänd och inga timeoutgränser har förlängts.
+kö och stalltid), utan PCM, EEG eller kontodata, för nästa omtestning. Vid detta
+omtest var ingen Androidsession godkänd och inga timeoutgränser hade förlängts.
 
 Ytterligare controllerregression visade att tvåsekundersgränsen för spelad
 progress kunde löpa ut innan en större native-buffer var helt fylld, trots att
@@ -195,8 +195,8 @@ uppfylld starttröskel; accepterade primmingpaket återställer dess stallklocka
 Varje render/write behåller tvåsekundersdeadline, native-tröskeln är begränsad
 till en sekund och paket till 200 ms. Ett helt primmat sink utan spelad progress
 stoppas fortfarande efter två sekunder. Både långsam framåtskridande primming
-och detta verkliga stallkontrollfall är regressionstestade. Fysisk verifiering
-av denna ändring återstår.
+och detta verkliga stallkontrollfall är regressionstestade. Ett senare fullt
+fysiskt pass med ändringen dokumenteras nedan.
 
 **Partiellt fysiskt pass efter nytt försök med 18f88c3:** ADB visade **103/600 s
 vid 10:25:31 UTC**, **384/600 s vid 10:30:13 UTC** och stoppat pass på **518/600 s
@@ -211,11 +211,50 @@ bevisar varken 600 aktiva sekunder, completed eller full offlineacceptans.
 Muse-EEG syntes i appen, men kontaktkvaliteten var **0/4** och inget verifierat
 ready Muse-modellunderlag demonstrerades. Passet visar därför inte adaptiv
 kvalitet-hold eller skipped learning. Ett nytt fullständigt offlinepass med
-500b0e8, flygplansläge från start och Bluetooth för Muse/hörlurar återstår.
+flygplansläge från start och Bluetooth för Muse/hörlurar återstår.
+
+**Fullt fysiskt ljudpass med 500b0e8, cirka 10:39–10:49 UTC:** native-ljudklockan
+nådde **28 800 000 spelade frames** vid 48 kHz, med **115 200 000 accepterade bytes**
+och tom utgångskö vid avslut. Det motsvarar exakt **600 aktiva sekunder** av stereo
+PCM16. Verklig starttröskel, kapacitet och buffer var alla **12 000 frames**
+(250 ms). Användaren bekräftade att passet slutade utan ljudfel; appen visade
+600 sekunder. Telefonen var släckt vid avslut och tidigare lyssning med släckt
+skärm var användarbekräftad.
+
+Den lokalt sparade sessionen är verifierad som **completed**, med duration
+**600 s**, completed-fas, inget stoppskäl och 28 800 000 spelade frames i fixed-
+läge. Motsvarande fulla session finns också på servern, verifierad mot samma
+sessions-ID utan att publicera persondata. Den lokala feedbackraden innehåller
+**båda efter-skattningarna, revision 2**; feedbacksynkens slutliga status återstår.
+
+Sparad bearbetad inspelning innehåller **596 EEG-frames**, med loggade frame-tider
+**4,254–602,596 s** och största gap **4,342 s**. Det finns **11 589** spelklocke-
+checkpoints och inga `audio_failed`-/`audio_interruption`-diagnostikhändelser för
+passet. Detta verifierar inspelningsnärvaro och dessa tidsmått, inte att Muse-
+kontakten var godkänd eller att adaptationens kvalitetsgates uppfylldes.
+Detaljerad tids-/signalkvalitetsbedömning och coverage under ett avgränsat
+skärm-av-intervall återstår.
+
+Flygplansläge var **av** under detta fulla pass och USB-reverselistan var tom.
+Det verifierar fullt lokalt ljud utan USB-API-förbindelse, men uppfyller inte
+kravet på 600 sekunder i flygplansläge. En separat observation med flygplansläge
+på och Bluetooth på föregick passet; den ska inte slås ihop med 600-sekunders-
+resultatet. Ett verkligt fokusavbrott med återupptagning och adaptation med en
+ready Muse-modell är fortfarande pending.
+
+Efter passet gav **Avsluta session** en övergående röd felvy. Widgetregression
+med verklig SQLite i bakgrundsisolate reproducerade null-check-felet när appen
+byggdes om mellan controller-disposal och feedbackladdning. Fix **98d7073** byter
+atomiskt till en inaktiv slutförandevy innan controller lämnas, håller
+avslutningsspärren till feedback/fallback och blockerar bakåt under övergången.
+Fullt avslutat pass, snabb dubbeltryckning, bakåt och återkopplingsrouting blev
+gröna i **14 fokuserade widgettester, 38 s**, med ren analys, 0,7 s.
+Fysisk omtestning av just UI-övergången återstår; ljudets verifierade
+600-sekundersresultat ovan gäller 500b0e8.
 
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
-| Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | Pending |
+| Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | Fullt lokalt 600 s completed verifierat på 500b0e8; flygplansläge var av, full offlinekontroll pending |
 | Skärm av | Släck skärmen under en väsentlig del av samma pass. Ljud och inspelning ska fortsätta; förgrundstjänsten kvarstår och sparade EEG-/tidsspår har fortsatt coverage. | Ljud användarbekräftat i partiellt 18f88c3-pass; sparad coverage och full kontroll pending |
 | Ljudinterruption/recovery | Använd ett verkligt fokusavbrott (t.ex. annat ljud eller samtal). Aktiv klocka pausar under tyst tid. Återuppta: samma ton och bakgrundscursor, inga hopp eller replay av gamla buffers; avsluta med 600 aktiva s. | Pending |
 | Muse-kvalitetsförlust | Under ett adaptivt pass med verkligt ready Muse-underlag, försämra kontakten så minst en utvärderingsminut blir otillräcklig. Ljud och aktuell ton kvarstår; sparat beslut visar kvalitet-hold och inga nya statistikobservationer för perioden. | Pending |
