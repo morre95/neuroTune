@@ -59,6 +59,7 @@ enum _Screen {
   home,
   contact,
   session,
+  finishing,
   history,
   playback,
   profiles,
@@ -1251,16 +1252,22 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
           ? 'Sessionen är sparad, men resurserna kunde inte stängas: $error'
           : 'Sessionen kunde inte sparas: $error';
     }
+    if (!mounted) return;
     final wasMeditation = controller.isMeditation;
     final feedbackOwner = widget.api.accountId;
     final calibrationPlan = _activePlan;
     final sessionId = controller.engine?.sessionId;
+    // A sync/listener rebuild may run while feedback is loaded. Leave the
+    // session route atomically before releasing the controller it requires.
+    setState(() {
+      _screen = _Screen.finishing;
+      _session = null;
+      _activePlan = null;
+      _usingMuse = false;
+      _networkQuiet = false;
+      _error = failure;
+    });
     controller.dispose();
-    _session = null;
-    _activePlan = null;
-    _usingMuse = false;
-    _endingSession = false;
-    _networkQuiet = false;
     _profileLibrary?.resumeNetwork();
     _retryUploads();
     if (wasMeditation && feedbackOwner != null) {
@@ -1277,7 +1284,11 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         if (session != null) {
           _error = failure;
           await _openFeedback(session);
-          return;
+          if (!mounted) return;
+          if (_screen == _Screen.feedback) {
+            setState(() => _endingSession = false);
+            return;
+          }
         }
       } catch (error) {
         failure ??= 'Kalibreringsresultatet kunde inte läsas: $error';
@@ -1286,6 +1297,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     if (mounted) {
       setState(() {
         _error = failure;
+        _endingSession = false;
         _screen = calibrationPlan == null ? _Screen.home : _Screen.calibration;
       });
     }
@@ -1374,7 +1386,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         useMaterial3: true,
       ),
       home: PopScope(
-        canPop: _screen != _Screen.profiles,
+        canPop: _screen != _Screen.profiles && _screen != _Screen.finishing,
         onPopInvokedWithResult: (didPop, result) {
           if (!didPop && _screen == _Screen.profiles) {
             unawaited(_leaveProfiles());
@@ -1498,6 +1510,18 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         onStop: () => _session?.interrupt(StopReason.manual),
         onContinue: () => _session?.continueSession(),
         onFinish: _endingSession ? null : _finishSession,
+      ),
+      _Screen.finishing => const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Slutför sessionen…'),
+            ],
+          ),
+        ),
       ),
       _Screen.history => HistoryPage(
         sessions: _history,

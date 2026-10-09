@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart' hide KeepAlive;
 import 'package:flutter/services.dart';
@@ -87,11 +87,15 @@ void main() {
         return (dir, file, db, plan);
       }))!;
       var requests = 0;
+      ApiClient? sharedApi;
+      final service = KeepAlive();
+      final muse = MuseChannel();
+      final authStore = AuthStore();
       NeuroTuneApp app(AppDatabase database, PlaybackAudio audio) =>
           NeuroTuneApp(
             database: database,
-            authStore: AuthStore(),
-            api: ApiClient(
+            authStore: authStore,
+            api: sharedApi ??= ApiClient(
               baseUrl: 'http://offline',
               httpClient: MockClient((_) async {
                 requests++;
@@ -99,8 +103,8 @@ void main() {
               }),
             ),
             audio: audio,
-            keepAlive: KeepAlive(),
-            muse: MuseChannel(),
+            keepAlive: service,
+            muse: muse,
             meditationEnabled: true,
           );
       await tester.pumpWidget(app(db, PlaybackAudio()));
@@ -184,11 +188,18 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await settleIo(tester, 5);
       final restarted = (await tester.runAsync(
-        () async => AppDatabase(NativeDatabase(file)),
+        () async => AppDatabase(NativeDatabase.createInBackground(file)),
       ))!;
       final audio = PlaybackAudio();
       await tester.pumpWidget(app(restarted, audio));
-      await settleIo(tester);
+      for (
+        var wait = 0;
+        wait < 100 && find.text('Meditation').evaluate().isEmpty;
+        wait++
+      ) {
+        await settleIo(tester, 1);
+      }
+      expect(find.text('Meditation'), findsOneWidget);
       expect(
         tester
             .widgetList<ChoiceChip>(find.byType(ChoiceChip))
@@ -226,8 +237,32 @@ void main() {
       await tester.ensureVisible(find.text('Avsluta session'));
       await tester.pump();
       await tester.tap(find.text('Avsluta session'));
+      await tester.tap(
+        find.text('Avsluta session'),
+      ); // A second tap before rebuild.
+      var sawFinishing = false;
+      // Render every asynchronous handoff, rather than allowing all database
+      // and sync work to finish before the first frame is drawn.
+      for (
+        var frame = 0;
+        frame < 5000 && find.text('Efter meditationen').evaluate().isEmpty;
+        frame++
+      ) {
+        await tester.pumpWidget(app(restarted, audio));
+        expect(tester.takeException(), isNull);
+        if (find.text('Slutför sessionen…').evaluate().isNotEmpty) {
+          sawFinishing = true;
+          await tester.binding.handlePopRoute();
+          await tester.pump();
+          expect(find.text('Slutför sessionen…'), findsOneWidget);
+        }
+        await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+        expect(find.byType(ErrorWidget), findsNothing);
+      }
       await settleIo(tester);
       expect(find.text('Efter meditationen'), findsOneWidget);
+      expect(sawFinishing, true);
+      expect(service.active, false);
       final saved = (await tester.runAsync(
         () => SessionRepository(restarted).listSessions(),
       ))!;
