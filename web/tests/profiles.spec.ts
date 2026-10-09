@@ -225,3 +225,41 @@ for (const saveStatus of [201, 500]) {
     await expect(page.locator('#message')).not.toContainText(saveStatus === 201 ? 'Profile version saved' : 'Earlier save failed');
   });
 }
+
+test('settings changed during a save remain editable and can be saved afterwards', async ({page}) => {
+  let release!: () => void;
+  const held = new Promise<void>(resolve => {release = resolve;});
+  let started!: () => void;
+  const saving = new Promise<void>(resolve => {started = resolve;});
+  const saved:any[]=[];
+  await page.route('**/v1/auth/login', route => route.fulfill({json:{access_token:'access',refresh_token:'refresh'}}));
+  await page.route('**/v1/audio/assets', route => route.fulfill({json:[{id:'a1',filename:'rain.wav',status:'ready',duration_seconds:10}]}));
+  await page.route('**/v1/audio/renders', route => route.fulfill({status:202,json:{id:'r1'}}));
+  await page.route('**/v1/audio/renders/r1', route => route.fulfill({json:{id:'r1',status:'ready',progress:1}}));
+  await page.route('**/v1/audio/profiles', async route => {
+    if(route.request().method()==='GET') {await route.fulfill({json:[]});return;}
+    saved.push(route.request().postDataJSON());
+    if(saved.length===1) {started();await held;}
+    await route.fulfill({status:201,json:{id:`v${saved.length}`}});
+  });
+  await page.goto('/editor/');
+  await page.getByLabel('Email').fill('person@example.com');await page.getByLabel('Password').fill('correct-horse');
+  await page.getByRole('button',{name:'Sign in',exact:true}).click();
+  await page.getByRole('button',{name:'Create profile from rain.wav'}).click();
+  await page.getByLabel('Profile name').fill('Earlier settings');
+  await page.getByRole('button',{name:'Render background',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Save profile',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Save profile',exact:true}).click();await saving;
+  await page.getByLabel('Profile name').fill('Changed settings');
+  await page.getByLabel('Carrier frequency').fill('300');
+  const finished=page.waitForResponse(response=>response.url().endsWith('/v1/audio/profiles') && response.request().method()==='POST');
+  release();await finished;
+  await expect(page.getByLabel('Profile name')).toBeVisible();
+  await expect(page.getByLabel('Profile name')).toHaveValue('Changed settings');
+  await expect(page.getByRole('button',{name:'Save profile',exact:true})).toBeEnabled();
+  await page.getByRole('button',{name:'Save profile',exact:true}).click();
+  await expect(page.getByLabel('Profile name')).toBeHidden();
+  expect(saved).toHaveLength(2);
+  expect(saved[0]).toMatchObject({name:'Earlier settings',carrier_hz:220});
+  expect(saved[1]).toMatchObject({name:'Changed settings',carrier_hz:300});
+});

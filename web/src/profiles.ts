@@ -37,6 +37,7 @@ export function mountProfiles(hooks:Hooks) {
   let render:Render|null=null;
   let timer:number|undefined;
   let revision=0;
+  let settingsRevision=0;
   function invalidate() {revision++;clearTimeout(timer);render=null;saveButton.disabled=true;previewButton.disabled=true;status.textContent='';renderButton.disabled=false;}
   function trackFields(row:HTMLElement) {
     return {select:row.querySelector<HTMLSelectElement>('select')!,input:(name:string)=>row.querySelector<HTMLInputElement>(`[name="${name}"]`)!};
@@ -113,6 +114,9 @@ export function mountProfiles(hooks:Hooks) {
     } catch(error) {if(epoch===hooks.generation() && currentRevision===revision) {status.textContent=(error as Error).message;renderButton.disabled=false;}}
   }
   input('duration').oninput=invalidate;
+  const settingsChanged=()=>{settingsRevision++;saveButton.disabled=render?.status!=='ready';};
+  for(const name of ['name','carrier','tone','background']) input(name).oninput=settingsChanged;
+  input('background-loop').onchange=settingsChanged;
   renderButton.onclick=async()=> {
     if(!form.reportValidity()) return;
     invalidate();renderButton.disabled=true;
@@ -130,13 +134,15 @@ export function mountProfiles(hooks:Hooks) {
     const body={name:input('name').value,render_id:render.id,carrier_hz:Number(input('carrier').value),tone_gain:Number(input('tone').value),background_gain:Number(input('background').value),loop:input('background-loop').checked};
     // Allow only binary addition error at the decimal boundary; the API compares exact decimal values.
     if(body.tone_gain+body.background_gain>.95+Number.EPSILON) {hooks.message('Tone and background gains must total at most 0.95.');return;}
-    const epoch=hooks.generation(), currentRevision=revision;saveButton.disabled=true;
+    const epoch=hooks.generation(), currentRevision=revision, currentSettings=settingsRevision;
+    const current=()=>epoch===hooks.generation() && currentRevision===revision && currentSettings===settingsRevision;
+    saveButton.disabled=true;
     try {
       await hooks.api(profileId?`/audio/profiles/${profileId}/versions`:'/audio/profiles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-      if(epoch!==hooks.generation() || currentRevision!==revision) return;
+      if(!current()) return;
       hooks.message('Profile version saved. Earlier versions remain available.');form.hidden=true;await refresh(assets);
-    } catch(error) {if(epoch===hooks.generation() && currentRevision===revision) hooks.message((error as Error).message);}
-    finally {if(epoch===hooks.generation() && currentRevision===revision) saveButton.disabled=render?.status!=='ready';}
+    } catch(error) {if(current()) hooks.message((error as Error).message);}
+    finally {if(current()) saveButton.disabled=render?.status!=='ready';}
   };
   return {refresh,clear,choose};
 }
