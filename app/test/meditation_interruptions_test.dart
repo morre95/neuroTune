@@ -82,6 +82,7 @@ setup(
   InterruptedAudio audio, {
   DataOrigin origin = DataOrigin.muse,
   bool dispose = true,
+  double Function()? observedTimeSeconds,
 }) async {
   final dir = await Directory.systemTemp.createTemp('meditation-interrupt');
   final db = AppDatabase(NativeDatabase.memory());
@@ -116,6 +117,7 @@ setup(
     eyeState: EyeState.closed,
     origin: origin,
     meditation: meditation,
+    observedTimeSeconds: observedTimeSeconds,
   );
   if (dispose) addTearDown(session.dispose);
   addTearDown(audio.events.close);

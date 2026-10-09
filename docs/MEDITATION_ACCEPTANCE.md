@@ -179,6 +179,16 @@ avgränsade AudioTrack-/controller-räknare (tröskel, accepterade/spelade frame
 kö och stalltid), utan PCM, EEG eller kontodata, för nästa omtestning. Ingen
 Androidsession är godkänd och inga timeoutgränser har förlängts.
 
+Ytterligare controllerregression visade att tvåsekundersgränsen för spelad
+progress kunde löpa ut innan en större native-buffer var helt fylld, trots att
+varje PCM-paket accepterades inom sin deadline. Watchdoggen armeras nu efter
+uppfylld starttröskel; accepterade primmingpaket återställer dess stallklocka.
+Varje render/write behåller tvåsekundersdeadline, native-tröskeln är begränsad
+till en sekund och paket till 200 ms. Ett helt primmat sink utan spelad progress
+stoppas fortfarande efter två sekunder. Både långsam framåtskridande primming
+och detta verkliga stallkontrollfall är regressionstestade. Fysisk verifiering
+av denna ändring återstår.
+
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
 | Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | Pending |

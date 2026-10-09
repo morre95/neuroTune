@@ -17,6 +17,8 @@ class BufferedAudio extends InterruptedAudio implements PcmStartupThreshold {
   bool finalUnderrunTriggered = false;
   bool recordPackets = true;
   bool holdPadding = false;
+  bool consumeEnabled = true;
+  void Function()? onAccepted;
   Uint8List? lastPacket;
   final List<int> startHeads = [];
   final List<int> stoppedHeads = [];
@@ -38,6 +40,7 @@ class BufferedAudio extends InterruptedAudio implements PcmStartupThreshold {
     lastPacket = bytes;
     if (recordPackets) currentPackets.add(Uint8List.fromList(bytes));
     accepted += bytes.length ~/ 4;
+    onAccepted?.call();
     largestPacket = max(largestPacket, bytes.length);
     largestQueued = max(largestQueued, accepted - played);
     if (holdPadding && bytes.every((sample) => sample == 0)) {
@@ -57,7 +60,7 @@ class BufferedAudio extends InterruptedAudio implements PcmStartupThreshold {
     }
     final queued = accepted - played;
     if (!draining && queued >= threshold) draining = true;
-    if (draining) {
+    if (draining && consumeEnabled) {
       played += min(consumption, queued);
       if (played == accepted) draining = false;
     }
@@ -112,6 +115,60 @@ void main() {
       expect(saved.manifest.stopReason, 'manual');
       expect(audio.largestPacket, lessThanOrEqualTo(9600 * 4));
       expect(audio.largestQueued, lessThanOrEqualTo(24000));
+      expect(service.active, false);
+    },
+  );
+  test(
+    'accepted priming packets may span the consumption timeout while each request progresses',
+    () async {
+      var observed = 0.0;
+      final audio = BufferedAudio()
+        ..threshold = 24000
+        ..consumeEnabled = false
+        ..onAccepted = () => observed += 1.1;
+      final (session, _, _, _) = await setup(
+        audio,
+        observedTimeSeconds: () => observed,
+      );
+      expect(await session.start(muse: SilentMuse()), true);
+      for (var pump = 0; pump < 3 && !session.engine!.terminal; pump++) {
+        await session.pumpPlayback();
+      }
+      expect(session.error, isNull);
+      expect(audio.accepted, 24000);
+      observed += 1.0; // A primed real sink may still need startup latency.
+      await session.pumpPlayback();
+      expect(session.error, isNull);
+      audio.consumeEnabled = true;
+      await session.pumpPlayback();
+      expect(session.activePlaybackFrames, greaterThan(0));
+      expect(audio.largestQueued, lessThanOrEqualTo(24000));
+      session.interrupt(StopReason.background);
+      await session.finish();
+    },
+  );
+  test(
+    'a primed sink that never consumes still fails after two seconds',
+    () async {
+      var observed = 0.0;
+      final audio = BufferedAudio()..consumeEnabled = false;
+      final (session, repo, service, _) = await setup(
+        audio,
+        observedTimeSeconds: () => observed,
+      );
+      expect(await session.start(muse: SilentMuse()), true);
+      for (var pump = 0; pump < 3; pump++) {
+        await session.pumpPlayback();
+      }
+      expect(audio.accepted, 12000);
+      observed = 2.1;
+      await session.pumpPlayback();
+      await session.finish();
+      expect(session.error, contains('stopped progressing'));
+      expect(
+        (await repo.listSessions()).single.manifest.stopReason,
+        'audioLost',
+      );
       expect(service.active, false);
     },
   );

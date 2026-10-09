@@ -995,6 +995,21 @@ class SessionController extends ChangeNotifier {
     'wall_stall_ms': _progressStall.elapsedMilliseconds,
   };
 
+  bool get _needsPriming =>
+      _startupThresholdFrames > 0 &&
+      _audioFramesWritten + _paddingFrames - _playedFrames <
+          _startupThresholdFrames;
+
+  void _acknowledgePriming(bool neededPriming) {
+    if (!neededPriming) return;
+    // Consumption cannot progress until the native threshold is filled.
+    // Render/write deadlines still bound every packet while filling it.
+    _lastPlayedObserved = _observedSeconds;
+    _progressStall
+      ..reset()
+      ..start();
+  }
+
   Future<void> _readPlayed(int generation) async {
     final local = await (audio as PcmPlaybackProgress).playedFrames().timeout(
       _audioWriteTimeout,
@@ -1012,7 +1027,8 @@ class SessionController extends ChangeNotifier {
         ..reset()
         ..start();
     }
-    if (_audioFramesWritten > _playedFrames &&
+    if (!_needsPriming &&
+        _audioFramesWritten > _playedFrames &&
         (observed - _lastPlayedObserved > 2 ||
             _progressStall.elapsed > _audioWriteTimeout)) {
       if (kDebugMode) {
@@ -1052,9 +1068,11 @@ class SessionController extends ChangeNotifier {
           (_audioFramesWritten + _paddingFrames - _playedFrames);
       if (missing <= 0) return;
       final frames = min(missing, MeditationRenderer.maxPacketFrames);
+      final neededPriming = _needsPriming;
       await audio.write(Uint8List(frames * 4)).timeout(_audioWriteTimeout);
       if (generation != _audioGeneration || _closed) return;
       _paddingFrames += frames;
+      _acknowledgePriming(neededPriming);
     }
   }
 
@@ -1091,10 +1109,12 @@ class SessionController extends ChangeNotifier {
             .timeout(_audioWriteTimeout);
         if (generation != _audioGeneration || _closed || _finishing) return;
         _inFlightFrames = frames;
+        final neededPriming = _needsPriming;
         await audio.write(pcm).timeout(_audioWriteTimeout);
         if (generation != _audioGeneration || _closed) return;
         _audioFramesWritten += frames;
         _inFlightFrames = 0;
+        _acknowledgePriming(neededPriming);
       }
       if (_audioFramesWritten == MeditationRenderer.durationFrames &&
           _playedFrames < _audioFramesWritten &&
