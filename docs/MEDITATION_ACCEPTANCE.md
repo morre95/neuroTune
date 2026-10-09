@@ -494,3 +494,9 @@ kontroller utan öppna fel. Bekräfta föregående ärendens acceptans mot deras
 regressionsevidens och fysisk record. Dokumentera ansvarig, commit, datum och
 resultat innan allmän featureaktivering och issue-closure. Vid kvarstående
 hårdvaru- eller modellunderlag ska #16/specen förbli öppna och standardflaggan av.
+
+Användaren valde **”Ta resterande tester senare”** efter det sista korta
+462f1e5-provet. Inga fler hårdvarutester körs nu. Kvalificerade hela Muse-pass,
+minst 20 användbara pass, validerad ready-modell och adaptiv acceptans samt
+återstående mixlyssning, offline-/processomstart och raderingskontroller fortsätter
+vid ett senare tillfälle. **#16 och #1 förblir öppna; standardflaggan är false.**
