@@ -201,7 +201,10 @@ void main() {
       addTearDown(database.close);
       await tester.pumpWidget(app(database, _AuthApi()));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(0), 'person@example.com');
+      await tester.enterText(
+        find.byType(TextField).at(0),
+        'person@example.com',
+      );
       await tester.enterText(find.byType(TextField).at(1), 'password');
       await tester.tap(find.text('Logga in'));
       await tester.pumpAndSettle();
@@ -211,7 +214,10 @@ void main() {
       expect(find.text('Ljudprofiler'), findsNothing);
       await tester.tap(find.text('Jämförelse'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Jämförelse mäter utan att träna'), findsOneWidget);
+      expect(
+        find.textContaining('Jämförelse mäter utan att träna'),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Simulator'));
       await tester.pump(const Duration(seconds: 1));
       expect(find.text('Starta baslinje'), findsOneWidget);

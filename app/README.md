@@ -1,24 +1,43 @@
 # neuroTune-appen
 
-Flutter-klienten. Installation, backend och hur du kör appen beskrivs i [README](../README.md) i repo-roten.
+Flutter-klienten för Android. Installation, Muse SDK och backend beskrivs i
+[README](../README.md). Meditation är ett separat huvudflöde bakom
+`--dart-define=MEDITATION_ENABLED=true`, avstängt som standard före fysisk
+acceptans. Utan flaggan visas det befintliga NIR-experimentflödet. Med flaggan
+finns NIR-lägena kvar i **Experiments**.
 
-Meditation is an optional primary flow (`--dart-define=MEDITATION_ENABLED=true`),
-with general release defaulting to disabled until physical acceptance. Existing
-NIR modes remain in **Experiments**. Select a verified downloaded profile, eye
-state and fixed 0/6/8/10/12 Hz action. Session start reads the cache, joins pending
-upload/library HTTP and suspends retries until the session view is closed.
+Skapa en profil i backendens `/editor/` med samma konto, öppna **Ljudprofiler**,
+uppdatera och ladda ned. Först **Nedladdad · redo offline** tillåter sessionsstart.
+Format/checksumma verifieras före readiness och vid cacheläsning efter omstart.
+Välj profil, ögonläge och Simulator/Muse; lokal förhandslyssning är 30 sekunder.
+Ta bort lokal kopia för att frigöra mobilens lagring.
 
-Meditation plays 600 seconds confirmed by AudioTrack played-frame progress;
-accepted packets alone cannot complete a session. WAV reads and stereo mixing
-run in a bounded worker isolate, with fixed profile gains, carrier-centered
-tones, 500 ms background loop overlap and 150 ms start/stop ramps. Missing or
-poor EEG and a Muse disconnect do not stop this audio protocol.
+Meditation spelar **600 aktiva sekunder**, bekräftade av Android AudioTracks
+played-frame-progress. Accepterade paket räcker inte för slutförande. WAV-läsning
+ och stereomix körs i en begränsad worker-isolate, med fast gain, carriercentrerade
+ toner, 500 ms bakgrundsöverlapp, fem sekunders frekvensglidning och 150 ms
+ start-/stoppramper. HTTP avslutas före start; retries vilar medan sessionsvyn
+ är öppen. Saknad/dålig EEG och Muse-frånkoppling stoppar inte meditationsljudet.
+ Ljudavbrott pausar klockan och bevarar spelad bakgrundsposition vid återupptagning.
 
-The optional manifest `meditation` snapshot separates this protocol/profile from
-NIR policies and records the EEG quality configuration. `duration_seconds` is
-active played duration; raw EEG/optics and feature `time_seconds` keep their
-source clock. Historical observed-time/played-frame checkpoints plus the source
-offset map a feature window to optional `active_time_seconds` and
-`playback_active`. A window crossing an interruption or unknown/stalled playback
-coverage remains unassigned. Playback coverage is independent of EEG validity;
-later learning must still apply quality checks and count missing seconds.
+**Kalibrering** låser profil/ögonläge/källa i en tiopassserie, två vardera av
+0/6/8/10/12 Hz. Tilldelningar är dolda tills serien är klar; en partiell serie
+bidrar inte till synlig fast rekommendation eller per-tonmedelvärde. Två
+0–10-skattningar sparas efter full session, även offline och över omstart.
+Skattningarna synkas separat från rådata. EEG-modellen behöver minst tjugo
+användbara fulla skattade fasta sessioner samt prediktiva gates/kontextstöd.
+Simulator och Muse förblir separata. [Användarregler](../docs/ADAPTIVE_MEDITATION_AUDIO.md)
+förklarar scoring, modell och radering.
+
+Manifestets optional `meditation`-snapshot skiljer protokoll/profil från NIR och
+sparar EEG-kvalitetskonfiguration. `duration_seconds` är aktiv spelad tid;
+rå EEG/optics och feature `time_seconds` behåller källklockan. Observed-time/
+played-frame-checkpoints och källoffset mappar featurefönster till optional
+`active_time_seconds` och `playback_active`. Fönster som korsar avbrott eller
+okänd/stannad uppspelning får ingen sådan tilldelning. Uppspelningscoverage är
+separat från EEG-validitet; inlärning räknar även saknade sekunder.
+
+Lokala migrationer går till schema 6 och bevarar äldre inspelningar och köer.
+[Driftinstruktionerna](../docs/MEDITATION_OPERATIONS.md) beskriver migrationskedjan.
+Kör `flutter test` och `flutter analyze`; [acceptansprotokollet](../docs/MEDITATION_ACCEPTANCE.md)
+kopplar testsömmarna till editor, persistence, PCM och fysisk Android/Muse.

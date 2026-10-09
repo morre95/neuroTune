@@ -178,8 +178,10 @@ void main() {
       expect(after.attempts.any((a) => a.sessionId == target), false);
       final choice = await preferences.resolve(owner, setup);
       expect(choice.preference, StimulusAction.binaural12);
-      expect(choice.recommendation!.means[action], 7);
-      expect(choice.recommendation!.sessionCount, 9);
+      expect(choice.action, StimulusAction.binaural12);
+      // Deleting a slot reblinds the series, including indirect per-action
+      // recommendations. The explicit preference remains independent.
+      expect(choice.recommendation, isNull);
       expect(
         (await sessions.listSessions())
             .map((s) => '${s.id}:${s.checksum}')

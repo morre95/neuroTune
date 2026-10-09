@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,12 +19,14 @@ Future<CalibrationPlan> restoreSeries(
   (int, int) Function(StimulusAction) ratings, {
   int slots = 10,
   EyeState eyes = EyeState.closed,
+  Random? random,
 }) async {
   final plan = await calibration.createPlan(
     ownerAccountId: profile.ownerAccountId,
     profile: profile,
     eyeState: eyes,
     origin: origin,
+    random: random,
   );
   for (var slot = 0; slot < slots; slot++) {
     final id = '${plan.id}-$slot';
