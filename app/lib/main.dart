@@ -102,6 +102,7 @@ class NeuroTuneApp extends StatefulWidget {
 }
 
 class _NeuroTuneAppState extends State<NeuroTuneApp> {
+  final _messages = GlobalKey<ScaffoldMessengerState>();
   late final SessionRepository _repository = SessionRepository(widget.database);
   late final UploadSync _uploadSync = UploadSync(
     repository: _repository,
@@ -545,7 +546,10 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     _fixedAction = StimulusAction.control;
     widget.api.accessToken = null;
     widget.api.refreshToken = null;
-    setState(() => _screen = _Screen.auth);
+    setState(() {
+      _screen = _Screen.auth;
+      _error = null;
+    });
   }
 
   Future<void> _ensureProfileLibrary() async {
@@ -1200,40 +1204,85 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     });
   }
 
-  void _listenToMuse() {
+  void _listenToMuse({bool Function()? stillCurrent}) {
     _musePreview?.cancel();
     _musePreview = widget.muse.eeg.listen((batch) {
-      if (mounted) setState(() => _contactBatch = batch);
+      if (mounted && (stillCurrent?.call() ?? true)) {
+        setState(() => _contactBatch = batch);
+      }
     });
   }
 
+  void _showMuseFailure(String message) {
+    if (!mounted) return;
+    setState(() => _error = message);
+    _messages.currentState
+      ?..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _muse({CalibrationPlan? calibrationPlan}) async {
-    _activePlan = calibrationPlan;
-    _experimentNavigationGeneration++;
     if (_connectingMuse) return;
+    final navigation = ++_experimentNavigationGeneration;
+    final authentication = widget.api.authGeneration;
+    final owner = widget.api.accountId;
+    final screen = _screen;
+    final experiments = _inExperiments;
+    final muse = widget.muse;
+    bool owned() =>
+        mounted &&
+        widget.api.accountId == owner &&
+        widget.api.authGeneration == authentication &&
+        _experimentNavigationGeneration == navigation &&
+        _inExperiments == experiments;
+    bool current() => owned() && _screen == screen;
+    _activePlan = calibrationPlan;
     _usingMuse = true;
-    await _preview?.stop();
-    await _previewSub?.cancel();
     setState(() {
       _connectingMuse = true;
       _error = 'Söker efter Muse S Athena.';
     });
+    StreamSubscription<EegBatch>? preview;
+    var acquired = false;
+    var published = false;
     try {
-      _listenToMuse();
-      await widget.muse.start();
-      if (!mounted) return;
+      await _preview?.stop();
+      await _previewSub?.cancel();
+      if (!current()) return;
+      _listenToMuse(
+        stillCurrent: () =>
+            owned() && (_screen == screen || _screen == _Screen.contact),
+      );
+      preview = _musePreview;
+      await muse.start();
+      acquired = true;
+      if (!current()) return;
+      published = true;
       setState(() {
         _error = null;
         _contactBatch = null;
         _screen = _Screen.contact;
       });
     } on PlatformException catch (error) {
-      _usingMuse = false;
-      setState(() => _error = error.message ?? 'Muse är inte tillgänglig.');
+      if (current()) {
+        _showMuseFailure(error.message ?? 'Muse är inte tillgänglig.');
+      }
     } catch (error) {
-      _usingMuse = false;
-      setState(() => _error = '$error');
+      if (current()) _showMuseFailure('$error');
     } finally {
+      if (!published) {
+        await preview?.cancel();
+        if (identical(_musePreview, preview)) _musePreview = null;
+        // The busy guard remains held until this attempt releases its own
+        // late acquisition; a newer start cannot be stopped by this cleanup.
+        if (acquired) {
+          try {
+            await muse.stop();
+          } catch (_) {}
+        }
+        _usingMuse = false;
+        if (identical(_activePlan, calibrationPlan)) _activePlan = null;
+      }
       if (mounted) setState(() => _connectingMuse = false);
     }
   }
@@ -1381,6 +1430,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'neuroTune',
+      scaffoldMessengerKey: _messages,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1F6F6A)),
         useMaterial3: true,
