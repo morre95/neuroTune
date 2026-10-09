@@ -346,6 +346,22 @@ skopade loggen; därefter visades startsidan. Det är en mycket kort faktisk
 ljudstart, inget nytt långt stabilitetstest. Fulla 600-sekunders- och fokusresultat ovan gäller fortsatt
 6846b91; det korta provet ersätter inte dessa eller adaptiv Muse-acceptans.
 
+**Fysisk radering av ett testpass, 12:24–12:26 UTC:** användaren raderade ett
+testpass i **Sessionshistorik** och bekräftade att det försvann. Lokal tombstone
+skapades **12:24:04 UTC**. Skopad kontroll av just detta pass visade ingen lokal
+lagrad session, inget uploadjobb, ingen feedback eller training-outbox-post och
+ingen lokal sessionsråfil. På servern saknades sessionen och dess råfil;
+tombstone fanns, markörens raw-path var null och feedback saknades. Det raderade
+passet hade ingen feedback eller träningspost före radering, så kontrollen visar
+inte invalidation av en ready-modell med tidigare kvalificerat/skattat underlag.
+
+Efter idle Activity-återöppning och synk **12:26 UTC** var passet fortfarande
+borttaget med tombstone. Det fulla flygplanslägespasset på 600 s fanns kvar
+både lokalt och på servern; även det separata korta larmprovet fanns kvar.
+Raderingen skedde med onlineförbindelse via USB-reverse. Offlineköad radering,
+appens processomstart och modellinvalidation för ett kvalificerat pass är
+fortfarande pending.
+
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
 | Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | 6846b91: fullt 600 s completed i flygplansläge/Bluetooth, Wi-Fi utan anslutning och ingen USB-API. Användaren bekräftade ljud och avslut utan felsida; detaljerad mixlyssning återstår |
@@ -353,7 +369,7 @@ ljudstart, inget nytt långt stabilitetstest. Fulla 600-sekunders- och fokusresu
 | Ljudinterruption/recovery | Använd ett verkligt fokusavbrott (t.ex. annat ljud eller samtal). Aktiv klocka pausar under tyst tid. Tryck **Fortsätt**: samma ton och bakgrundscursor, inga hopp eller replay av gamla buffers; avsluta med 600 aktiva s. | 6846b91: Klocka-larm pausade, Fortsätt återupptog; fryst spelad cursor verifierad, inget audio_failed. Kort manuellt stoppat pass på 33,89 aktiva s; bakgrundslyssning efter resume och 600 aktiva s efter avbrott pending |
 | Muse-kvalitetsförlust | Under ett adaptivt pass med verkligt ready Muse-underlag, försämra kontakten så minst en utvärderingsminut blir otillräcklig. Ljud och aktuell ton kvarstår; sparat beslut visar kvalitet-hold och inga nya statistikobservationer för perioden. | Pending |
 | Kanal-/mixlyssning | Lyssna på vänster/höger-tonpar, bakgrundens stereokaraktär, loopskarv och minst ett mjukt tonbyte. Ingen hörbar clipping/klick eller bakgrundsreset. | Pending |
-| Feedback/radering/synk efter offlinepass | Spara båda skattningarna offline, starta om, återanslut och synka. Radera ett testpass och kontrollera tombstone/beroende underlag utan återställning. | 6846b91: båda skattningarna sparade offline, revision 2; session/råfil/feedback synkade efter återanslutning. Feedback efter omstart och fysisk raderingskontroll pending |
+| Feedback/radering/synk efter offlinepass | Spara båda skattningarna offline, starta om, återanslut och synka. Radera ett testpass och kontrollera tombstone/beroende underlag utan återställning. | 6846b91: offlinefeedback och senare session/råfil/feedback-synk verifierade. Ett annat testpass raderades online via USB-reverse: lokal/server-tombstone, session/råfil borta även efter Activity-återöppning/synk; fullt 600 s-pass bevarat. Feedback efter processomstart, offlineköad radering och ready-modellinvalidation pending |
 
 Den första fyra-radsgruppen är uttryckliga hårdvarukrav i #16. En fysisk fixed-
 session med dålig kontakt visar att ljudet fortsätter; den bevisar inte skipped
