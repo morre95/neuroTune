@@ -89,6 +89,8 @@ slutar vid editor/backendens nedladdningsbara profil, inte vid Android AudioTrac
 | Minutadaptation, kvalitet-hold, fryst modell, statistik/radering | app/test/meditation_adaptation_test.dart, meditation_policy_test.dart, meditation_learning_deletion_test.dart |
 | Feature-default och användbara befintliga NIR-kontroller | app/test/auth_flow_test.dart |
 | Scrollsynligt Muse-fel och inget sent anslutningsresultat efter logout/navigation | app/test/muse_error_visibility_test.dart |
+| DC-oberoende EEG-amplitud, kvantiserad theta/alpha, bevarade artefaktgates och oförändrad råinspelning | packages/neurotune_core/test/eeg_quality_test.dart; app/test/meditation_eeg_quality_test.dart |
+| Äldre kvalitetsversion får inte användas i modellcache eller nya träningsrader | app/test/personal_eeg_cache_test.dart; backend/tests/test_personal_eeg_api.py |
 
 ## Resultatlogg för programvara
 
@@ -154,6 +156,15 @@ Båda kodändringarna granskade utan materiella fynd. Root byggde senare markera
 **1.0.0-test.27ffac0/build 20261010** på **8,1 s**, installerade och verifierade
 APK-checksumman. Idle Activity-återöppningen på detta bygge är verifierad nedan;
 fysisk omtestning med aktiv Muse-anslutning/köade callbacks återstår.
+
+EEG-DC-fixens programverifiering **2026-10-09**: core **40 godkända** och ren
+analys; backend **62 godkända, 17,25 s**, med 16 befintliga Alembic-varningar.
+Fokuserade appkontroller för faktisk sessionscontroller/DSP-isolate/lokal
+inspelning, cache och tidigare sessionsbeteende: **11 godkända, 9 s**;
+Flutter-analys **utan problem, 0,5 s**.
+DC- och äldre modell-/träningskompatibilitetsregressioner reproducerade sina
+respektive fel före fix och blev gröna efter. Det är programvaruresultat;
+korrigerad fysisk EEG-kvalitet återstår att verifiera.
 
 Koppla slutliga resultat till den testade committen; lägg till antal, datum,
 plattform och kvarstående fel här före release. Räkna inte en kodläsning som ett
@@ -332,6 +343,31 @@ men kvalificerad verklig EEG-insamling saknas. Detta fastställer inte den exakt
 orsaken till varje kvalitetsflagga. Kontaktpreview med Muse på huvudet,
 kvalificerat Muse-underlag och ready-modellens adaptiva kvalitetskontroller
 återstår; inga råa signalvärden publiceras här.
+
+**Head-worn kvalitetsblocker efter detta pass:** användaren rapporterade minst
+två godkända kanaler i kontaktpreview men **0/4** genom två korta sessionsprov
+med Muse på huvudet. Det första stoppade provet hade **56 frames / 224
+kanalobservationer**, inga giltiga kanaler, och `saturation` i **223**
+kanalobservationer; det andra hade **45 frames / 180 kanalobservationer**, inga
+giltiga kanaler och `saturation` i alla **180**. Detta visar en separat
+sessionskvalitetsblocker även när kontakten var bättre.
+
+SDK 8.0.9 anger EEG-enheten mikrovolt. Pipelinen jämförde råvärdets absolutnivå
+mot 750 uV, vilket kunde underkänna en ren oscillation på grund av dess stabila
+DC-baslinje. Offentlig syntetisk DSP-regression reproducerade felet; regression
+genom verklig sessionscontroller/DSP-isolate gav samma **0/4** före fix.
+Kvalitetsversion **2026.4-unverified** jämför i stället avvikelsen från samma
+fyrasekundersfönsters medelvärde mot **oförändrade 750 uV**. Råinspelning,
+filter/PSD och befintliga raw-jump-, contact-, missing-, flatline-, motion- och
+gap-gates behålls. Kvantiserad låg theta/alpha och stora centrerade excursioner
+ingår i regressionerna. Äldre kvalitetsversioners frames/modeller utesluts från
+nya modellrader/cache; historik och skattningar behålls.
+
+Detta rättar den verifierade DC-klassificeringen; det är inte en kalibrerad
+ADC-klippdetektor eller bevis för att alla head-worn frames blir giltiga. SDK:s
+EEG-dokumentation ger inga forehead-ADC-rails, och ingen ny platåheuristik införs.
+Fysisk omtestning av korrigerad sessionskvalitet samt kvalificerade Muse-minuter,
+ready-underlag och adaptiv kvalitets-hold är fortsatt pending.
 
 **Kort fysisk fokusåterhämtning med markerat 6846b91:** användaren bekräftade
 att ett Klocka-larm pausade appen, att knappen visade **Fortsätt** och att tryck

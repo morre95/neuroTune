@@ -13,6 +13,29 @@ from test_profiles import source, ready_render
 from test_eeg_model_math import frames, channel
 
 
+def test_old_raw_zero_quality_frames_do_not_enter_the_new_model(tmp_path, monkeypatch):
+    token, profile, _ = context(tmp_path, monkeypatch)
+    config = json.loads(Path('../contracts/default_experiment.json').read_text())
+    config['quality_version'] = '2026.3-unverified'
+    body = recording(profile, quality_version='2026.3-unverified', eeg_config=config,
+                     playback_timeline_version=1)
+    body['frames'] = frames(range(11, 61))
+    sid = body['manifest']['session_id']
+    assert client.post('/v1/sessions', headers=auth(token), json=body).status_code == 200
+    assert client.post(f'/v1/meditation/sessions/{sid}/feedback', headers=auth(token),
+                       json=feedback(profile, sid)).status_code == 200
+    request = dict(schema_version=1, request_id=str(uuid.uuid4()), session_id=sid,
+                   feedback_revision=2, origin='muse', protocol_version='meditation-1')
+    job = client.post('/v1/meditation/training/jobs', headers=auth(token), json=request)
+    assert job.status_code == 202
+    with SessionLocal() as db:
+        run_once(db)
+    latest = client.get('/v1/meditation/models/latest', headers=auth(token), params={'origin': 'muse'}).json()
+    assert latest['status'] == 'insufficient'
+    assert latest['validation']['session_count'] == 0
+    assert latest['included_session_ids'] == []
+
+
 def test_fresh_request_retries_failed_training_without_reactivating_old_model(tmp_path, monkeypatch):
     import app.personal_eeg as learner
     token, profile, _ = context(tmp_path, monkeypatch)

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'models.dart';
 
 const meditationEegPreprocessing = 'meditation-eeg-1';
-const meditationEegQuality = '2026.3-unverified';
+const meditationEegQuality = '2026.4-unverified';
 
 bool isCompatibleMeditationEegConfig(ExperimentConfig config) =>
     config.qualityVersion == meditationEegQuality &&

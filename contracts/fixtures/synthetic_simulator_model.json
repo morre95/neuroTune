@@ -3,7 +3,7 @@
   "model": {
     "schema_version": 1,
     "preprocessing_version": "meditation-eeg-1",
-    "quality_version": "2026.3-unverified",
+    "quality_version": "2026.4-unverified",
     "protocol_version": "meditation-1",
     "included_session_ids": [
       "0121237d-ecfc-4f75-bdad-5f106202f731",

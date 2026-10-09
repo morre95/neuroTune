@@ -4,7 +4,7 @@ from collections import Counter, defaultdict
 import numpy as np
 
 PREPROCESSING = 'meditation-eeg-1'
-QUALITY = '2026.3-unverified'
+QUALITY = '2026.4-unverified'
 NUMERIC = ['log_theta_alpha', 'log_beta_alpha', 'carrier_hz', 'tone_gain', 'background_gain']
 
 

@@ -1,11 +1,29 @@
 # Personal meditation EEG artifacts
 
 Preprocessing version `meditation-eeg-1`; protocol `meditation-1`;
-quality `2026.3-unverified`. These are software compatibility identifiers,
+quality `2026.4-unverified`. These are software compatibility identifiers,
 not evidence of physical Muse accuracy. Muse, Simulator and Playback never pool.
 The current compatible recorded configuration uses a four-second Welch window,
 one-second hop, theta4–8, alpha8–13 and beta13–30 Hz. Legacy frames without an
 observed active-clock mapping do not substitute source/wall time.
+
+Quality `2026.4-unverified` corrects the EEG amplitude check: `saturation` means
+at least one raw sample deviates by **750 uV or more from its four-second window
+mean**. A stable DC reference does not change that excursion. Adjacent raw jumps
+of **150 uV or more**, contact, missing samples, flatline, motion and gap checks
+remain unchanged. Raw batches and the existing notch/bandpass/PSD path remain
+unchanged. These bounds are software artifact policies, not calibrated Muse ADC
+rails; the SDK 8.0.9 EEG documentation specifies microvolts but does not provide
+forehead-electrode clipping rails. Full hardware clipping/quality validation
+remains open. No heuristic plateau rule is introduced.
+
+Old `2026.3-unverified` feature/model artifacts cannot mix with this policy:
+backend training skips those recordings and the Dart model parser/cache refuses
+their artifacts. History, raw recordings and subjective ratings are retained;
+no automatic reprocessing or migration to the new quality version occurs.
+Deploy the matching API/worker and app/core contract together. Shared synthetic
+fixtures retain their independently worked numerical values with the updated
+compatibility identifier; none are physical Muse evidence.
 
 Confirmed active endpoints in(0,600] use second bin `ceil(t-1e-9)`, minute
 `(bin-1)//60`. Only within-minute bins11–60 contribute: always50 possible bins.

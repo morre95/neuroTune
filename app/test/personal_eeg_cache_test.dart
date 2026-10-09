@@ -28,6 +28,36 @@ void main() {
   String token(String account) =>
       'header.${base64Url.encode(utf8.encode(jsonEncode({'sub': account})))}.signature';
   test(
+    'a model from the old raw-zero quality policy cannot enter the cache',
+    () async {
+      final db = AppDatabase(NativeDatabase.memory());
+      addTearDown(db.close);
+      final sessions = SessionRepository(db);
+      final api = ApiClient(
+        baseUrl: 'http://legacy-model',
+        httpClient: MockClient(
+          (_) async => http.Response(
+            jsonEncode({...json, 'quality_version': '2026.3-unverified'}),
+            200,
+          ),
+        ),
+      )..accessToken = token(owner);
+      final cache = PersonalEegRepository(
+        db,
+        sessions,
+        CalibrationRepository(db, sessions),
+        api,
+      );
+      // Refresh may publish an invalid-result marker successfully. It must never
+      // make this incompatible artifact available for offline inference.
+      expect(
+        await cache.refresh(owner, DataOrigin.simulator, isCurrent: () => true),
+        isTrue,
+      );
+      expect(await cache.load(owner, DataOrigin.simulator), isNull);
+    },
+  );
+  test(
     'downloaded account model works with empty local history across restart and ordinary epochs',
     () async {
       final db = AppDatabase(NativeDatabase.memory());
