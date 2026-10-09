@@ -326,9 +326,12 @@ Skopad kvalitetskontroll av samma sparade 600-sekunderspass fann **600 frames /
 `contact`, `saturation` och `jump` förekom vardera **2 400 gånger**. Fortsatt
 inspelning och ett false frame-rejected-fält innebär alltså inte användbar EEG:
 detta pass gav **ingen användbar EEG-minut**, snarare än enbart för få sessioner
-för modellträning. Muse-placering och orsak till kvalitetsutfallet är ännu inte
-verifierade. Kvalificerat verkligt Muse-underlag och ready-modellens adaptiva
-kvalitetskontroller återstår; inga råa signalvärden publiceras här.
+för modellträning. Användaren bekräftade därefter att **Muse låg bredvid och inte
+bars på huvudet** under flygplanslägespasset. Ljud-/skärm-av-resultaten gäller,
+men kvalificerad verklig EEG-insamling saknas. Detta fastställer inte den exakta
+orsaken till varje kvalitetsflagga. Kontaktpreview med Muse på huvudet,
+kvalificerat Muse-underlag och ready-modellens adaptiva kvalitetskontroller
+återstår; inga råa signalvärden publiceras här.
 
 **Kort fysisk fokusåterhämtning med markerat 6846b91:** användaren bekräftade
 att ett Klocka-larm pausade appen, att knappen visade **Fortsätt** och att tryck
