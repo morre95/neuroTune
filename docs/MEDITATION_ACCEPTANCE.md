@@ -170,8 +170,14 @@ primmar en begränsad kö och läser om tröskeln vid återupptagning/routändri
 Ett kort sluttail/stopp behöver också kunna primmas; eventuell efterföljande
 nollpadding räknas aldrig som meditationsinnehåll eller aktiv tid. 200 ms-paket
 och tvåsekunders watchdog behålls. Startup/resume, routändring/underrun och kort
-stopp blev gröna i fokuserade fake-PCM/controller-tester. **Fysisk omtestning av
-fixen återstår**; detta är ingen godkänd Androidsession.
+stopp blev gröna i fokuserade fake-PCM/controller-tester.
+
+**Fysisk omtestning av 18f88c3, cirka 10:19 UTC**, stoppades fortfarande på
+**0/600 s** med samma watchdogfel. Buffertregressionen är täckt, men den kvarvarande
+fysiska orsaken är ännu inte bekräftad. Debug-bygget i **eab568c** tillför endast
+avgränsade AudioTrack-/controller-räknare (tröskel, accepterade/spelade frames,
+kö och stalltid), utan PCM, EEG eller kontodata, för nästa omtestning. Ingen
+Androidsession är godkänd och inga timeoutgränser har förlängts.
 
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
