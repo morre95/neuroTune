@@ -340,7 +340,10 @@ behållen inloggning och en valbar nedladdad profilversion. Denna idle-livscykel
 kontroll är godkänd; den testar inte fysisk destruktion med ansluten Muse eller
 racet mot redan köade data-/anslutningscallbacks. Användaren bekräftade därefter
 att ljudet fungerar vid ett **kort Muse-start-/anslutningsprov på installerat
-1.0.0-test.27ffac0**. Fulla 600-sekunders- och fokusresultat ovan gäller fortsatt
+1.0.0-test.27ffac0**. Vid **12:21:26 UTC** visade native-loggen spelad PCM-progress
+från **7 680 till 8 640 frames** före paus efter cirka **0,2 s**, utan fel i den
+skopade loggen; därefter visades startsidan. Det är en mycket kort faktisk
+ljudstart, inget nytt långt stabilitetstest. Fulla 600-sekunders- och fokusresultat ovan gäller fortsatt
 6846b91; det korta provet ersätter inte dessa eller adaptiv Muse-acceptans.
 
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
