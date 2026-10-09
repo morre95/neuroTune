@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:neurotune_core/neurotune_core.dart';
 
@@ -934,8 +935,11 @@ class SessionController extends ChangeNotifier {
     if (_closed || _finishing) return;
     _recordDiagnostic('audio_failed', {
       'error': '$failure',
-      'played_frames': _playedFrames,
+      ..._playbackCounters(),
     });
+    if (kDebugMode) {
+      debugPrint('NeuroTunePlayback failure=$failure ${_playbackCounters()}');
+    }
     engine?.abort(StopReason.audioLost, 'Ljudutgången slutade fungera.');
     error = 'Ljudutgången slutade fungera: $failure';
     _finishInBackground();
@@ -979,6 +983,18 @@ class SessionController extends ChangeNotifier {
     );
   }
 
+  Map<String, Object> _playbackCounters() => {
+    'played_frames': _playedFrames,
+    'written_frames': _audioFramesWritten,
+    'in_flight_frames': _inFlightFrames,
+    'padding_frames': _paddingFrames,
+    'startup_threshold_frames': _startupThresholdFrames,
+    'playback_base_frames': _playbackBase,
+    'observed_seconds': _observedSeconds,
+    'last_played_observed_seconds': _lastPlayedObserved,
+    'wall_stall_ms': _progressStall.elapsedMilliseconds,
+  };
+
   Future<void> _readPlayed(int generation) async {
     final local = await (audio as PcmPlaybackProgress).playedFrames().timeout(
       _audioWriteTimeout,
@@ -999,6 +1015,11 @@ class SessionController extends ChangeNotifier {
     if (_audioFramesWritten > _playedFrames &&
         (observed - _lastPlayedObserved > 2 ||
             _progressStall.elapsed > _audioWriteTimeout)) {
+      if (kDebugMode) {
+        debugPrint(
+          'NeuroTunePlayback stalled nativeHead=$local ${_playbackCounters()}',
+        );
+      }
       throw StateError('Audio playback stopped progressing');
     }
     (engine as MeditationProtocol).playback(_playedFrames, observed);

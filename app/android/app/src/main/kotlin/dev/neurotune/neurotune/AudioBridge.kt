@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.AudioAttributes
@@ -14,6 +15,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.SystemClock
+import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
@@ -48,6 +50,37 @@ class AudioBridge(private val activity: FlutterActivity) {
     private var pendingWrite: PendingWrite? = null
     private var maxWriteBytes = 0
     private val drain = Runnable { drainWrite() }
+    private val debugAudio = activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+    private var acceptedBytes = 0L
+    private var outputStartedMs = 0L
+    private var lastDebugMs = 0L
+    private var lastDebugThreshold = -1
+
+    private fun startupThreshold(current: AudioTrack?): Int = when {
+        current == null -> 0
+        Build.VERSION.SDK_INT >= 31 -> current.startThresholdInFrames
+        Build.VERSION.SDK_INT >= 24 -> current.bufferCapacityInFrames
+        else -> current.bufferSizeInFrames
+    }
+
+    // Counter-only debug diagnostics: no PCM, EEG, profile or account data.
+    // Calls are confined to the PCM handler and periodic samples are throttled.
+    private fun logOutput(event: String, force: Boolean = false) {
+        if (!debugAudio) return
+        val now = SystemClock.elapsedRealtime()
+        if (!force && now - lastDebugMs < 1000) return
+        lastDebugMs = now
+        val current = track
+        val head = current?.playbackHeadPosition?.toLong()?.and(0xffffffffL) ?: pausedHead
+        val capacity = if (current != null && Build.VERSION.SDK_INT >= 24) current.bufferCapacityInFrames else current?.bufferSizeInFrames
+        Log.d("NeuroTunePcm", "event=$event elapsedMs=${now - outputStartedMs} " +
+            "acceptedBytes=$acceptedBytes queuedBytes=${acceptedBytes - head * BYTES_PER_FRAME} " +
+            "headFrames=$head thresholdFrames=${startupThreshold(current)} " +
+            "capacityFrames=$capacity bufferFrames=${current?.bufferSizeInFrames} " +
+            "playState=${current?.playState} state=${current?.state} " +
+            "underruns=${if (current != null && Build.VERSION.SDK_INT >= 24) current.underrunCount else null} " +
+            "pendingBytes=${pendingWrite?.let { it.bytes.size - it.offset } ?: 0}")
+    }
 
     private class PendingWrite(val bytes: ByteArray, val result: MethodChannel.Result) {
         var offset = 0
@@ -106,6 +139,7 @@ class AudioBridge(private val activity: FlutterActivity) {
                     handler.post {
                         // Unsigned frame counter; a ten-minute stream cannot wrap.
                         val frames = track?.playbackHeadPosition?.toLong()?.and(0xffffffffL) ?: pausedHead
+                        logOutput("head")
                         activity.runOnUiThread {
                             result.success(frames)
                         }
@@ -116,11 +150,10 @@ class AudioBridge(private val activity: FlutterActivity) {
                         val current = track
                         // Before API 31 the threshold is not configurable or
                         // observable; filling capacity safely primes the sink.
-                        val frames = when {
-                            current == null -> 0
-                            Build.VERSION.SDK_INT >= 31 -> current.startThresholdInFrames
-                            Build.VERSION.SDK_INT >= 24 -> current.bufferCapacityInFrames
-                            else -> current.bufferSizeInFrames
+                        val frames = startupThreshold(current)
+                        if (frames != lastDebugThreshold) {
+                            lastDebugThreshold = frames
+                            logOutput("threshold_changed", force = true)
                         }
                         activity.runOnUiThread { result.success(frames) }
                     }
@@ -167,7 +200,12 @@ class AudioBridge(private val activity: FlutterActivity) {
                     .setTransferMode(AudioTrack.MODE_STREAM)
                     .build()
                 track = created
+                acceptedBytes = 0
+                outputStartedMs = SystemClock.elapsedRealtime()
+                lastDebugMs = 0
+                lastDebugThreshold = -1
                 created.play()
+                logOutput("start", force = true)
                 maxWriteBytes = rate * BYTES_PER_FRAME / 5 // At most 200 ms.
                 activity.runOnUiThread { result.success(null) }
             } catch (error: Exception) {
@@ -204,6 +242,8 @@ class AudioBridge(private val activity: FlutterActivity) {
                 check(written >= 0) { "AudioTrack.write failed: $written" }
                 if (written > 0) {
                     pending.offset += written
+                    acceptedBytes += written
+                    logOutput("write", force = acceptedBytes == written.toLong())
                     pending.lastProgressMs = SystemClock.elapsedRealtime()
                 }
             }
@@ -219,6 +259,7 @@ class AudioBridge(private val activity: FlutterActivity) {
                 handler.postDelayed(drain, 10)
             }
         } catch (error: Exception) {
+            logOutput("write_failed", force = true)
             pendingWrite = null
             activity.runOnUiThread { pending.result.error("AUDIO_WRITE_FAILED", error.message, null) }
         }
@@ -264,6 +305,7 @@ class AudioBridge(private val activity: FlutterActivity) {
     private fun pauseTrack(): Long {
         handler.removeCallbacks(drain)
         val current = track
+        logOutput("pause", force = true)
         track = null
         val pending = pendingWrite
         pendingWrite = null
