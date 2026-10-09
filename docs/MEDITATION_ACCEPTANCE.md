@@ -338,8 +338,10 @@ detachades och en ny skapades. Skopad loggkontroll fann **0** förekomster av
 `EXCEPTION CAUGHT`. Vid **12:20:39 UTC** visade slutbilden rätt Meditation-startsida,
 behållen inloggning och en valbar nedladdad profilversion. Denna idle-livscykel-
 kontroll är godkänd; den testar inte fysisk destruktion med ansluten Muse eller
-racet mot redan köade data-/anslutningscallbacks. Ett nytt anslutnings-/startprov
-på detta bygge är ännu pending.
+racet mot redan köade data-/anslutningscallbacks. Användaren bekräftade därefter
+att ljudet fungerar vid ett **kort Muse-start-/anslutningsprov på installerat
+1.0.0-test.27ffac0**. Fulla 600-sekunders- och fokusresultat ovan gäller fortsatt
+6846b91; det korta provet ersätter inte dessa eller adaptiv Muse-acceptans.
 
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
