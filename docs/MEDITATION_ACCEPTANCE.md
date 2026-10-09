@@ -184,7 +184,15 @@ behåller äldre historik/rådata; legacy-/felkälle-policy blir current-empty m
 matchande NIR-statistik behålls. **20 fokuserade apptester godkända, 3 s**;
 core **40 godkända**; backend **63 godkända, 18,06 s**, med 16 befintliga
 Alembic-varningar; core-analys ren och Flutter-analys **utan problem, 1,1 s**.
-Full ny Flutter-/APK-/runtimeverifiering återstår.
+Slutlig verifiering av **462f1e5**: full Flutter-svit **209 godkända, 113 s**.
+Markerad **1.0.0-test.462f1e5/build 20261012** byggdes på **6,7 s**, installerades
+och APK-checksumman verifierades på testtelefonen. Faktisk uppdaterad Docker-
+API/worker har **en enda aktiv experimentrad: 2026.4 / 2026.4-unverified**.
+Den äldre 2026.3-bodyns checksumma är exakt bibehållen mot före-uppgraderings-
+kontrollen; det fulla sparade flygplanslägespasset finns kvar. Health svarar
+**200**. Program-, startup- och databevarande för denna rollout är därmed
+verifierade; korrekt märkning i ett nytt sparat Muse-manifest bekräftades
+därefter enligt det korta fysiska provet nedan.
 
 Koppla slutliga resultat till den testade committen; lägg till antal, datum,
 plattform och kvarstående fel här före release. Räkna inte en kodläsning som ett
@@ -404,8 +412,23 @@ Sessionscontroller, offlinecache och live-API-hämtning använder dessa effektiv
 inställningar. Gamla NIR-policyversioner/fel datakällor ersätts med tom aktuell
 policy för körningen; historiska rewards och sessionsetiketter skrivs inte om.
 Det korta 3116f8b-passet behåller sin faktiskt sparade äldre märkning och ingår
-inte automatiskt i nytt kvalitetsunderlag. Fysisk kontroll av nya manifest-
-versioner efter rolloutfixen återstår.
+inte automatiskt i nytt kvalitetsunderlag.
+
+**Fysisk slutkontroll av manifest med markerat 462f1e5:** användaren bekräftade
+att det korta provet var klart. Sparad Muse-session är manuellt stoppad med
+**18,73 aktiva sekunder / 899 040 spelade frames**, och **13 EEG-frames**.
+`meditation.quality_version` är **2026.4-unverified** och `meditation.eeg_config`
+har **version 2026.4 / quality_version 2026.4-unverified**. Toppmanifestets
+`experiment_version` är fortsatt korrekt **meditation-1**, som är protokollets
+identifierare och skiljer sig från EEG-konfigurationsversionen.
+
+Alla 13 frames hade inga giltiga kanaler; **52/52 kanalobservationer hade
+contact-kod 4**. Det sista provets bärstatus är obekräftad och verifierar
+metadata, inte ytterligare lyckad head-worn EEG-insamling. Det tidigare
+3116f8b-provet med två giltiga kanaler kvarstår som fysisk kvalitetsobservation;
+DSP-parametrarna mellan de två versionerna var identiska förutom experiment-/
+kvalitetsversionsfälten. Kvalificerade fulla Muse-sessioner, minst 20 användbara
+träningssessioner, validerad ready-modell och adaptiv kontaktförlust/hold återstår.
 
 **Kort fysisk fokusåterhämtning med markerat 6846b91:** användaren bekräftade
 att ett Klocka-larm pausade appen, att knappen visade **Fortsätt** och att tryck
