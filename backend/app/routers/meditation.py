@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.db import get_db
-from app.models import CalibrationPlanRecord, User, MeditationFeedbackRecord, MeditationTrainingJob, MeditationTrainingRequest, SessionDeletion
+from app.models import CalibrationPlanRecord, User, MeditationFeedbackRecord, MeditationTrainingJob, MeditationTrainingRequest, SessionDeletion, PersonalEegModel
 from app.meditation import PlanIn, require_profile, FeedbackIn, owned_recording, validate_meditation, TrainingIn, training_dataset
 
 router = APIRouter(prefix='/meditation', tags=['meditation'])
@@ -123,7 +123,11 @@ def create_training(body: TrainingIn, db: Session = Depends(get_db), user: User 
             status='queued', created_at=datetime.now(UTC))
         db.add(job)
         db.flush()
-    if job.status == 'stale':
+    if job.status in {'stale', 'failed'}:
+        # A new request explicitly retries the same dataset. Retain the failed
+        # artifact as the latest fail-closed result until its replacement is
+        # published, while freeing the unique job link for that replacement.
+        db.query(PersonalEegModel).filter_by(job_id=job.id).update({PersonalEegModel.job_id: None})
         job.status, job.error = 'queued', None
     db.add(MeditationTrainingRequest(id=str(body.request_id), user_id=user.id, job_id=job.id, body_json=json.dumps(value)))
     db.commit()

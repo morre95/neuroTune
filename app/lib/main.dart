@@ -1460,7 +1460,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
                 onMuse: _muse,
                 connectingMuse: _connectingMuse,
                 onHistory: _openHistory,
-                onProfiles: _openProfiles,
+                onProfiles: widget.meditationEnabled ? _openProfiles : null,
                 onLogout: _logout,
                 message: _error,
               ),

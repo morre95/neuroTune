@@ -1,1 +1,17 @@
-{"name":"neurotune-audio-editor","version":"0.1.0","private":true,"type":"module","scripts":{"dev":"vite --host 127.0.0.1","build":"tsc --noEmit && vite build","test":"playwright test"},"devDependencies":{"typescript":"~5.9.3","vite":"^7.3.1","@playwright/test":"^1.58.0"}}
+{
+  "name": "neurotune-audio-editor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "test": "playwright test",
+    "test:acceptance": "npm run build && playwright test -c playwright.acceptance.config.ts"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3",
+    "vite": "^7.3.1",
+    "@playwright/test": "^1.58.0"
+  }
+}

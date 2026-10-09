@@ -14,6 +14,7 @@ import 'package:neurotune/data/auth_store.dart';
 import 'package:neurotune/data/database.dart';
 import 'package:neurotune/main.dart';
 import 'package:neurotune/platform/channels.dart';
+import 'package:neurotune/ui/history_page.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 
 class _AuthApi extends ApiClient {
@@ -190,6 +191,40 @@ Future<void> saveBrokenSession(AppDatabase database) => database
 
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+
+  testWidgets(
+    'default-disabled meditation retains NIR modes and history without library controls',
+    (tester) async {
+      tester.view.physicalSize = const Size(1080, 3200);
+      addTearDown(tester.view.reset);
+      final database = AppDatabase(NativeDatabase.memory());
+      addTearDown(database.close);
+      await tester.pumpWidget(app(database, _AuthApi()));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), 'person@example.com');
+      await tester.enterText(find.byType(TextField).at(1), 'password');
+      await tester.tap(find.text('Logga in'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Meditation'), findsNothing);
+      expect(find.text('Kalibrering'), findsNothing);
+      expect(find.text('Ljudprofiler'), findsNothing);
+      await tester.tap(find.text('Jämförelse'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Jämförelse mäter utan att träna'), findsOneWidget);
+      await tester.tap(find.text('Simulator'));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Starta baslinje'), findsOneWidget);
+      expect(find.text('Starta meditation'), findsNothing);
+      await tester.tap(find.text('Tillbaka'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Sessionshistorik'));
+      await tester.pumpAndSettle();
+      expect(find.byType(HistoryPage), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets('wrong password can be corrected in the app', (tester) async {
     final database = AppDatabase(NativeDatabase.memory());

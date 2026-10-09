@@ -189,3 +189,39 @@ test('sample-precision trims survive creating, adding, selecting and editing tra
   await expect.poll(()=>recipes.length).toBe(3);
   expect(recipes[2]).toEqual(recipes[1]);
 });
+
+for (const saveStatus of [201, 500]) {
+  test(`a delayed save (${saveStatus}) preserves a newer profile editor`, async ({page}) => {
+    let releaseSave!: () => void;
+    const heldSave = new Promise<void>(resolve => {releaseSave = resolve;});
+    let saveStarted!: () => void;
+    const saving = new Promise<void>(resolve => {saveStarted = resolve;});
+    await page.route('**/v1/auth/login', route => route.fulfill({json:{access_token:'access',refresh_token:'refresh'}}));
+    await page.route('**/v1/audio/assets', route => route.fulfill({json:[{id:'a1',filename:'rain.wav',status:'ready',duration_seconds:10}]}));
+    await page.route('**/v1/audio/renders', route => route.fulfill({status:202,json:{id:'r1'}}));
+    await page.route('**/v1/audio/renders/r1', route => route.fulfill({json:{id:'r1',status:'ready',progress:1}}));
+    await page.route('**/v1/audio/profiles', async route => {
+      if (route.request().method() === 'GET') {await route.fulfill({json:[]});return;}
+      saveStarted();await heldSave;
+      await route.fulfill({status:saveStatus,json:saveStatus === 201 ? {id:'saved'} : {detail:'Earlier save failed'}});
+    });
+    await page.goto('/editor/');
+    await page.getByLabel('Email').fill('person@example.com');
+    await page.getByLabel('Password').fill('correct-horse');
+    await page.getByRole('button',{name:'Sign in',exact:true}).click();
+    await page.getByRole('button',{name:'Create profile from rain.wav'}).click();
+    await page.getByLabel('Profile name').fill('Earlier profile');
+    await page.getByRole('button',{name:'Render background',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Save profile',exact:true})).toBeEnabled();
+    await page.getByRole('button',{name:'Save profile',exact:true}).click();
+    await saving;
+    await page.getByRole('button',{name:'Create profile from rain.wav'}).click();
+    await page.getByLabel('Profile name').fill('New unsaved profile');
+    releaseSave();
+    await page.waitForResponse(response => response.url().endsWith('/v1/audio/profiles') && response.request().method() === 'POST');
+    await expect(page.getByLabel('Profile name')).toBeVisible();
+    await expect(page.getByLabel('Profile name')).toHaveValue('New unsaved profile');
+    await expect(page.getByRole('button',{name:'Save profile',exact:true})).toBeDisabled();
+    await expect(page.locator('#message')).not.toContainText(saveStatus === 201 ? 'Profile version saved' : 'Earlier save failed');
+  });
+}

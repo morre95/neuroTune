@@ -83,8 +83,9 @@ class MeditationPreferenceRepository {
     _owned(owner, setup);
     final observations = <CalibrationObservation>[];
     for (final progress in await calibration.allProgress(owner)) {
-      // Completion is a session-level rule. An unfinished series contributes
-      // its fully rated slots, while its result table stays blinded in the UI.
+      // Recommendations and means expose action identities. Only a completed
+      // series can contribute without revealing a blinded slot indirectly.
+      if (!progress.complete) continue;
       final plan = progress.plan;
       if (plan.origin != setup.origin) continue;
       final context = MeditationSetupContext(

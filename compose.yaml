@@ -15,44 +15,44 @@ services:
       timeout: 5s
       retries: 20
 
-  api:
-    build:
+  migrate:
+    build: &backend-build
       context: .
       dockerfile: backend/Dockerfile
-    environment:
+    command: ["sh", "-c", "python -m app.wait_for_db && alembic upgrade head"]
+    environment: &backend-environment
       DATABASE_URL: postgresql+psycopg://neurotune:neurotune@db:5432/neurotune
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       AUDIO_DATA_DIR: /data/audio
       RAW_DATA_DIR: /data/raw
       CONTRACTS_PATH: /srv/contracts/default_experiment.json
-    ports:
-      - "8000:8000"
-    volumes:
+    volumes: &backend-volumes
       - raw:/data/raw
       - audio:/data/audio
     depends_on:
       db:
         condition: service_healthy
 
-  worker:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    command: ["sh", "-c", "python -m app.wait_for_db && python -m app.worker"]
-    environment:
-      DATABASE_URL: postgresql+psycopg://neurotune:neurotune@db:5432/neurotune
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      AUDIO_DATA_DIR: /data/audio
-      RAW_DATA_DIR: /data/raw
-      CONTRACTS_PATH: /srv/contracts/default_experiment.json
-    volumes:
-      - raw:/data/raw
-      - audio:/data/audio
+  api:
+    build: *backend-build
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment: *backend-environment
+    ports:
+      - "8000:8000"
+    volumes: *backend-volumes
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build: *backend-build
+    command: ["python", "-m", "app.worker"]
+    environment: *backend-environment
+    volumes: *backend-volumes
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:

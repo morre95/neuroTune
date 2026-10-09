@@ -178,8 +178,8 @@ void main() {
         (await repository.resolve(owner, setupC)).recommendation!.action,
         StimulusAction.binaural12,
       );
-      // One rated slot is eligible even before its series finishes; per-slot
-      // assignments remain hidden in the UI until all ten ratings are complete.
+      // A partial exact-setup series must not reveal its first assignment via
+      // a fixed recommendation or per-action means before the series finishes.
       final partial = await restoreSeries(
         calibration,
         sessions,
@@ -189,9 +189,9 @@ void main() {
         slots: 1,
       );
       final exactPartial = await repository.resolve(owner, setupC);
-      expect(exactPartial.recommendation!.pooled, false);
-      expect(exactPartial.recommendation!.action, partial.schedule.first);
-      expect(exactPartial.recommendation!.sessionCount, 1);
+      expect(exactPartial.recommendation!.pooled, true);
+      expect(exactPartial.recommendation!.action, StimulusAction.binaural12);
+      expect(exactPartial.recommendation!.sessionCount, 20);
       expect(await repository.revealedResults(owner, partial.id), isEmpty);
       final openEyes = MeditationSetupContext(
         profile: c,

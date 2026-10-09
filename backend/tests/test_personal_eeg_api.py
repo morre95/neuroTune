@@ -13,6 +13,49 @@ from test_profiles import source, ready_render
 from test_eeg_model_math import frames, channel
 
 
+def test_fresh_request_retries_failed_training_without_reactivating_old_model(tmp_path, monkeypatch):
+    import app.personal_eeg as learner
+    token, profile, _ = context(tmp_path, monkeypatch)
+    body = recording(profile)
+    sid = body['manifest']['session_id']
+    assert client.post('/v1/sessions', headers=auth(token), json=body).status_code == 200
+    assert client.post(f'/v1/meditation/sessions/{sid}/feedback', headers=auth(token),
+                       json=feedback(profile, sid)).status_code == 200
+    request = dict(schema_version=1, request_id=str(uuid.uuid4()), session_id=sid,
+                   feedback_revision=2, origin='muse', protocol_version='meditation-1')
+    endpoint = '/v1/meditation/training/jobs'
+    initial = client.post(endpoint, headers=auth(token), json=request).json()
+    original = learner.train_model
+
+    def transient_failure(_rows):
+        raise OSError('Temporary training resource failure')
+
+    monkeypatch.setattr(learner, 'train_model', transient_failure)
+    with SessionLocal() as db:
+        run_once(db)
+    failed = client.get('/v1/meditation/models/latest', headers=auth(token), params={'origin': 'muse'}).json()
+    assert failed['status'] == 'failed'
+    # Replaying the same delivery remains idempotent; a fresh user request retries.
+    assert client.post(endpoint, headers=auth(token), json=request).json()['status'] == 'failed'
+    retry = client.post(endpoint, headers=auth(token), json=request | {'request_id': str(uuid.uuid4())}).json()
+    assert retry['id'] == initial['id']
+    assert retry['status'] == 'queued'
+    assert client.get('/v1/meditation/models/latest', headers=auth(token), params={'origin': 'muse'}).json()['id'] == failed['id']
+    # Another transient failure must publish a fresh failed artifact safely too.
+    with SessionLocal() as db:
+        run_once(db)
+    failed_again = client.get('/v1/meditation/models/latest', headers=auth(token), params={'origin': 'muse'}).json()
+    assert failed_again['status'] == 'failed' and failed_again['id'] != failed['id']
+    monkeypatch.setattr(learner, 'train_model', original)
+    assert client.post(endpoint, headers=auth(token), json=request | {'request_id': str(uuid.uuid4())}).json()['status'] == 'queued'
+    with SessionLocal() as db:
+        run_once(db)
+    assert client.get(f"{endpoint}/{initial['id']}", headers=auth(token)).json()['status'] == 'done'
+    latest = client.get('/v1/meditation/models/latest', headers=auth(token), params={'origin': 'muse'}).json()
+    assert latest['id'] != failed_again['id']
+    assert latest['status'] == 'insufficient'  # Retry does not bypass validation gates.
+
+
 def test_synthetic_simulator_api_worker_exports_ready_model(tmp_path, monkeypatch):
     token, profile, _ = context(tmp_path, monkeypatch)
     other_asset = source(token)
