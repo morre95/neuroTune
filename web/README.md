@@ -5,7 +5,9 @@ The backend serves the production editor at `/editor/`. The Docker build runs
 For local development, run `npm ci` then `npm run dev` here, with the API at
 localhost:8000. Build before serving through the local backend.
 
-Sign in with an existing neuroTune account. Tokens are held in memory: reload
+Sign in with an existing neuroTune account, using the **same backend instance**
+as the phone. The Vite development proxy targets `127.0.0.1:8000`; an Android
+build pointing at another API will have a different library. Tokens are held in memory: reload
 requires sign-in. Upload a mono/stereo WAV, MP3, M4A/AAC, or FLAC, up to 100 MiB
 and ten minutes. Uploads survive closing the page; pending imports resume after
 worker lease expiry. Preview requires clicking the ready recording's button.

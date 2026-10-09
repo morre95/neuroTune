@@ -154,6 +154,25 @@ profilcache återstod; observationerna kunde inte knytas till ett sparat
 meditationspass. Ingen full 600-sekunderssession eller offlineacceptans är därmed
 bekräftad. Samtliga fysiska resultatrader förblir pending.
 
+**Fysiskt startfel, 2026-10-09 cirka 10:05 UTC:** på Samsung SM-S921B/Android 16
+med Muse och Bose Bluetooth-in-ear-hörlurar stoppades meditationen på **0/600 s**
+med `Audio playback stopped progressing`. Det testade debug-bygget var fcd601a
+och pekade på den lokala API-instansen på port 8000. Användaren bekräftade att
+Muse-sessionen inte kunde starta. Exakt hörlursmodell och full offlineacceptans
+är ännu inte verifierade.
+
+Koden begärde en 250 ms AudioTrack-buffer men matade högst 150 ms innan spelad
+progress krävdes. Androids stream behöver sin starttröskel uppfylld, vars standard
+är buffertkapaciteten; se [AudioTracks officiella starttröskeldokumentation](https://developer.android.com/reference/android/media/AudioTrack#getStartThresholdInFrames()).
+Controllerregressionen reproducerade därför 0 spelade frames med en 250 ms sink.
+Fix **18f88c3** hämtar verklig tröskel (API 31+) eller kapacitet på äldre Android,
+primmar en begränsad kö och läser om tröskeln vid återupptagning/routändring.
+Ett kort sluttail/stopp behöver också kunna primmas; eventuell efterföljande
+nollpadding räknas aldrig som meditationsinnehåll eller aktiv tid. 200 ms-paket
+och tvåsekunders watchdog behålls. Startup/resume, routändring/underrun och kort
+stopp blev gröna i fokuserade fake-PCM/controller-tester. **Fysisk omtestning av
+fixen återstår**; detta är ingen godkänd Androidsession.
+
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
 | Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | Pending |

@@ -137,7 +137,14 @@ meditations- och ljudbibliotekskontrollerna visas inte. Flaggan är en bygginst�
 inte ett serverreglage. Backendens autentiserade ljud-API och editor är fortfarande
 tillgängliga för utveckling.
 
-Logga in på `/editor/` med samma konto som i appen. Ladda upp WAV, MP3, M4A/AAC
+Logga in på `/editor/` med samma konto **och samma backend** som i appen. Vites
+utvecklingseditor använder API:t på `127.0.0.1:8000`; en APK som pekar på en annan
+API-instans visar den instansens bibliotek. Vid USB-utveckling kan
+`adb reverse tcp:8000 tcp:8000` användas med
+`--dart-define=API_BASE=http://127.0.0.1:8000` i ett debug-bygge. Ta bort reverse
+med `adb reverse --remove tcp:8000` inför ett faktiskt offlineprov.
+
+Ladda upp WAV, MP3, M4A/AAC
 eller FLAC (mono/stereo, högst 100 MiB och 600 sekunder). Blanda upp till fyra
 spår, rendera och förhandslyssna, och spara en namngiven profil. I appens
 **Ljudprofiler**, uppdatera och ladda ned den. **Nedladdad · redo offline** betyder
