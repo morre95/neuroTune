@@ -320,6 +320,16 @@ revision 2 är därefter verifierade på servern; lokalt uploadjobb är **done e
 **insufficient, 0 användbara sessioner, inga gates uppfyllda**. Ingen ready
 Muse-modell/adaptation eller verklig fokusinterruption testades i detta fixed-pass.
 
+Skopad kvalitetskontroll av samma sparade 600-sekunderspass fann **600 frames /
+2 400 kanalobservationer**. Framefältet `rejected` var false i samtliga, men
+**alla 2 400 kanaler hade `valid=false` och contact-kod 4**. Kanalorsakerna
+`contact`, `saturation` och `jump` förekom vardera **2 400 gånger**. Fortsatt
+inspelning och ett false frame-rejected-fält innebär alltså inte användbar EEG:
+detta pass gav **ingen användbar EEG-minut**, snarare än enbart för få sessioner
+för modellträning. Muse-placering och orsak till kvalitetsutfallet är ännu inte
+verifierade. Kvalificerat verkligt Muse-underlag och ready-modellens adaptiva
+kvalitetskontroller återstår; inga råa signalvärden publiceras här.
+
 **Kort fysisk fokusåterhämtning med markerat 6846b91:** användaren bekräftade
 att ett Klocka-larm pausade appen, att knappen visade **Fortsätt** och att tryck
 återupptog passet. Den sparade Muse-sessionen stoppades därefter manuellt med
