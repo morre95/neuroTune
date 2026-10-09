@@ -50,7 +50,7 @@ class AudioBridge(private val activity: FlutterActivity) {
     private var pendingWrite: PendingWrite? = null
     private var maxWriteBytes = 0
     private val drain = Runnable { drainWrite() }
-    private val debugAudio = activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+    private val debugAudio = (activity.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private var acceptedBytes = 0L
     private var outputStartedMs = 0L
     private var lastDebugMs = 0L
