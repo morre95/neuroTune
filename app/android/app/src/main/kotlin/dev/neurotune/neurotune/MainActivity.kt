@@ -18,6 +18,8 @@ class MainActivity : FlutterActivity() {
     /// The session lives in the engine, so the playback and the foreground
     /// service it holds open end with it.
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        museBridge?.dispose()
+        museBridge = null
         audioBridge?.dispose()
         audioBridge = null
         SessionService.stop(this)

@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.choosemuse.libmuse.Accelerometer
 import com.choosemuse.libmuse.Battery
 import com.choosemuse.libmuse.ConnectionState
@@ -35,7 +36,11 @@ private enum class StartPhase { PERMISSIONS, SCANNING, CONNECTING }
 class MuseBridge(private val activity: FlutterActivity) {
     private val handler = Handler(Looper.getMainLooper())
     private val manager = MuseManagerAndroid.getInstance()
-    private var muse: Muse? = null
+    @Volatile private var muse: Muse? = null
+    @Volatile private var disposed = false
+    @Volatile private var generation = 0L
+    private var methodChannel: MethodChannel? = null
+    private val eventChannels = ArrayList<EventChannel>()
     private var startResult: MethodChannel.Result? = null
     private var eegSink: EventChannel.EventSink? = null
     private var opticsSink: EventChannel.EventSink? = null
@@ -64,34 +69,55 @@ class MuseBridge(private val activity: FlutterActivity) {
 
     private val museListener = object : MuseListener() {
         override fun museListChanged() {
-            handler.post { onMuses() }
+            val expected = generation
+            handler.post {
+                if (!disposed && activeBridge === this@MuseBridge && generation == expected) onMuses()
+            }
         }
     }
 
     fun register(messenger: BinaryMessenger) {
-        manager.setContext(activity)
+        // The SDK singleton owns its Bluetooth receiver for the process.
+        // Its documentation recommends application context for this lifetime.
+        check(!disposed)
+        activeBridge?.takeIf { it !== this }?.dispose()
+        if (!contextConfigured) {
+            manager.setContext(activity.applicationContext)
+            contextConfigured = true
+        }
+        activeBridge = this
         manager.setMuseListener(museListener)
-        MethodChannel(messenger, "dev.neurotune/muse").setMethodCallHandler { call, result ->
-            when (call.method) {
-                "start" -> start(result)
-                "stop" -> {
-                    stop()
-                    result.success(null)
+        methodChannel = MethodChannel(messenger, "dev.neurotune/muse").also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "start" -> start(result)
+                    "stop" -> {
+                        stop()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
                 }
-                else -> result.notImplemented()
             }
         }
-        EventChannel(messenger, "dev.neurotune/muse_eeg").setStreamHandler(sinkHandler { eegSink = it })
-        EventChannel(messenger, "dev.neurotune/muse_optics").setStreamHandler(sinkHandler { opticsSink = it })
-        EventChannel(messenger, "dev.neurotune/muse_battery").setStreamHandler(sinkHandler {
-            batterySink = it
-            it?.success(batteryPercent)
-        })
-        EventChannel(messenger, "dev.neurotune/muse_diagnostics").setStreamHandler(sinkHandler { diagnosticSink = it })
+        eventChannels += EventChannel(messenger, "dev.neurotune/muse_eeg").also {
+            it.setStreamHandler(sinkHandler { eegSink = it })
+        }
+        eventChannels += EventChannel(messenger, "dev.neurotune/muse_optics").also {
+            it.setStreamHandler(sinkHandler { opticsSink = it })
+        }
+        eventChannels += EventChannel(messenger, "dev.neurotune/muse_battery").also {
+            it.setStreamHandler(sinkHandler { sink ->
+                batterySink = sink
+                sink?.success(batteryPercent)
+            })
+        }
+        eventChannels += EventChannel(messenger, "dev.neurotune/muse_diagnostics").also {
+            it.setStreamHandler(sinkHandler { diagnosticSink = it })
+        }
     }
 
     fun onPermissions(grantResults: IntArray) {
-        if (startResult == null || startPhase != StartPhase.PERMISSIONS) return
+        if (disposed || startResult == null || startPhase != StartPhase.PERMISSIONS) return
         val granted = grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }
         if (!granted) {
             teardown()
@@ -102,6 +128,10 @@ class MuseBridge(private val activity: FlutterActivity) {
     }
 
     private fun start(result: MethodChannel.Result) {
+        if (disposed || activeBridge !== this) {
+            result.error("MUSE_DISPOSED", "Muse-anslutningen stängdes.", null)
+            return
+        }
         if (startResult != null) {
             result.error("MUSE_BUSY", "En anslutning pågår redan.", null)
             return
@@ -163,7 +193,7 @@ class MuseBridge(private val activity: FlutterActivity) {
     }
 
     private fun onMuses() {
-        if (!scanning || startResult == null) return
+        if (disposed || activeBridge !== this || !scanning || startResult == null) return
         val found = manager.muses.firstOrNull { it.model == MuseModel.MS_03 } ?: return
         startPhase = StartPhase.CONNECTING
         handler.removeCallbacks(startTimeout)
@@ -173,13 +203,14 @@ class MuseBridge(private val activity: FlutterActivity) {
 
     private fun connect(headband: Muse) {
         muse = headband
+        val connection = ++generation
         headband.unregisterAllListeners()
         headband.registerConnectionListener(object : MuseConnectionListener() {
             override fun receiveMuseConnectionPacket(packet: MuseConnectionPacket, muse: Muse) {
-                handler.post { if (muse === this@MuseBridge.muse) onConnection(packet) }
+                handler.post { if (ownsConnection(muse, connection)) onConnection(packet) }
             }
         })
-        val listener = dataListener()
+        val listener = dataListener(connection)
         headband.registerDataListener(listener, MuseDataPacketType.EEG)
         headband.registerDataListener(listener, MuseDataPacketType.ACCELEROMETER)
         headband.registerDataListener(listener, MuseDataPacketType.GYRO)
@@ -218,42 +249,48 @@ class MuseBridge(private val activity: FlutterActivity) {
         }
     }
 
-    private fun dataListener(): MuseDataListener {
+    private fun ownsConnection(headband: Muse, expected: Long): Boolean =
+        !disposed && activeBridge === this && generation == expected && muse === headband
+
+    private fun postData(headband: Muse, expected: Long, action: () -> Unit) {
+        if (disposed || generation != expected) return
+        handler.post { if (connected && ownsConnection(headband, expected)) action() }
+    }
+
+    private fun dataListener(connection: Long): MuseDataListener {
         return object : MuseDataListener() {
             override fun receiveMuseArtifactPacket(packet: MuseArtifactPacket, muse: Muse) {
+                if (disposed || generation != connection) return
                 val values = mapOf(
                     "headband_on" to packet.headbandOn,
                     "blink" to packet.blink,
                     "jaw_clench" to packet.jawClench,
                 )
                 val timestamp = packet.timestamp
-                handler.post {
-                    if (connected && muse === this@MuseBridge.muse) {
-                        diagnosticSink?.success(mapOf(
-                            "type" to "artifact",
-                            "time_seconds" to sessionSeconds(timestamp),
-                            "values" to values,
-                        ))
-                    }
+                postData(muse, connection) {
+                    diagnosticSink?.success(mapOf(
+                        "type" to "artifact",
+                        "time_seconds" to sessionSeconds(timestamp),
+                        "values" to values,
+                    ))
                 }
             }
 
             override fun receiveMuseDataPacket(packet: MuseDataPacket, muse: Muse) {
+                if (disposed || generation != connection) return
                 when (packet.packetType()) {
                     MuseDataPacketType.BATTERY -> {
                         val percentage = packet.getBatteryValue(Battery.CHARGE_PERCENTAGE_REMAINING)
                         val timestamp = packet.timestamp()
                         if (percentage.isFinite() && percentage in 0.0..100.0) {
-                            handler.post {
-                                if (connected && muse === this@MuseBridge.muse) {
-                                    batteryPercent = kotlin.math.round(percentage).toInt()
-                                    batterySink?.success(batteryPercent)
-                                    diagnosticSink?.success(mapOf(
-                                        "type" to "battery",
-                                        "time_seconds" to sessionSeconds(timestamp),
-                                        "values" to mapOf("percent" to percentage),
-                                    ))
-                                }
+                            postData(muse, connection) {
+                                batteryPercent = kotlin.math.round(percentage).toInt()
+                                batterySink?.success(batteryPercent)
+                                diagnosticSink?.success(mapOf(
+                                    "type" to "battery",
+                                    "time_seconds" to sessionSeconds(timestamp),
+                                    "values" to mapOf("percent" to percentage),
+                                ))
                             }
                         }
                     }
@@ -262,7 +299,7 @@ class MuseBridge(private val activity: FlutterActivity) {
                             packet.getEegChannelValue(EEG_CHANNELS[index])
                         }
                         val time = packet.timestamp()
-                        handler.post { addEeg(time, values) }
+                        postData(muse, connection) { addEeg(time, values) }
                     }
                     MuseDataPacketType.ACCELEROMETER -> {
                         val values = doubleArrayOf(
@@ -270,7 +307,7 @@ class MuseBridge(private val activity: FlutterActivity) {
                             packet.getAccelerometerValue(Accelerometer.Y),
                             packet.getAccelerometerValue(Accelerometer.Z),
                         )
-                        handler.post { values.copyInto(lastAccel) }
+                        postData(muse, connection) { values.copyInto(lastAccel) }
                     }
                     MuseDataPacketType.GYRO -> {
                         val values = doubleArrayOf(
@@ -278,18 +315,18 @@ class MuseBridge(private val activity: FlutterActivity) {
                             packet.getGyroValue(Gyro.Y),
                             packet.getGyroValue(Gyro.Z),
                         )
-                        handler.post { values.copyInto(lastGyro) }
+                        postData(muse, connection) { values.copyInto(lastGyro) }
                     }
                     MuseDataPacketType.HSI_PRECISION -> {
                         val values = IntArray(4) { index ->
                             packet.getEegChannelValue(EEG_CHANNELS[index]).toInt()
                         }
-                        handler.post { values.copyInto(lastContact) }
+                        postData(muse, connection) { values.copyInto(lastContact) }
                     }
                     MuseDataPacketType.OPTICS -> {
                         val values = DoubleArray(8) { index -> packet.getOpticsChannelValue(OPTICS_CHANNELS[index]) }
                         val time = packet.timestamp()
-                        handler.post { addOptics(time, values) }
+                        postData(muse, connection) { addOptics(time, values) }
                     }
                     else -> Unit
                 }
@@ -370,20 +407,48 @@ class MuseBridge(private val activity: FlutterActivity) {
     /// running, no pending timeout, no headband holding a BLE link and no
     /// samples left over from the previous session. The clock origin stays.
     private fun teardown() {
+        generation++
+        val previous = muse
+        // Invalidate identity before SDK operations can dispatch late callbacks.
+        muse = null
         connected = false
         batteryPercent = null
-        batterySink?.success(null)
         startPhase = null
-        handler.removeCallbacks(startTimeout)
-        handler.removeCallbacks(scanPoll)
-        manager.stopListening()
-        muse?.let {
-            it.unregisterAllListeners()
-            it.disconnect()
-        }
-        muse = null
+        handler.removeCallbacksAndMessages(null)
+        cleanup("scan") { if (activeBridge === this) manager.stopListening() }
+        cleanup("listeners") { previous?.unregisterAllListeners() }
+        cleanup("disconnect") { previous?.disconnect() }
+        cleanup("battery") { batterySink?.success(null) }
         clearEeg()
         clearOptics()
+    }
+
+    /** Main-thread lifecycle boundary, idempotent even after replacement. */
+    fun dispose() {
+        if (disposed) return
+        disposed = true
+        eegSink = null
+        opticsSink = null
+        batterySink = null
+        diagnosticSink = null
+        teardown()
+        // Reply once while the old messenger still has its method handler.
+        cleanup("pending_start") { finishStart("MUSE_DISPOSED", "Muse-anslutningen stängdes.") }
+        if (activeBridge === this) {
+            cleanup("manager_listener") { manager.setMuseListener(null) }
+            activeBridge = null
+        }
+        cleanup("method_channel") { methodChannel?.setMethodCallHandler(null) }
+        methodChannel = null
+        eventChannels.forEach { channel -> cleanup("event_channel") { channel.setStreamHandler(null) } }
+        eventChannels.clear()
+    }
+
+    private inline fun cleanup(resource: String, action: () -> Unit) {
+        try { action() } catch (_: Exception) {
+            // Do not let one SDK cleanup failure retain remaining resources.
+            Log.w("NeuroTuneMuse", "cleanup_failed resource=$resource")
+        }
     }
 
     private fun failStreams(message: String) {
@@ -414,11 +479,17 @@ class MuseBridge(private val activity: FlutterActivity) {
 
     private fun sinkHandler(assign: (EventChannel.EventSink?) -> Unit) =
         object : EventChannel.StreamHandler {
-            override fun onListen(arguments: Any?, events: EventChannel.EventSink) = assign(events)
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                if (disposed) events.error("MUSE_DISPOSED", "Muse-anslutningen stängdes.", null)
+                else assign(events)
+            }
             override fun onCancel(arguments: Any?) = assign(null)
         }
 
     companion object {
+        // Register/dispose run on the main thread; SDK callbacks may arrive elsewhere.
+        @Volatile private var activeBridge: MuseBridge? = null
+        private var contextConfigured = false
         const val REQUEST_PERMISSIONS = 0x4D55
         private const val SCAN_TIMEOUT_MS = 12_000L
         private const val SCAN_POLL_MS = 500L
