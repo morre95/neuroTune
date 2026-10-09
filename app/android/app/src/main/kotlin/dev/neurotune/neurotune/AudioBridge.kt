@@ -111,6 +111,20 @@ class AudioBridge(private val activity: FlutterActivity) {
                         }
                     }
                 }
+                "startupThresholdFrames" -> {
+                    handler.post {
+                        val current = track
+                        // Before API 31 the threshold is not configurable or
+                        // observable; filling capacity safely primes the sink.
+                        val frames = when {
+                            current == null -> 0
+                            Build.VERSION.SDK_INT >= 31 -> current.startThresholdInFrames
+                            Build.VERSION.SDK_INT >= 24 -> current.bufferCapacityInFrames
+                            else -> current.bufferSizeInFrames
+                        }
+                        activity.runOnUiThread { result.success(frames) }
+                    }
+                }
                 "latencyMs" -> {
                     val current = track
                     if (current == null) {

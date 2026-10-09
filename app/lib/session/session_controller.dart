@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart' show PlatformException;
@@ -95,6 +96,8 @@ class SessionController extends ChangeNotifier {
   int _inFlightFrames = 0;
   int _playbackBase = 0;
   int _playedFrames = 0;
+  int _startupThresholdFrames = 0;
+  int _paddingFrames = 0;
   final Stopwatch _playbackObserved = Stopwatch();
   double _lastPlayedObserved = 0;
   final Stopwatch _progressStall = Stopwatch();
@@ -794,6 +797,8 @@ class SessionController extends ChangeNotifier {
     _audioFramesWritten = 0;
     if (isMeditation) {
       _playbackBase = _playedFrames;
+      _startupThresholdFrames = 0;
+      _paddingFrames = 0;
       _audioFramesWritten = _playedFrames;
       _playbackObserved.start();
       _lastPlayedObserved = _observedSeconds;
@@ -999,11 +1004,46 @@ class SessionController extends ChangeNotifier {
     (engine as MeditationProtocol).playback(_playedFrames, observed);
   }
 
+  Future<void> _readStartupThreshold(int generation) async {
+    final threshold = audio is PcmStartupThreshold
+        ? await (audio as PcmStartupThreshold).startupThresholdFrames().timeout(
+            _audioWriteTimeout,
+          )
+        : 0;
+    if (generation != _audioGeneration || _closed) return;
+    if (threshold < 0 || threshold > MeditationRenderer.sampleRate) {
+      throw StateError('Audio startup buffer exceeds the one-second bound');
+    }
+    if (threshold != _startupThresholdFrames) {
+      _startupThresholdFrames = threshold;
+      _recordDiagnostic('audio_buffer', {
+        'startup_threshold_frames': threshold,
+      });
+    }
+  }
+
+  /// Only the final content may be followed by silence. A short final tail or
+  /// stop ramp still has to prime the sink; padding never advances its cursor.
+  Future<void> _primeFinalBuffer(int generation) async {
+    while (generation == _audioGeneration && !_closed) {
+      final missing =
+          _startupThresholdFrames -
+          (_audioFramesWritten + _paddingFrames - _playedFrames);
+      if (missing <= 0) return;
+      final frames = min(missing, MeditationRenderer.maxPacketFrames);
+      await audio.write(Uint8List(frames * 4)).timeout(_audioWriteTimeout);
+      if (generation != _audioGeneration || _closed) return;
+      _paddingFrames += frames;
+    }
+  }
+
   Future<void> _pumpPlayback() async {
     final renderer = _renderer;
     if (renderer == null || engine?.terminal == true) return;
     final generation = _audioGeneration;
     try {
+      await _readStartupThreshold(generation);
+      final previousPlayed = _playedFrames;
       await _readPlayed(generation);
       if (generation != _audioGeneration || _closed || _finishing) return;
       _releaseFrames();
@@ -1013,7 +1053,12 @@ class SessionController extends ChangeNotifier {
         _finishInBackground();
         return;
       }
-      final due = min(MeditationRenderer.durationFrames, _playedFrames + 7200);
+      // Streaming AudioTrack will not consume until its startup buffer is
+      // full. A shorter fixed lead waits forever at played frame zero.
+      final due = min(
+        MeditationRenderer.durationFrames,
+        _playedFrames + max<int>(7200, _startupThresholdFrames),
+      );
       final frames = min(
         due - _audioFramesWritten,
         MeditationRenderer.maxPacketFrames,
@@ -1029,6 +1074,12 @@ class SessionController extends ChangeNotifier {
         if (generation != _audioGeneration || _closed) return;
         _audioFramesWritten += frames;
         _inFlightFrames = 0;
+      }
+      if (_audioFramesWritten == MeditationRenderer.durationFrames &&
+          _playedFrames < _audioFramesWritten &&
+          _playedFrames == previousPlayed) {
+        _audioWritePending = true;
+        await _primeFinalBuffer(generation);
       }
       _releaseFrames();
       if (!_closed) notifyListeners();
@@ -1079,6 +1130,9 @@ class SessionController extends ChangeNotifier {
       _outputAcquired = true;
       if (_closed || generation != _audioGeneration) return;
       _playbackBase = _playedFrames;
+      _paddingFrames = 0;
+      await _readStartupThreshold(generation);
+      if (_closed || generation != _audioGeneration) return;
       final frames = min(
         7200,
         MeditationRenderer.durationFrames - _playedFrames,
@@ -1102,7 +1156,13 @@ class SessionController extends ChangeNotifier {
       while (_playedFrames < _audioFramesWritten &&
           !_closed &&
           generation == _audioGeneration) {
+        await _readStartupThreshold(generation);
+        if (_closed || generation != _audioGeneration) return;
+        final previousPlayed = _playedFrames;
         await _readPlayed(generation);
+        if (_playedFrames == previousPlayed) {
+          await _primeFinalBuffer(generation);
+        }
         if (_playedFrames < _audioFramesWritten) {
           await Future<void>.delayed(const Duration(milliseconds: 20));
         }

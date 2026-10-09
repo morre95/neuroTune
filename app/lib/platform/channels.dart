@@ -25,6 +25,12 @@ abstract interface class PcmPlaybackProgress {
   Future<int> playedFrames();
 }
 
+/// Frames the sink needs queued before starting (also after an underrun).
+/// Re-query after route changes; this is buffering, never played duration.
+abstract interface class PcmStartupThreshold {
+  Future<int> startupThresholdFrames();
+}
+
 /// OS output changes. Focus return permits a user resume; it never advances
 /// the cursor or automatically starts another output.
 class PcmInterruption {
@@ -42,7 +48,11 @@ abstract interface class PcmInterruptionSource {
 }
 
 class AndroidPcmOutput
-    implements PcmOutput, PcmPlaybackProgress, PcmInterruptionSource {
+    implements
+        PcmOutput,
+        PcmPlaybackProgress,
+        PcmStartupThreshold,
+        PcmInterruptionSource {
   static const _events = EventChannel('dev.neurotune/audio_events');
   @override
   Stream<PcmInterruption> get interruptions =>
@@ -59,6 +69,11 @@ class AndroidPcmOutput
   @override
   Future<int> playedFrames() async =>
       (await _audioMethods.invokeMethod<num>('playedFrames'))!.toInt();
+  @override
+  Future<int> startupThresholdFrames() async =>
+      (await _audioMethods.invokeMethod<num>(
+        'startupThresholdFrames',
+      ))!.toInt();
   @override
   Future<double?> start(int sampleRate) async {
     await _audioMethods.invokeMethod<void>('start', {'sampleRate': sampleRate});
