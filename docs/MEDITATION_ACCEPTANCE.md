@@ -88,6 +88,7 @@ slutar vid editor/backendens nedladdningsbara profil, inte vid Android AudioTrac
 | Session-level modellgates, simulator/Muse-separation och Python/Dart-paritet | backend/tests/test_eeg_model_math.py, test_personal_eeg_api.py; core/app model-/cache-tester och gemensamma contracts/fixtures |
 | Minutadaptation, kvalitet-hold, fryst modell, statistik/radering | app/test/meditation_adaptation_test.dart, meditation_policy_test.dart, meditation_learning_deletion_test.dart |
 | Feature-default och användbara befintliga NIR-kontroller | app/test/auth_flow_test.dart |
+| Scrollsynligt Muse-fel och inget sent anslutningsresultat efter logout/navigation | app/test/muse_error_visibility_test.dart |
 
 ## Resultatlogg för programvara
 
@@ -134,13 +135,23 @@ Debug-APK från 500b0e8 byggdes på 10,5 s och installerades på telefonen med
 `MEDITATION_ENABLED=true`, `API_BASE=http://127.0.0.1:8000` och SHA-256
 `c3b2b977903256bdeb182ef315d3248f16cd50469c57cd521afcb14927ff4230`.
 Ett fullt fysiskt 600-sekunderspass med detta bygge är verifierat nedan;
-full flygplanslägesacceptans är fortfarande pending.
+det senare flygplanslägespasset kördes med markerat 6846b91-bygge.
 
 Slutlig appverifiering **2026-10-09, 98d7073** efter UI-övergångsfixen:
 **197 Flutter-tester godkända, 103 s**; **Flutter-analys utan problem, 1,0 s**.
 Debug-APK byggd på **10,8 s** och installerad framgångsrikt på testtelefonen.
 Den fysiska 600-sekundersljudverifieringen nedan gäller 500b0e8; denna senare
 ändring rör enbart övergången från session till feedback.
+
+Muse-UI-fix **bb56a56**, 2026-10-09: **19 fokuserade widgettester godkända, 7 s**.
+Regressionerna visar Bluetooth-felet vid en scrollad Muse-knapp och ignorerar
+sena anslutningsresultat efter logout/historiknavigation. Full Flutter-svit på
+bb56a56: **202 godkända, 105 s**. Native-livscykelfix
+**27ffac0** använder SDK-managerns application context en gång per process,
+städar den ägda anslutningen vid engine-cleanup och spärrar gamla callbacks.
+Debug-APK kompilerad mot libmuse 8.0.9, **9,9 s**; Flutter-analys ren, **1,9 s**.
+Båda kodändringarna granskade utan materiella fynd. Fysisk Activity-destruktion/
+återöppning och frånvaro av `IntentReceiverLeaked` efter native-fixen är pending.
 
 Koppla slutliga resultat till den testade committen; lägg till antal, datum,
 plattform och kvarstående fel här före release. Räkna inte en kodläsning som ett
@@ -156,12 +167,12 @@ Enhets-/byggrecord:
 
 | Uppgift | Värde |
 | --- | --- |
-| Testdatum och testare | 2026-10-09: användarprov och ADB-observationer; partiellt pass dokumenterat nedan |
-| Appcommit/APK och featureflagga | Senast installerat: 6846b91 debug, version 1.0.0-test.6846b91/build 20261009, MEDITATION_ENABLED=true, API_BASE=http://127.0.0.1:8000; verifierat 600 s-pass på 500b0e8 |
-| Telefon / Android-version | Samsung SM-S921B / Android 16; full sessionsacceptans pending |
+| Testdatum och testare | 2026-10-09: användarprov, ADB och skopad lokal/servermetadata; två fulla pass dokumenterade nedan |
+| Appcommit/APK och featureflagga | Fysiska pass: 500b0e8 och markerat 6846b91 debug, version 1.0.0-test.6846b91/build 20261009, MEDITATION_ENABLED=true, API_BASE=http://127.0.0.1:8000 |
+| Telefon / Android-version | Samsung SM-S921B / Android 16 |
 | Muse/headset/SDK | Muse S Athena ansluten / Bose QC35 II Bluetooth-hörlurar, modell observerad i telefonens Bluetooth-vy / libmuse Android 8.0.9 |
-| Profilversion / checksumma / bärare / gains / ögonläge | Pending |
-| Session-ID och logg/evidensplats | Pending |
+| Profilversion / checksumma / bärare / gains / ögonläge | Privata profil-/sessionsmetadata; publiceras inte här. Detaljerad kanal-/mixlyssning pending |
+| Session-ID och logg/evidensplats | Sparade sessions-ID:n och råfiler verifierade i åtkomstbegränsad testjournal; publiceras inte här |
 
 Delobservation **2026-10-09 09:51 UTC**: ADB visade flygplansläge på och Bluetooth
 på. Användaren rapporterade att toner och bakgrund hördes, men aktuella
@@ -269,17 +280,52 @@ samma telefon. Ett senare markerat 6846b91-bygge installerades med matchande
 APK-checksumma. Användaren bekräftade därefter ett kort fysiskt
 **Starta → Stoppa → Avsluta session**-prov utan synlig felsida eller övergående
 ErrorWidget. Denna UI-omtestning avser ett kort manuellt stoppat pass;
-övergången efter ett nytt fullt completed-pass på 600 s är ännu inte fysiskt
-omtestad. Ljudets verifierade 600-sekundersresultat ovan gäller fortsatt 500b0e8.
+övergången efter ett nytt fullt completed-pass på 600 s verifierades därefter
+i flygplanslägespasset nedan. Det tidigare ljudresultatet ovan gäller 500b0e8.
+
+**Fullt fysiskt offlinepass med markerat 6846b91, 11:32:46–11:42:46 UTC:**
+native-ljudet nådde **28 800 000 spelade frames / 115 200 000 bytes** och appen
+visade completed **600 s** vid 11:43:03 UTC. Sparad lokal session är completed
+i fixed-läge utan stoppskäl. Observationer före, under och efter passet visade
+**flygplansläge på, Bluetooth på**, Wi-Fi aktiverat men **utan anslutning** och
+tom USB-reverselista. Ingen USB-API-förbindelse användes under passet.
+
+Användaren rapporterade fortsatt ljud efter cirka 30 sekunder och under cirka
+två minuter med skärmen släckt, följt av återöppning. Vid **11:39:36 UTC** var
+telefonen i **Dozing**, SessionService var foreground och native-klockan hade
+spelat **19 680 000 frames**. Inspelningen fortsatte över passet: **600 bearbetade
+EEG-frames**, tidsintervall **4–603 s**, största gap **1 s**, och **11 768**
+spelklocke-checkpoints. Detta stödjer skärm-av-ljud, fortsatt inspelning och
+förgrundstjänst i samma pass; ett exakt markerat skärm-av-intervall har inte
+korrelerats sample för sample.
+
+Skopad råfilsverifiering fann **1 206 EEG-batcher**, **1 201 optics-batcher** och
+**154 368 EEG-samples per kanal vid 256 Hz**. Tidsstämplarna var monotona med
+spann **0–600,219961 s** och största positiva interbatch-gap **0,007679 s**.
+Den lokala okomprimerade råfilen är **33 491 064 bytes**, med checksumma som
+matchar manifestet. Serverns lagrade zstd-komprimerade fil är **3 351 805 bytes**.
+Batchintervall kan
+överlappa; 603 summerade sample-sekunder innebär inte bevis för exakt förlustfri
+realtidsinsamling eller godkänd kontaktkvalitet.
+
+Användaren bekräftade att avslut efter hela passet fungerade **utan felsida**.
+Båda efter-skattningarna finns lokalt, **revision 2**, med synk pending medan
+telefonen fortfarande var offline. Därmed är completed→feedback och lokalt
+sparad offlinefeedback fysiskt verifierade. USB-API-förbindelsen återställdes
+först efter passet, cirka **12:00 UTC**. Motsvarande session och båda skattningarna
+revision 2 är därefter verifierade på servern; lokalt uploadjobb är **done efter
+6 försök**, feedbacksynk **done utan fel**. Den verkliga Muse-modellstatusen var
+**insufficient, 0 användbara sessioner, inga gates uppfyllda**. Ingen ready
+Muse-modell/adaptation eller verklig fokusinterruption testades i detta fixed-pass.
 
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
-| Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | Fullt lokalt 600 s completed verifierat på 500b0e8; flygplansläge var av, full offlinekontroll pending |
-| Skärm av | Släck skärmen under en väsentlig del av samma pass. Ljud och inspelning ska fortsätta; förgrundstjänsten kvarstår och sparade EEG-/tidsspår har fortsatt coverage. | Ljud användarbekräftat; fortsatt råinspelning över 500b0e8-passets 600 s verifierad. Exakt skärm-av-intervall i samma pass är inte markerat/korrelerat; full kontroll pending |
+| Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | 6846b91: fullt 600 s completed i flygplansläge/Bluetooth, Wi-Fi utan anslutning och ingen USB-API. Användaren bekräftade ljud och avslut utan felsida; detaljerad mixlyssning återstår |
+| Skärm av | Släck skärmen under en väsentlig del av samma pass. Ljud och inspelning ska fortsätta; förgrundstjänsten kvarstår och sparade EEG-/tidsspår har fortsatt coverage. | 6846b91: ljud under släckt skärm användarbekräftat, Dozing och foreground-service observerade, fortsatt bearbetad/rå inspelning över samma fulla pass verifierad. Exakt samplekorrelation mot skärm-av-intervall ej gjord |
 | Ljudinterruption/recovery | Använd ett verkligt fokusavbrott (t.ex. annat ljud eller samtal). Aktiv klocka pausar under tyst tid. Återuppta: samma ton och bakgrundscursor, inga hopp eller replay av gamla buffers; avsluta med 600 aktiva s. | Pending |
 | Muse-kvalitetsförlust | Under ett adaptivt pass med verkligt ready Muse-underlag, försämra kontakten så minst en utvärderingsminut blir otillräcklig. Ljud och aktuell ton kvarstår; sparat beslut visar kvalitet-hold och inga nya statistikobservationer för perioden. | Pending |
 | Kanal-/mixlyssning | Lyssna på vänster/höger-tonpar, bakgrundens stereokaraktär, loopskarv och minst ett mjukt tonbyte. Ingen hörbar clipping/klick eller bakgrundsreset. | Pending |
-| Feedback/radering/synk efter offlinepass | Spara båda skattningarna offline, starta om, återanslut och synka. Radera ett testpass och kontrollera tombstone/beroende underlag utan återställning. | Pending |
+| Feedback/radering/synk efter offlinepass | Spara båda skattningarna offline, starta om, återanslut och synka. Radera ett testpass och kontrollera tombstone/beroende underlag utan återställning. | 6846b91: båda skattningarna sparade offline, revision 2; session/råfil/feedback synkade efter återanslutning. Feedback efter omstart och fysisk raderingskontroll pending |
 
 Den första fyra-radsgruppen är uttryckliga hårdvarukrav i #16. En fysisk fixed-
 session med dålig kontakt visar att ljudet fortsätter; den bevisar inte skipped
