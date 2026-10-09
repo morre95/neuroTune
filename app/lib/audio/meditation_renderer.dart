@@ -161,10 +161,11 @@ class MeditationRenderer {
           : overlapFrames +
                 (frame - wave.frameCount) % (wave.frameCount - overlapFrames);
       Future<void> load(int position) async {
+        final reader = input!;
         cacheStart = position ~/ maxPacketFrames * maxPacketFrames;
         cacheFrames = min(maxPacketFrames, wave.frameCount - cacheStart);
-        await input!.setPosition(wave.dataOffset + cacheStart * 4);
-        final bytes = await input.read(cacheFrames * 4);
+        await reader.setPosition(wave.dataOffset + cacheStart * 4);
+        final bytes = await reader.read(cacheFrames * 4);
         if (bytes.length != cacheFrames * 4) {
           throw const FormatException('Truncated PCM');
         }
