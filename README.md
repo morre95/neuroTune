@@ -6,10 +6,12 @@ befintliga Personlig- och Jämförelse-sessioner. EEG-måtten loggas också, men
 relativ theta är inte experimentens belöning.
 
 **Meditation** spelar tio aktiva minuter med eget nedladdat bakgrundsljud och
-lokalt genererade binaurala toner. Webbeditor, ljudbibliotek, blindad kalibrering,
-efter-skattningar och personlig EEG-anpassning finns bakom byggflaggan
-`MEDITATION_ENABLED`, som är **avstängd som standard**. Fysisk Android/Muse-acceptans
-återstår före allmän aktivering; se [acceptansprotokollet](docs/MEDITATION_ACCEPTANCE.md).
+lokalt genererade binaurala toner. Mobilens ljudbibliotek, blindade kalibrering,
+efter-skattningar och personliga EEG-anpassning finns bakom byggflaggan
+`MEDITATION_ENABLED`, som är **avstängd som standard**. Backendens ljud-API och
+webbeditor är tillgängliga för utveckling oberoende av mobilflaggan. Fysisk
+Android/Muse-acceptans återstår före allmän mobilaktivering; se
+[acceptansprotokollet](docs/MEDITATION_ACCEPTANCE.md).
 
 Meditation använder personliga samband mellan EEG och skattad mental
 upptagenhet/avslappning. Varken NIR-belöningen eller EEG-modellens prediktion är

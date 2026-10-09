@@ -107,13 +107,24 @@ Fokuserad verifiering av #16-fixar:
   och nya profilinställningar bevaras efter fix.
 - Isolerad verklig browser/API/worker-kontroll: **1 godkänd**, FFmpeg med WAV/FLAC,
   två spår, ljudpreview, två immutable versioner och privata verifierade downloads.
-- Compose migration-first och slutlig samlad regression/Android-APK:
+- Compose migration-first och Android-APK:
   **verifierad 2026-10-09** på separat PostgreSQL 16-stack: 003→008 bevarade
   äldre sessionsdata; migrate exit 0 föregick API/worker-start. Verkliga HTTP-importer
   och en tvåspårsrender sparade en profil. Debug-APK från 6261646 byggdes och
   installerades på Samsung SM-S921B/Android 16. Dessa är bygg-/driftresultat;
-  lyssning och full fysisk session återstår. Slutlig samlad regression registreras
-  av implementationens huvudflöde.
+  full fysisk sessionsacceptans återstår.
+
+Slutlig programverifiering **2026-10-09, integration/adaptive-meditation 6ae2c30**:
+
+| Kontroll | Resultat |
+| --- | --- |
+| Flutter, full svit | **190 godkända**, 106 s |
+| Flutter-analyser | **Inga problem**, 2,5 s |
+| Backend, full svit | **61 godkända**, 27,20 s; 16 befintliga Alembic-deprecationvarningar |
+| Browser med HTTP-fixtures | **11 godkända**, 8,6 s |
+| Verklig isolerad browser/API/worker | **1 godkänd**, 11,3 s |
+| Webbygge | **Godkänt** |
+| Core | **37 godkända**, ren analys på ac96d0f; core-koden oförändrad i #16 |
 
 Koppla slutliga resultat till den testade committen; lägg till antal, datum,
 plattform och kvarstående fel här före release. Räkna inte en kodläsning som ett
@@ -129,12 +140,19 @@ Enhets-/byggrecord:
 
 | Uppgift | Värde |
 | --- | --- |
-| Testdatum och testare | Pending |
-| Appcommit/APK och featureflagga | Pending |
+| Testdatum och testare | 2026-10-09: installation och ADB-kontroll; sessionsresultat pending |
+| Appcommit/APK och featureflagga | Debug-APK 6261646 installerad, MEDITATION_ENABLED=true |
 | Telefon / Android-version | Samsung SM-S921B / Android 16; installation verifierad, sessionsacceptans pending |
 | Muse/headset/SDK | Muse S Athena / libmuse Android 8.0.9; faktisk anslutning pending |
 | Profilversion / checksumma / bärare / gains / ögonläge | Pending |
 | Session-ID och logg/evidensplats | Pending |
+
+Delobservation **2026-10-09 09:51 UTC**: ADB visade flygplansläge på och Bluetooth
+på. Användaren rapporterade att toner och bakgrund hördes, men aktuella
+ADB-skärmbilder visade inloggningsvyn. Inloggning med testkontot och verifierad
+profilcache återstod; observationerna kunde inte knytas till ett sparat
+meditationspass. Ingen full 600-sekunderssession eller offlineacceptans är därmed
+bekräftad. Samtliga fysiska resultatrader förblir pending.
 
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
