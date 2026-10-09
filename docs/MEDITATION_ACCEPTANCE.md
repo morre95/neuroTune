@@ -126,7 +126,7 @@ Programverifiering före AudioTrack-fixarna **2026-10-09, integration/adaptive-m
 | Webbygge | **Godkänt** |
 | Core | **37 godkända**, ren analys på ac96d0f; core-koden oförändrad i #16 |
 
-Senaste appverifiering **2026-10-09, 500b0e8** efter buffert- och watchdogfixarna:
+Appverifiering **2026-10-09, 500b0e8** efter buffert- och watchdogfixarna:
 **197 Flutter-tester godkända, 104 s**. Fokuserad playback/lifecycle-regression:
 **27 godkända, 11 s**; Flutter-analys ren, 0,7 s. Backend/web/core-resultaten ovan
 avser sina angivna versioner; deras kod ändrades inte av dessa ljudfixar.
@@ -135,6 +135,12 @@ Debug-APK från 500b0e8 byggdes på 10,5 s och installerades på telefonen med
 `c3b2b977903256bdeb182ef315d3248f16cd50469c57cd521afcb14927ff4230`.
 Ett fullt fysiskt 600-sekunderspass med detta bygge är verifierat nedan;
 full flygplanslägesacceptans är fortfarande pending.
+
+Slutlig appverifiering **2026-10-09, 98d7073** efter UI-övergångsfixen:
+**197 Flutter-tester godkända, 103 s**; **Flutter-analys utan problem, 1,0 s**.
+Debug-APK byggd på **10,8 s** och installerad framgångsrikt på testtelefonen.
+Den fysiska 600-sekundersljudverifieringen nedan gäller 500b0e8; denna senare
+ändring rör enbart övergången från session till feedback.
 
 Koppla slutliga resultat till den testade committen; lägg till antal, datum,
 plattform och kvarstående fel här före release. Räkna inte en kodläsning som ett
@@ -151,7 +157,7 @@ Enhets-/byggrecord:
 | Uppgift | Värde |
 | --- | --- |
 | Testdatum och testare | 2026-10-09: användarprov och ADB-observationer; partiellt pass dokumenterat nedan |
-| Appcommit/APK och featureflagga | Senast installerat: 500b0e8 debug, MEDITATION_ENABLED=true; APK-checksumma ovan |
+| Appcommit/APK och featureflagga | Senast installerat: 98d7073 debug, MEDITATION_ENABLED=true; verifierat 600 s-pass på 500b0e8 |
 | Telefon / Android-version | Samsung SM-S921B / Android 16; full sessionsacceptans pending |
 | Muse/headset/SDK | Muse S Athena ansluten / Bose QC35 II Bluetooth-hörlurar, modell observerad i telefonens Bluetooth-vy / libmuse Android 8.0.9 |
 | Profilversion / checksumma / bärare / gains / ögonläge | Pending |
@@ -225,7 +231,10 @@ Den lokalt sparade sessionen är verifierad som **completed**, med duration
 **600 s**, completed-fas, inget stoppskäl och 28 800 000 spelade frames i fixed-
 läge. Motsvarande fulla session finns också på servern, verifierad mot samma
 sessions-ID utan att publicera persondata. Den lokala feedbackraden innehåller
-**båda efter-skattningarna, revision 2**; feedbacksynkens slutliga status återstår.
+**båda efter-skattningarna, revision 2**. Servern har motsvarande revision med
+båda skattningarna; lokalt feedback-synkjobb är **done** utan fel. Serverråfilen
+finns, **3 403 234 bytes**; filens innehåll har inte använts som bevis för
+kontinuerlig rå-EEG-coverage.
 
 Sparad bearbetad inspelning innehåller **596 EEG-frames**, med loggade frame-tider
 **4,254–602,596 s** och största gap **4,342 s**. Det finns **11 589** spelklocke-
@@ -250,7 +259,8 @@ avslutningsspärren till feedback/fallback och blockerar bakåt under övergång
 Fullt avslutat pass, snabb dubbeltryckning, bakåt och återkopplingsrouting blev
 gröna i **14 fokuserade widgettester, 38 s**, med ren analys, 0,7 s.
 Fysisk omtestning av just UI-övergången återstår; ljudets verifierade
-600-sekundersresultat ovan gäller 500b0e8.
+600-sekundersresultat ovan gäller 500b0e8. Debug-APK från 98d7073 byggdes på
+**10,8 s** och installerades framgångsrikt på samma telefon.
 
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
