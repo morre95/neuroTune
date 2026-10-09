@@ -99,7 +99,7 @@ flutter run
 På en fysisk telefon pekar du appen mot datorns adress i samma nät:
 
 ```bash
-flutter run --dart-define=API_BASE=http://192.168.50.210:8000
+flutter run --dart-define=MEDITATION_ENABLED=true --dart-define=API_BASE=http://192.168.50.210:8000
 ```
 
 Byt `192.168.50.210` mot datorns LAN-adress. Skapa konto i appen, välj ögonläge och starta antingen simulatorn eller Muse. På kontaktsidan kan du trycka på **Testa hörlurar** för att spela `audio/stereo_test.wav` upprepade gånger och **Stoppa hörlurstest** när du är klar. Simulatorn kan verifiera programflöden utan Muse-headset. Fysiska ljud-, skärm- och Muse-kontroller måste genomföras separat.
