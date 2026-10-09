@@ -10,7 +10,7 @@ simulator- eller browserresultat.
 ## Sammanhängande editor-till-telefon-flöde
 
 Använd ett separat testkonto och egna korta musik-/naturljudsfiler. Håll samma
-konto i editor/app. Notera commit, backendmigrationsrevision, appbygge, enhet,
+konto och samma backendinstans i editor/app. Notera commit, backendmigrationsrevision, appbygge, enhet,
 Android-version, headset och profilversions-ID före start.
 
 1. Starta API, worker och migration enligt [driftinstruktionen](MEDITATION_OPERATIONS.md).
@@ -114,7 +114,7 @@ Fokuserad verifiering av #16-fixar:
   installerades på Samsung SM-S921B/Android 16. Dessa är bygg-/driftresultat;
   full fysisk sessionsacceptans återstår.
 
-Slutlig programverifiering **2026-10-09, integration/adaptive-meditation 6ae2c30**:
+Programverifiering före AudioTrack-fixarna **2026-10-09, integration/adaptive-meditation 6ae2c30**:
 
 | Kontroll | Resultat |
 | --- | --- |
@@ -125,6 +125,15 @@ Slutlig programverifiering **2026-10-09, integration/adaptive-meditation 6ae2c30
 | Verklig isolerad browser/API/worker | **1 godkänd**, 11,3 s |
 | Webbygge | **Godkänt** |
 | Core | **37 godkända**, ren analys på ac96d0f; core-koden oförändrad i #16 |
+
+Senaste appverifiering **2026-10-09, 500b0e8** efter buffert- och watchdogfixarna:
+**197 Flutter-tester godkända, 104 s**. Fokuserad playback/lifecycle-regression:
+**27 godkända, 11 s**; Flutter-analys ren, 0,7 s. Backend/web/core-resultaten ovan
+avser sina angivna versioner; deras kod ändrades inte av dessa ljudfixar.
+Debug-APK från 500b0e8 byggdes på 10,5 s och installerades på telefonen med
+`MEDITATION_ENABLED=true`, `API_BASE=http://127.0.0.1:8000` och SHA-256
+`c3b2b977903256bdeb182ef315d3248f16cd50469c57cd521afcb14927ff4230`.
+Nästa fulla fysiska offlinepass med detta bygge är pending.
 
 Koppla slutliga resultat till den testade committen; lägg till antal, datum,
 plattform och kvarstående fel här före release. Räkna inte en kodläsning som ett
@@ -140,10 +149,10 @@ Enhets-/byggrecord:
 
 | Uppgift | Värde |
 | --- | --- |
-| Testdatum och testare | 2026-10-09: installation och ADB-kontroll; sessionsresultat pending |
-| Appcommit/APK och featureflagga | Debug-APK 6261646 installerad, MEDITATION_ENABLED=true |
-| Telefon / Android-version | Samsung SM-S921B / Android 16; installation verifierad, sessionsacceptans pending |
-| Muse/headset/SDK | Muse S Athena / libmuse Android 8.0.9; faktisk anslutning pending |
+| Testdatum och testare | 2026-10-09: användarprov och ADB-observationer; partiellt pass dokumenterat nedan |
+| Appcommit/APK och featureflagga | Senast installerat: 500b0e8 debug, MEDITATION_ENABLED=true; APK-checksumma ovan |
+| Telefon / Android-version | Samsung SM-S921B / Android 16; full sessionsacceptans pending |
+| Muse/headset/SDK | Muse S Athena ansluten / Bose Bluetooth-in-ear-hörlurar, exakt modell okänd / libmuse Android 8.0.9 |
 | Profilversion / checksumma / bärare / gains / ögonläge | Pending |
 | Session-ID och logg/evidensplats | Pending |
 
@@ -189,10 +198,25 @@ stoppas fortfarande efter två sekunder. Både långsam framåtskridande primmin
 och detta verkliga stallkontrollfall är regressionstestade. Fysisk verifiering
 av denna ändring återstår.
 
+**Partiellt fysiskt pass efter nytt försök med 18f88c3:** ADB visade **103/600 s
+vid 10:25:31 UTC**, **384/600 s vid 10:30:13 UTC** och stoppat pass på **518/600 s
+vid 10:33:08 UTC**. Användaren bekräftade att hen uttryckligen tryckte **Stoppa**;
+resultatet är därför ett manuellt avslutat pass, inte belägg för ett misslyckat
+fokusavbrott/återupptagning. Användaren hörde en stadig ton och bekräftade att
+ljudet fortsatte när skärmen var släckt. Sparad inspelningscoverage under släckt
+skärm har ännu inte verifierats.
+
+Flygplansläge var **av** under detta pass och USB-reverselistan var tom. Det
+bevisar varken 600 aktiva sekunder, completed eller full offlineacceptans.
+Muse-EEG syntes i appen, men kontaktkvaliteten var **0/4** och inget verifierat
+ready Muse-modellunderlag demonstrerades. Passet visar därför inte adaptiv
+kvalitet-hold eller skipped learning. Ett nytt fullständigt offlinepass med
+500b0e8, flygplansläge från start och Bluetooth för Muse/hörlurar återstår.
+
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
 | Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | Pending |
-| Skärm av | Släck skärmen under en väsentlig del av samma pass. Ljud och inspelning ska fortsätta; förgrundstjänsten kvarstår och sparade EEG-/tidsspår har fortsatt coverage. | Pending |
+| Skärm av | Släck skärmen under en väsentlig del av samma pass. Ljud och inspelning ska fortsätta; förgrundstjänsten kvarstår och sparade EEG-/tidsspår har fortsatt coverage. | Ljud användarbekräftat i partiellt 18f88c3-pass; sparad coverage och full kontroll pending |
 | Ljudinterruption/recovery | Använd ett verkligt fokusavbrott (t.ex. annat ljud eller samtal). Aktiv klocka pausar under tyst tid. Återuppta: samma ton och bakgrundscursor, inga hopp eller replay av gamla buffers; avsluta med 600 aktiva s. | Pending |
 | Muse-kvalitetsförlust | Under ett adaptivt pass med verkligt ready Muse-underlag, försämra kontakten så minst en utvärderingsminut blir otillräcklig. Ljud och aktuell ton kvarstår; sparat beslut visar kvalitet-hold och inga nya statistikobservationer för perioden. | Pending |
 | Kanal-/mixlyssning | Lyssna på vänster/höger-tonpar, bakgrundens stereokaraktär, loopskarv och minst ett mjukt tonbyte. Ingen hörbar clipping/klick eller bakgrundsreset. | Pending |
