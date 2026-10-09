@@ -19,6 +19,13 @@ PostgreSQL samt filvolymerna tillsammans. Bygg/starta sedan samtliga tjänster m
 migreringssteget. Behåll databasen och filerna vid byte av appversion. Att ta bort
 volymer ersätter inte en migration.
 
+EEG-kvalitetsuppgraderingen levererar experiment **2026.4** och kvalitet
+**2026.4-unverified** i samma app/API/worker-release. Startup skapar/aktiverar
+den nya konfigurationsraden och behåller äldre 2026.3-body. Kontrollera båda
+värdena i det autentiserade svaret från **GET /v1/experiments/active**;
+health 200 och worker-konstanten räcker inte för att verifiera rätt aktiv
+konfiguration. Historiska sessioner ommärks inte och deras EEG reprocessas inte.
+
 | Backendrevision | Tillkommande data |
 | --- | --- |
 | 001–003 | Befintliga konton/sessioner/policyer, raderingsmarkeringar, aktivt experiment |

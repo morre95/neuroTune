@@ -16,6 +16,8 @@ unchanged. These bounds are software artifact policies, not calibrated Muse ADC
 rails; the SDK 8.0.9 EEG documentation specifies microvolts but does not provide
 forehead-electrode clipping rails. Full hardware clipping/quality validation
 remains open. No heuristic plateau rule is introduced.
+`hardware_approved` is the legacy Muse/native availability/protocol marker; it
+does not certify EEG amplitude thresholds, ADC clipping or personal model quality.
 
 Old `2026.3-unverified` feature/model artifacts cannot mix with this policy:
 backend training skips those recordings and the Dart model parser/cache refuses
@@ -24,6 +26,15 @@ no automatic reprocessing or migration to the new quality version occurs.
 Deploy the matching API/worker and app/core contract together. Shared synthetic
 fixtures retain their independently worked numerical values with the updated
 compatibility identifier; none are physical Muse evidence.
+
+The shipped experiment configuration is now `2026.4`. Startup inserts/activates
+that distinct row; the stored `2026.3` configuration body is not overwritten.
+For new runs only, known cached/remote `2026.3` settings are normalized to
+experiment `2026.4` / quality `2026.4-unverified`, preserving other parameters.
+Generic JSON parsing and historical recording metadata retain their original
+versions. A cached or HTTP NIR policy must match both effective experiment and
+requested source; otherwise a current empty policy is used. Matching current
+statistics survive, and old reward evidence is never relabeled or pooled.
 
 Confirmed active endpoints in(0,600] use second bin `ceil(t-1e-9)`, minute
 `(bin-1)//60`. Only within-minute bins11–60 contribute: always50 possible bins.

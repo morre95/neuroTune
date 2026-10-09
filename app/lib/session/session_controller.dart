@@ -53,8 +53,8 @@ class SessionController extends ChangeNotifier {
     required this.ownerEmail,
     required this.audio,
     required this.keepAlive,
-    required this.config,
-    required this.snapshot,
+    required ExperimentConfig config,
+    required BanditSnapshot snapshot,
     required this.mode,
     required this.eyeState,
     required this.origin,
@@ -65,7 +65,8 @@ class SessionController extends ChangeNotifier {
     this.beforeAcquire,
     this.observedTimeSeconds,
     this.randomUnit,
-  });
+  }) : config = config.forCurrentProcessing(),
+       snapshot = _currentSnapshot(config, origin, snapshot);
 
   final SessionRepository repository;
   final String ownerEmail;
@@ -1275,4 +1276,20 @@ class SessionController extends ChangeNotifier {
     final value = channels.map(read).reduce((a, b) => a + b) / channels.length;
     return value.toStringAsFixed(3);
   }
+}
+
+BanditSnapshot _currentSnapshot(
+  ExperimentConfig configured,
+  DataOrigin origin,
+  BanditSnapshot snapshot,
+) {
+  final current = configured.forCurrentProcessing();
+  return snapshot.experimentVersion == current.version &&
+          snapshot.dataOrigin == origin.name
+      ? snapshot
+      : BanditSnapshot.empty(
+          experimentVersion: current.version,
+          origin: origin,
+          epsilon: current.epsilon,
+        );
 }

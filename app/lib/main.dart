@@ -426,7 +426,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     var offline = false;
     try {
       checkCurrent();
-      config = await widget.api.activeExperiment();
+      config = (await widget.api.activeExperiment()).forCurrentProcessing();
       checkCurrent();
       await _repository.saveConfig(config);
       checkCurrent();
@@ -435,7 +435,10 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         experimentVersion: config.version,
       );
       checkCurrent();
-      await _repository.saveBandit(snapshot);
+      if (snapshot.experimentVersion == config.version &&
+          snapshot.dataOrigin == origin.name) {
+        await _repository.saveBandit(snapshot);
+      }
     } catch (_) {
       snapshot =
           await _repository.loadBandit(origin.name) ??
@@ -445,6 +448,14 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
             epsilon: config.epsilon,
           );
       offline = true;
+    }
+    if (snapshot.experimentVersion != config.version ||
+        snapshot.dataOrigin != origin.name) {
+      snapshot = BanditSnapshot.empty(
+        experimentVersion: config.version,
+        origin: origin,
+        epsilon: config.epsilon,
+      );
     }
     final local = await _repository.localRewards(origin.name, config.version);
     return (

@@ -91,7 +91,7 @@ def test_register_login_refresh_logout():
     tokens = register("person@example.com")
     me = client.get("/v1/experiments/active", headers=auth(tokens["access_token"]))
     assert me.status_code == 200
-    assert me.json()["version"] == "2026.3"
+    assert me.json()["version"] == "2026.4"
     refreshed = client.post("/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
     assert refreshed.status_code == 200
     old = client.post("/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
@@ -263,3 +263,33 @@ def test_seeding_a_new_version_leaves_one_active_experiment(monkeypatch, tmp_pat
 
     assert active.status_code == 200
     assert active.json()["version"] == "test-newer"
+
+
+def test_startup_preserves_legacy_config_and_publishes_current_quality():
+    import uuid
+    from app.models import Experiment
+
+    legacy = json.loads(Path(settings.contracts_path).read_text())
+    legacy.update(version='2026.3', quality_version='2026.3-unverified')
+    original_body = json.dumps(legacy)
+    # Disposable startup fixture: the previous deployed DB has only its old
+    # canonical row, not the new shipped configuration.
+    with SessionLocal() as db:
+        db.query(Experiment).filter(Experiment.version == '2026.4').delete()
+        old = db.query(Experiment).filter(Experiment.version == '2026.3').one_or_none()
+        if old is None:
+            old = Experiment(id=str(uuid.uuid4()), version='2026.3', body=original_body, active=True)
+            db.add(old)
+        else:
+            old.body, old.active = original_body, True
+        db.commit()
+    token = register(f'{uuid.uuid4()}@example.com')['access_token']
+    for _ in range(2):
+        with TestClient(app) as restarted:
+            active = restarted.get('/v1/experiments/active', headers=auth(token))
+            assert active.status_code == 200
+            assert active.json()['version'] == '2026.4'
+            assert active.json()['quality_version'] == '2026.4-unverified'
+        with SessionLocal() as db:
+            assert db.query(Experiment).filter_by(version='2026.3').one().body == original_body
+            assert db.query(Experiment).filter_by(active=True).count() == 1

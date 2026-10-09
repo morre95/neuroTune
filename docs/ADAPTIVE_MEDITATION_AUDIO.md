@@ -60,6 +60,9 @@ Ljudavbrott pausar den aktiva klockan. Tryck **Fortsätt** för att återuppta s
  och samma spelade bakgrundsposition. Tyst avbrottstid ingår inte i 600 sekunder.
  Manuellt stopp eller ett oåterställbart ljudfel sparar en stoppad session.
  Dålig/saknad EEG eller frånkopplad Muse stoppar inte meditationsljudet.
+ Kontaktpreview visar passformen. Sessionsvyns kanalkvalitet omfattar också
+ fyrasekunders EEG-fönster och artefaktkontroller; bra kontakt garanterar därför
+ inte att en kanal är giltig för modellen.
  Skärmavstängning stöds av Androids förgrundstjänst och CPU-lås; faktisk funktion
  på telefon måste verifieras i acceptansprotokollet.
 

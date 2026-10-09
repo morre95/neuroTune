@@ -132,7 +132,9 @@ class SessionRepository {
   Future<ExperimentConfig> loadConfig() async {
     final raw = await db.getKv('config');
     if (raw == null) return ExperimentConfig.defaults();
-    return ExperimentConfig.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    return ExperimentConfig.fromJson(
+      jsonDecode(raw) as Map<String, dynamic>,
+    ).forCurrentProcessing();
   }
 
   /// Logins were kept in the database before they moved to encrypted storage.

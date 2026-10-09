@@ -207,7 +207,7 @@ class ApiClient {
     _expect(response);
     return ExperimentConfig.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
-    );
+    ).forCurrentProcessing();
   }
 
   Future<BanditSnapshot> latestBandit({

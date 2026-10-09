@@ -8,7 +8,7 @@ import 'diagnostics.dart';
 /// Embedded copy of `contracts/default_experiment.json`.
 const String defaultExperimentJson = '''
 {
-  "version": "2026.3",
+  "version": "2026.4",
   "quality_version": "2026.4-unverified",
   "hardware_approved": true,
   "notch_hz": 50.0,
@@ -141,6 +141,25 @@ class ExperimentConfig {
   factory ExperimentConfig.defaults() => ExperimentConfig.fromJson(
     jsonDecode(defaultExperimentJson) as Map<String, dynamic>,
   );
+
+  /// Effective settings for a new run of this software, not a historical read.
+  /// Preserve operator settings while moving the known previous release to the
+  /// corrected processing/version namespace. Unknown releases remain untouched.
+  ExperimentConfig forCurrentProcessing() {
+    if (!const ['2026.3', '2026.4'].contains(version) ||
+        !const [
+          '2026.3-unverified',
+          '2026.4-unverified',
+        ].contains(qualityVersion) ||
+        (version == '2026.4' && qualityVersion == '2026.4-unverified')) {
+      return this;
+    }
+    return ExperimentConfig.fromJson({
+      ...toJson(),
+      'version': '2026.4',
+      'quality_version': '2026.4-unverified',
+    });
+  }
 
   factory ExperimentConfig.fromJson(Map<String, dynamic> json) {
     return ExperimentConfig(

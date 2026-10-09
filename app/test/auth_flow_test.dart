@@ -12,6 +12,7 @@ import 'package:http/testing.dart';
 import 'package:neurotune/data/api_client.dart';
 import 'package:neurotune/data/auth_store.dart';
 import 'package:neurotune/data/database.dart';
+import 'package:neurotune/data/repository.dart';
 import 'package:neurotune/main.dart';
 import 'package:neurotune/platform/channels.dart';
 import 'package:neurotune/ui/history_page.dart';
@@ -56,6 +57,31 @@ class _TimeoutAuthApi extends _AuthApi {
       throw TimeoutException('Request timed out');
     }
     return super.login(email, password);
+  }
+}
+
+class _ConfigPolicyApi extends _AuthApi {
+  _ConfigPolicyApi(this.delivered);
+  final BanditSnapshot? delivered;
+
+  @override
+  Future<ExperimentConfig> activeExperiment() async {
+    if (delivered == null) throw const SocketException('Offline');
+    return ExperimentConfig.fromJson({
+      ...ExperimentConfig.defaults().toJson(),
+      'version': '2026.3',
+      'quality_version': '2026.3-unverified',
+    });
+  }
+
+  @override
+  Future<BanditSnapshot> latestBandit({
+    required String origin,
+    required String experimentVersion,
+  }) async {
+    expect(origin, 'simulator');
+    expect(experimentVersion, '2026.4');
+    return delivered!;
   }
 }
 
@@ -191,6 +217,88 @@ Future<void> saveBrokenSession(AppDatabase database) => database
 
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
+
+  for (final scenario in [
+    'legacy-cache',
+    'current-cache',
+    'legacy-http',
+    'wrong-origin-http',
+  ]) {
+    testWidgets(
+      'NIR current configuration keeps only compatible source policy: $scenario',
+      (tester) async {
+        final database = AppDatabase(NativeDatabase.memory());
+        addTearDown(database.close);
+        final repository = SessionRepository(database);
+        final legacy = ExperimentConfig.fromJson({
+          ...ExperimentConfig.defaults().toJson(),
+          'version': '2026.3',
+          'quality_version': '2026.3-unverified',
+        });
+        await repository.saveConfig(legacy);
+        BanditSnapshot policy(
+          String version,
+          DataOrigin origin,
+          String label,
+        ) => BanditSnapshot(
+          experimentVersion: version,
+          dataOrigin: origin.name,
+          policyVersion: label,
+          epsilon: .2,
+          actions: {
+            for (final a in StimulusAction.values) a: const ActionStat(12, .5),
+          },
+          includedSessionIds: const ['historical-reward'],
+          createdAtIso: '2026-10-09T00:00:00Z',
+        );
+        await repository.saveBandit(
+          policy(
+            scenario == 'current-cache' ? '2026.4' : '2026.3',
+            DataOrigin.simulator,
+            'cached-policy',
+          ),
+        );
+        await repository.saveBandit(
+          policy('2026.4', DataOrigin.muse, 'retained-muse'),
+        );
+        await AuthStore().save(
+          AuthTokens(
+            accessToken: 'access',
+            refreshToken: 'refresh',
+            email: 'person@example.com',
+          ),
+        );
+        final delivered = scenario == 'legacy-http'
+            ? policy('2026.3', DataOrigin.simulator, 'wrong-version')
+            : scenario == 'wrong-origin-http'
+            ? policy('2026.4', DataOrigin.muse, 'wrong-source')
+            : null;
+        await tester.pumpWidget(app(database, _ConfigPolicyApi(delivered)));
+        await tester.pumpAndSettle();
+        expect(find.text('Experiment 2026.4'), findsOneWidget);
+        expect(
+          find.text(
+            scenario == 'current-cache' ? 'Policy cached-policy' : 'Policy 0',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          (await repository.loadBandit('muse'))!.policyVersion,
+          'retained-muse',
+        );
+        // Neither stale cache fallback nor a bad HTTP response relabels or
+        // destroys the previous version's cached reward evidence.
+        expect(
+          (await repository.loadBandit(
+            'simulator',
+          ))!.actions[StimulusAction.control]!.n,
+          12,
+        );
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
 
   testWidgets(
     'default-disabled meditation retains NIR modes and history without library controls',

@@ -91,6 +91,7 @@ slutar vid editor/backendens nedladdningsbara profil, inte vid Android AudioTrac
 | Scrollsynligt Muse-fel och inget sent anslutningsresultat efter logout/navigation | app/test/muse_error_visibility_test.dart |
 | DC-oberoende EEG-amplitud, kvantiserad theta/alpha, bevarade artefaktgates och oförändrad råinspelning | packages/neurotune_core/test/eeg_quality_test.dart; app/test/meditation_eeg_quality_test.dart |
 | Äldre kvalitetsversion får inte användas i modellcache eller nya träningsrader | app/test/personal_eeg_cache_test.dart; backend/tests/test_personal_eeg_api.py |
+| Befintlig konfigurationsrad bevaras; ny API-version, offline-live-konfiguration och NIR-policy håller rätt version/källa | backend/tests/test_api.py; app/test/meditation_eeg_quality_test.dart, auth_flow_test.dart |
 
 ## Resultatlogg för programvara
 
@@ -163,8 +164,27 @@ Fokuserade appkontroller för faktisk sessionscontroller/DSP-isolate/lokal
 inspelning, cache och tidigare sessionsbeteende: **11 godkända, 9 s**;
 Flutter-analys **utan problem, 0,5 s**.
 DC- och äldre modell-/träningskompatibilitetsregressioner reproducerade sina
-respektive fel före fix och blev gröna efter. Det är programvaruresultat;
-korrigerad fysisk EEG-kvalitet återstår att verifiera.
+respektive fel före fix och blev gröna efter. Fysisk kort omtestning och dess
+separata metadata-/rolloutfel dokumenteras nedan.
+
+Slutlig verifiering av **3116f8b**: full Flutter-svit **204 godkända, 119 s**.
+Markerad **1.0.0-test.3116f8b/build 20261011** byggdes på **7,4 s**, installerades
+och APK-checksumman verifierades på testtelefonen. Den lokala Compose-stackens
+API/worker/migrate byggdes om med **DB och volymer bevarade**; health svarade
+**200** och både API och worker använder **2026.4-unverified**. Skopad kontroll
+bekräftade att fulla 600-sekundersflygplanspasset finns kvar och det tidigare
+raderade testpassets tombstone/råfilsborttagning kvarstår. Den aktiva DB-
+konfigurationen var dock fortfarande **2026.3 / 2026.3-unverified**; sammanfallande
+API-/worker-konstanter och health 200 bevisade alltså inte korrekt rollout.
+
+Rolloutfixens fokuserade verifiering: befintlig DB med äldre konfiguration ger
+API-active **2026.4 / 2026.4-unverified** efter startup och upprepad restart,
+med äldre body oförändrad. Offlinestart/controller sparar nya versioner och
+behåller äldre historik/rådata; legacy-/felkälle-policy blir current-empty medan
+matchande NIR-statistik behålls. **20 fokuserade apptester godkända, 3 s**;
+core **40 godkända**; backend **63 godkända, 18,06 s**, med 16 befintliga
+Alembic-varningar; core-analys ren och Flutter-analys **utan problem, 1,1 s**.
+Full ny Flutter-/APK-/runtimeverifiering återstår.
 
 Koppla slutliga resultat till den testade committen; lägg till antal, datum,
 plattform och kvarstående fel här före release. Räkna inte en kodläsning som ett
@@ -340,8 +360,7 @@ detta pass gav **ingen användbar EEG-minut**, snarare än enbart för få sessi
 för modellträning. Användaren bekräftade därefter att **Muse låg bredvid och inte
 bars på huvudet** under flygplanslägespasset. Ljud-/skärm-av-resultaten gäller,
 men kvalificerad verklig EEG-insamling saknas. Detta fastställer inte den exakta
-orsaken till varje kvalitetsflagga. Kontaktpreview med Muse på huvudet,
-kvalificerat Muse-underlag och ready-modellens adaptiva kvalitetskontroller
+orsaken till varje kvalitetsflagga. Kvalificerat Muse-underlag och ready-modellens adaptiva kvalitetskontroller
 återstår; inga råa signalvärden publiceras här.
 
 **Head-worn kvalitetsblocker efter detta pass:** användaren rapporterade minst
@@ -366,8 +385,27 @@ nya modellrader/cache; historik och skattningar behålls.
 Detta rättar den verifierade DC-klassificeringen; det är inte en kalibrerad
 ADC-klippdetektor eller bevis för att alla head-worn frames blir giltiga. SDK:s
 EEG-dokumentation ger inga forehead-ADC-rails, och ingen ny platåheuristik införs.
-Fysisk omtestning av korrigerad sessionskvalitet samt kvalificerade Muse-minuter,
-ready-underlag och adaptiv kvalitets-hold är fortsatt pending.
+Ett kort fysiskt omtest av korrigerad sessionskvalitet följde; kvalificerade
+Muse-minuter, ready-underlag och adaptiv kvalitets-hold är fortsatt pending.
+
+**Kort head-worn omtest med markerat 3116f8b:** användaren bekräftade att appen
+nu känner av **två kanaler**. Sparad manuellt stoppad session var **30,89 s** med
+**28 frames**: **10 frames hade två giltiga kanaler**, 18 hade inga. Kanalorsaker
+var `contact` **2**, `saturation` **16** och `jump` **56**. Detta stödjer rättad
+överklassificering av DC-baslinjen och att andra artefaktgates fortfarande kan
+underkänna EEG; det bevisar inte en hel kvalificerad minut eller ready-underlag.
+
+Samma sessionsmanifest var trots detta märkt **2026.3-unverified**. Den nya
+binären återställde äldre konfiguration från cache/API; startup återaktiverade
+den befintliga 2026.3-raden utan att ersätta dess body. Rolloutfixen levererar
+därför separat experimentversion **2026.4**, bevarar äldre DB-body och normaliserar
+endast konfiguration för **nya körningar** till matchande version/kvalitet.
+Sessionscontroller, offlinecache och live-API-hämtning använder dessa effektiva
+inställningar. Gamla NIR-policyversioner/fel datakällor ersätts med tom aktuell
+policy för körningen; historiska rewards och sessionsetiketter skrivs inte om.
+Det korta 3116f8b-passet behåller sin faktiskt sparade äldre märkning och ingår
+inte automatiskt i nytt kvalitetsunderlag. Fysisk kontroll av nya manifest-
+versioner efter rolloutfixen återstår.
 
 **Kort fysisk fokusåterhämtning med markerat 6846b91:** användaren bekräftade
 att ett Klocka-larm pausade appen, att knappen visade **Fortsätt** och att tryck
