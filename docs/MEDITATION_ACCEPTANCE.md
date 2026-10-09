@@ -150,8 +150,10 @@ bb56a56: **202 godkända, 105 s**. Native-livscykelfix
 **27ffac0** använder SDK-managerns application context en gång per process,
 städar den ägda anslutningen vid engine-cleanup och spärrar gamla callbacks.
 Debug-APK kompilerad mot libmuse 8.0.9, **9,9 s**; Flutter-analys ren, **1,9 s**.
-Båda kodändringarna granskade utan materiella fynd. Fysisk Activity-destruktion/
-återöppning och frånvaro av `IntentReceiverLeaked` efter native-fixen är pending.
+Båda kodändringarna granskade utan materiella fynd. Root byggde senare markerat
+**1.0.0-test.27ffac0/build 20261010** på **8,1 s**, installerade och verifierade
+APK-checksumman. Idle Activity-återöppningen på detta bygge är verifierad nedan;
+fysisk omtestning med aktiv Muse-anslutning/köade callbacks återstår.
 
 Koppla slutliga resultat till den testade committen; lägg till antal, datum,
 plattform och kvarstående fel här före release. Räkna inte en kodläsning som ett
@@ -318,11 +320,32 @@ revision 2 är därefter verifierade på servern; lokalt uploadjobb är **done e
 **insufficient, 0 användbara sessioner, inga gates uppfyllda**. Ingen ready
 Muse-modell/adaptation eller verklig fokusinterruption testades i detta fixed-pass.
 
+**Kort fysisk fokusåterhämtning med markerat 6846b91:** användaren bekräftade
+att ett Klocka-larm pausade appen, att knappen visade **Fortsätt** och att tryck
+återupptog passet. Den sparade Muse-sessionen stoppades därefter manuellt med
+**33,89 aktiva sekunder**. Diagnostiken registrerade `focus_loss_transient` vid
+**16,088119 s** och `focus_gain` vid **20,783517 s**. Playback-checkpoints vid
+paus **16,090474 s** och återupptagning **75,276691 s** hade samma cursor,
+**584 640 spelade frames**: cursor var fryst under **59,186217 s** och gick sedan
+framåt. Inget `audio_failed` registrerades. Detta verifierar kort fysisk
+paus/återupptagning och spelklockans paus; exakt bakgrundslyssning efter resume
+och ett helt pass med 600 aktiva sekunder efter fokusavbrott är fortfarande pending.
+
+**Fysisk idle Activity-återöppning efter native-fix, 27ffac0, 12:20 UTC:**
+clear-task/new-task återöppnade Activity i samma appprocess. Tidigare fönstervy
+detachades och en ny skapades. Skopad loggkontroll fann **0** förekomster av
+`IntentReceiverLeaked`, `FATAL EXCEPTION`, `Unhandled Exception` eller
+`EXCEPTION CAUGHT`. Vid **12:20:39 UTC** visade slutbilden rätt Meditation-startsida,
+behållen inloggning och en valbar nedladdad profilversion. Denna idle-livscykel-
+kontroll är godkänd; den testar inte fysisk destruktion med ansluten Muse eller
+racet mot redan köade data-/anslutningscallbacks. Ett nytt anslutnings-/startprov
+på detta bygge är ännu pending.
+
 | Fysisk kontroll | Förfarande och förväntat resultat | Resultat |
 | --- | --- | --- |
 | Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | 6846b91: fullt 600 s completed i flygplansläge/Bluetooth, Wi-Fi utan anslutning och ingen USB-API. Användaren bekräftade ljud och avslut utan felsida; detaljerad mixlyssning återstår |
 | Skärm av | Släck skärmen under en väsentlig del av samma pass. Ljud och inspelning ska fortsätta; förgrundstjänsten kvarstår och sparade EEG-/tidsspår har fortsatt coverage. | 6846b91: ljud under släckt skärm användarbekräftat, Dozing och foreground-service observerade, fortsatt bearbetad/rå inspelning över samma fulla pass verifierad. Exakt samplekorrelation mot skärm-av-intervall ej gjord |
-| Ljudinterruption/recovery | Använd ett verkligt fokusavbrott (t.ex. annat ljud eller samtal). Aktiv klocka pausar under tyst tid. Återuppta: samma ton och bakgrundscursor, inga hopp eller replay av gamla buffers; avsluta med 600 aktiva s. | Pending |
+| Ljudinterruption/recovery | Använd ett verkligt fokusavbrott (t.ex. annat ljud eller samtal). Aktiv klocka pausar under tyst tid. Tryck **Fortsätt**: samma ton och bakgrundscursor, inga hopp eller replay av gamla buffers; avsluta med 600 aktiva s. | 6846b91: Klocka-larm pausade, Fortsätt återupptog; fryst spelad cursor verifierad, inget audio_failed. Kort manuellt stoppat pass på 33,89 aktiva s; bakgrundslyssning efter resume och 600 aktiva s efter avbrott pending |
 | Muse-kvalitetsförlust | Under ett adaptivt pass med verkligt ready Muse-underlag, försämra kontakten så minst en utvärderingsminut blir otillräcklig. Ljud och aktuell ton kvarstår; sparat beslut visar kvalitet-hold och inga nya statistikobservationer för perioden. | Pending |
 | Kanal-/mixlyssning | Lyssna på vänster/höger-tonpar, bakgrundens stereokaraktär, loopskarv och minst ett mjukt tonbyte. Ingen hörbar clipping/klick eller bakgrundsreset. | Pending |
 | Feedback/radering/synk efter offlinepass | Spara båda skattningarna offline, starta om, återanslut och synka. Radera ett testpass och kontrollera tombstone/beroende underlag utan återställning. | 6846b91: båda skattningarna sparade offline, revision 2; session/råfil/feedback synkade efter återanslutning. Feedback efter omstart och fysisk raderingskontroll pending |

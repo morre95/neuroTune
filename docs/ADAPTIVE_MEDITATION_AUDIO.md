@@ -56,7 +56,7 @@ avslutas före start och uppladdningsförsök vilar tills sessionsvyn stängs.
 Använd en tidigare inloggad app och en färdig nedladdning; ny inloggning och ny
 nedladdning behöver nät.
 
-Ljudavbrott pausar den aktiva klockan. **Fortsätt** återupptar samma toninställning
+Ljudavbrott pausar den aktiva klockan. Tryck **Fortsätt** för att återuppta samma toninställning
  och samma spelade bakgrundsposition. Tyst avbrottstid ingår inte i 600 sekunder.
  Manuellt stopp eller ett oåterställbart ljudfel sparar en stoppad session.
  Dålig/saknad EEG eller frånkopplad Muse stoppar inte meditationsljudet.
