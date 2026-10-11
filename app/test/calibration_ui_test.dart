@@ -383,6 +383,40 @@ void main() {
           );
         }
         expect(find.text('Slutför återkoppling'), findsNothing);
+        if (!fixed) {
+          // Taking a break must leave the app usable without reserving the
+          // next slot or changing the series' blinded assignments.
+          final attemptsBefore = (await tester.runAsync(
+            () => calibration.progress(owner, plan!.id),
+          ))!.attempts.length;
+          await tester.tap(find.text('Pausa serien'));
+          await tester.pump();
+          expect(find.text('Meditation'), findsOneWidget);
+          await tester.scrollUntilVisible(find.text('Kalibrering'), 200);
+          await tester.tap(find.text('Kalibrering'));
+          for (var i = 0; i < 10; i++) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 20)),
+            );
+            await tester.pump();
+          }
+          await tester.scrollUntilVisible(
+            find.text('Fortsätt serie · session 2'),
+            200,
+          );
+          expect(find.textContaining('1/10'), findsOneWidget);
+          expect(find.textContaining(' Hz'), findsNothing);
+          final resumed = (await tester.runAsync(
+            () => calibration.progress(owner, plan!.id),
+          ))!;
+          expect(resumed.plan.id, plan!.id);
+          expect(resumed.plan.schedule, plan.schedule);
+          expect(resumed.nextSlot, 1);
+          expect(resumed.attempts.length, attemptsBefore);
+          await tester.binding.handlePopRoute();
+          await tester.pump();
+          expect(find.text('Meditation'), findsOneWidget);
+        }
         await tester.pumpWidget(const SizedBox());
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 50)),

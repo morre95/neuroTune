@@ -79,6 +79,12 @@ med exakt två sessioner vardera för 0, 6, 8, 10 och 12 Hz. Profilversion, bär
 gains, längd, ögonläge och datakälla låses för hela tiosessionsserien. Ett annat
 upplägg behöver en ny serie. Omstart ändrar inte tilldelningarna.
 
+Sessionerna behöver inte köras i följd. Efter skattningarna, tryck **Klar** och
+sedan **Pausa serien** för att gå tillbaka till meditationssidan. Serien sparas
+automatiskt även om appen stängs. När du vill fortsätta, öppna **Kalibrering**
+och välj **Fortsätt serie · session …** i den pågående serien. Skapa inte en ny
+serie för att återuppta den befintliga.
+
 Frekvensetiketter döljs i kalibreringssessionen, historiken och uppspelningen
  tills hela serien är klar. En ofullständig serie bidrar inte till synliga
  rekommendationer eller per-tonmedelvärden; annars skulle en enskild tilldelning
