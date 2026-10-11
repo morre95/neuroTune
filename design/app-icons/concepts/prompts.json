@@ -1,0 +1,18 @@
+{
+  "generator": "Built-in image_gen",
+  "status": "Design concepts pending user selection and approval. Not integrated as launcher assets.",
+  "prompts": [
+    {
+      "concept": 1,
+      "prompt": "Use case: logo-brand. Asset type: square Android launcher icon concept for neuroTune, an app combining brain-signal experiments, personalized audio and meditation. Create one polished standalone icon, full bleed opaque square image, no presentation board or mockup, no rounded outer corners (OS will mask), no labels, lettering or watermark. Existing app brand palette teal #1F6F6A, deep green #183435 and mint/off-white #F0F5EF. Restrained premium contemporary design, bold simple symbol readable at 48 pixels, generous 22 percent safe margin. No tiny circuitry or decorative fine lines. Concept 1: Resonance. Deep dark teal background, centered mint symbol made of one fluid broad horizontal sine-wave flowing through an incomplete circular halo, suggesting sound, tuning and calm. Clean balanced geometry, flat graphic with very subtle light-to-mint tonal transition in the symbol, no 3D effects, no drop shadow."
+    },
+    {
+      "concept": 2,
+      "prompt": "Use case: logo-brand. Asset type: square Android launcher icon concept for neuroTune, an app combining brain-signal experiments, personalized audio and meditation. Create one polished standalone icon, full bleed opaque square image, no presentation board or mockup, no rounded outer corners (OS will mask), no labels, lettering or watermark. Existing app brand palette teal #1F6F6A, deep green #183435 and mint/off-white #F0F5EF. Restrained premium contemporary design, bold simple symbol readable at 48 pixels, generous 22 percent safe margin. No tiny circuitry or decorative fine lines. Concept 2: Neural harmony. Rich teal background, centered warm off-white abstract brain mark drawn as two symmetrical compact rounded lobes with only a few bold curved internal folds. Integrate one gentle waveform into the middle of the mark. Friendly, calm, intelligent; iconic rather than anatomically detailed. Flat graphic, strong silhouette, no medical cross or headphones."
+    },
+    {
+      "concept": 3,
+      "prompt": "Use case: logo-brand. Asset type: square Android launcher icon concept for neuroTune, an app combining brain-signal experiments, personalized audio and meditation. Create one polished standalone icon, full bleed opaque square image, no presentation board or mockup, no rounded outer corners (OS will mask), no labels, lettering or watermark. Existing app brand palette teal #1F6F6A, deep green #183435 and mint/off-white #F0F5EF. Restrained premium contemporary design, bold simple symbol readable at 48 pixels, generous 22 percent safe margin. No tiny circuitry or decorative fine lines. Concept 3: Wave monogram. Pale mint background, centered large deep teal lowercase n-inspired abstract monogram built from one smooth bold continuous ribbon that rises and falls like a sound wave. A distinct memorable asymmetric silhouette with softened terminals, subtle turquoise highlight within the ribbon. The mark should read as both an abstract N and rhythmic audio signal, not as plain typeset text. Minimal flat graphic, no additional shapes."
+    }
+  ]
+}
