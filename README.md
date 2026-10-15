@@ -9,8 +9,9 @@ relativ theta är inte experimentens belöning.
 lokalt genererade binaurala toner. Mobilens ljudbibliotek, blindade kalibrering,
 efter-skattningar och personliga EEG-anpassning finns bakom byggflaggan
 `MEDITATION_ENABLED`, som är **avstängd som standard**. Backendens ljud-API och
-webbeditor är tillgängliga för utveckling oberoende av mobilflaggan. Fysisk
-Android/Muse-acceptans återstår före allmän mobilaktivering; se
+webbeditor är tillgängliga för utveckling oberoende av mobilflaggan. #16 är
+godkänd med dokumenterade kravägarundantag; allmän mobilaktivering är ett separat
+leveransbeslut. Se resultat och begränsningar i
 [acceptansprotokollet](docs/MEDITATION_ACCEPTANCE.md).
 
 Meditation använder personliga samband mellan EEG och skattad mental

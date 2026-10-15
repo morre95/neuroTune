@@ -2,8 +2,11 @@
 
 Implementationen följer [spec #1](https://github.com/morre95/neuroTune/issues/1).
 Meditation är huvudflödet i ett bygge med `MEDITATION_ENABLED=true`; annars
-öppnas det befintliga experimentflödet. Flaggan är avstängd som standard tills
-[Android/Muse-acceptansen](MEDITATION_ACCEPTANCE.md) är dokumenterad och godkänd.
+öppnas det befintliga experimentflödet. Flaggan är avstängd som standard och
+allmän aktivering är ett separat leveransbeslut. #16 är godkänd enligt de
+resultat och kravägarundantag som redovisas i
+[Android/Muse-acceptansen](MEDITATION_ACCEPTANCE.md). Modellens tekniska
+aktiveringsgränser nedan är oförändrade.
 
 ## Skapa en ljudprofil
 

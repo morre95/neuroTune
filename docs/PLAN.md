@@ -16,11 +16,14 @@ EEG-modell. Den har ingen tyst baslinje och använder ett annat inlärningsflöd
 
 ## Leveransstatus
 
-Implementationsärendena #2–#15 är avslutade. #16 samlar helhetsgranskning,
-regression, aktuell dokumentation och fysisk Android/Muse-acceptans. General
-release bygger fortfarande utan `MEDITATION_ENABLED=true`; detta värde förblir
-avstängt tills acceptansprotokollet visar godkända resultat. En simulator eller
-syntetisk modell kan verifiera programbeteende, men godkänner inte hårdvaran.
+Implementationsärendena #2–#16 är avslutade. #16 är godkänd med dokumenterad
+program-/telefonverifiering, kravägarens godkännande av kalibrering och 15
+användbara Muse-pass samt ett uttryckligt undantag för fysisk adaptiv
+EEG-kontaktförlust. Ready/adaptiv Muse-drift är en redovisad begränsning;
+modellens tekniska gates är oförändrade. Nästa leveranssteg är integration och
+PR-granskning. Föräldraspec #1 följs upp separat. General release bygger
+fortfarande utan `MEDITATION_ENABLED=true`; allmän aktivering är ett separat
+beslut. En simulator eller syntetisk modell godkänner inte fysisk hårdvara.
 
 - [Användarflöde och beslutade modellregler](ADAPTIVE_MEDITATION_AUDIO.md)
 - [Backend, worker, lagring och migrationer](MEDITATION_OPERATIONS.md)
@@ -31,7 +34,8 @@ syntetisk modell kan verifiera programbeteende, men godkänner inte hårdvaran.
 
 Android-bygget kräver Interaxon libmuse Android 8.0.9 i
 `vendor/muse-android/libmuse_android_8.0.9/libs/`. SDK-filer är gitignorerade.
-En fysisk Android-telefon och Muse S Athena behövs för återstående acceptans.
+En fysisk Android-telefon och Muse S Athena används för kompletterande
+hårdvaruprov enligt de dokumenterade begränsningarna i acceptansprotokollet.
 
 - [SDK-mapp](https://drive.google.com/drive/folders/1ID35qK7zCvRXmQTFsbDgmPkVGhnPeCxa)
 - [Android SDK-arkiv](https://drive.google.com/file/d/1l6LrH3Uy4KUlEAR0-dT-78bHAz6CDrTG/view)

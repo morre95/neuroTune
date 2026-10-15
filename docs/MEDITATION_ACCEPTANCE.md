@@ -1,11 +1,12 @@
 # Acceptansprotokoll för meditation (#16)
 
-**Allmän aktivering är ännu inte godkänd.** `MEDITATION_ENABLED` förblir avstängd
-som standard. Den här filen skiljer verifierad programvara från faktiska
-telefon-/Muse-resultat. Uppdatera resultat, versioner och evidens när varje kontroll
-har körts. Stäng inte [#16](https://github.com/morre95/neuroTune/issues/16) eller
-[föräldraspec #1](https://github.com/morre95/neuroTune/issues/1) med enbart
-simulator- eller browserresultat.
+**#16 är godkänd enligt kravägarens dokumenterade acceptansbeslut och undantag.**
+`MEDITATION_ENABLED` förblir avstängd som standard; allmän aktivering är ett
+separat leveransbeslut. Den här filen skiljer verifierad programvara, faktiska
+telefon-/Muse-resultat och accepterade begränsningar. Beslutet för
+[#16](https://github.com/morre95/neuroTune/issues/16) bygger på både program-
+och fysisk evidens samt kravägarens beslut, inte enbart simulator eller browser.
+[Föräldraspec #1](https://github.com/morre95/neuroTune/issues/1) följs upp separat.
 
 ## Sammanhängande editor-till-telefon-flöde
 
@@ -476,27 +477,344 @@ fortfarande pending.
 | --- | --- | --- |
 | Full offline-session | Ladda ned online, starta om appen, sätt flygplansläge, återaktivera Bluetooth för Muse om det behövs. Kör 600 aktiva sekunder med stereohörlurar. Hör både bakgrund och lokala toner; completed och 600 s i historik. Ingen nätåtkomst behövs. | 6846b91: fullt 600 s completed i flygplansläge/Bluetooth, Wi-Fi utan anslutning och ingen USB-API. Användaren bekräftade ljud och avslut utan felsida; detaljerad mixlyssning återstår |
 | Skärm av | Släck skärmen under en väsentlig del av samma pass. Ljud och inspelning ska fortsätta; förgrundstjänsten kvarstår och sparade EEG-/tidsspår har fortsatt coverage. | 6846b91: ljud under släckt skärm användarbekräftat, Dozing och foreground-service observerade, fortsatt bearbetad/rå inspelning över samma fulla pass verifierad. Exakt samplekorrelation mot skärm-av-intervall ej gjord |
-| Ljudinterruption/recovery | Använd ett verkligt fokusavbrott (t.ex. annat ljud eller samtal). Aktiv klocka pausar under tyst tid. Tryck **Fortsätt**: samma ton och bakgrundscursor, inga hopp eller replay av gamla buffers; avsluta med 600 aktiva s. | 6846b91: Klocka-larm pausade, Fortsätt återupptog; fryst spelad cursor verifierad, inget audio_failed. Kort manuellt stoppat pass på 33,89 aktiva s; bakgrundslyssning efter resume och 600 aktiva s efter avbrott pending |
-| Muse-kvalitetsförlust | Under ett adaptivt pass med verkligt ready Muse-underlag, försämra kontakten så minst en utvärderingsminut blir otillräcklig. Ljud och aktuell ton kvarstår; sparat beslut visar kvalitet-hold och inga nya statistikobservationer för perioden. | Pending |
+| Ljudinterruption/recovery | Använd ett verkligt fokusavbrott (t.ex. annat ljud eller samtal). Aktiv klocka pausar under tyst tid. Tryck **Fortsätt**: samma ton och bakgrundscursor, inga hopp eller replay av gamla buffers; avsluta med 600 aktiva s. | Godkänt fysiskt 2026-10-15: nytt fast Muse-pass completed/600 s efter Klocka-larm. Användaren bekräftade hörbar paus och återupptagning via Fortsätt. Samma cursor 8 226 133 frames vid paus/resume, fryst i 17,42754 s, delta 0 och inga audio_failed. Se det fulla larmtestet nedan. Detaljerad kanal-/mixlyssning är fortsatt separat |
+| Muse-kvalitetsförlust | Under ett adaptivt pass med verkligt ready Muse-underlag, försämra kontakten så minst en utvärderingsminut blir otillräcklig. Ljud och aktuell ton kvarstår; sparat beslut visar kvalitet-hold och inga nya statistikobservationer för perioden. | Ej fysiskt verifierat. Kravägaren undantar detta prov från blockerande acceptans i #16 den 2026-10-15 och accepterar det som dokumenterad begränsning; se beslutet nedan. Hörlursfrånkoppling räknas som ljudvägstest |
 | Kanal-/mixlyssning | Lyssna på vänster/höger-tonpar, bakgrundens stereokaraktär, loopskarv och minst ett mjukt tonbyte. Ingen hörbar clipping/klick eller bakgrundsreset. | Pending |
-| Feedback/radering/synk efter offlinepass | Spara båda skattningarna offline, starta om, återanslut och synka. Radera ett testpass och kontrollera tombstone/beroende underlag utan återställning. | 6846b91: offlinefeedback och senare session/råfil/feedback-synk verifierade. Ett annat testpass raderades online via USB-reverse: lokal/server-tombstone, session/råfil borta även efter Activity-återöppning/synk; fullt 600 s-pass bevarat. Feedback efter processomstart, offlineköad radering och ready-modellinvalidation pending |
+| Feedback/radering/synk efter offlinepass | Spara båda skattningarna offline, starta om, återanslut och synka. Radera ett testpass och kontrollera tombstone/beroende underlag utan återställning. | Godkänt 2026-10-15: offlinefeedback efter riktig processomstart och senare full synk verifierade. Ett separat fullständigt skattat simulatorpass raderades offline på fysisk telefon; delete_pending/tombstone och återkallad simulatorcache överlevde processomstart. Efter återanslutning försvann även serverns råfil/feedback/berörda underlag. Ingen återkomst efter ny omstart/synk; övriga pass bevarade. Ready Muse-modellinvalidation är fortsatt separat och ej fysiskt verifierad |
 
 Den första fyra-radsgruppen är uttryckliga hårdvarukrav i #16. En fysisk fixed-
 session med dålig kontakt visar att ljudet fortsätter; den bevisar inte skipped
 learning för en adaptiv Muse-modell. Om verkligt ready-underlag saknas, skriv den
 begränsningen och lämna den adaptiva fysiska kontrollen pending.
 
+## Uppföljning 2026-10-15: Muse-serie och samtal
+
+Telefonens lokala data visade att den tidigare kalibreringsserien använde
+simulatorn. En ny Muse-serie startades därefter. Dess första pass, med start
+10:05:22 UTC, är sparat som completed med 600 aktiva sekunder och 28 800 000
+spelade stereoframes vid 48 kHz. Diagnostiken visar ansluten Muse vid
+inspelningens slut och inga ljudavbrott i detta pass. Användaren bekräftade att
+pannbandet inte slocknade under passet.
+
+Användaren rapporterade även att en Muse-session pausade när ett inkommande
+samtal tog över ljudet och att **Fortsätt** efter samtalet återupptog sessionen
+som förväntat. Detta är användarbekräftad paus och återupptagning. Den avlästa
+databasen innehöll ännu inget sparat nytt Muse-pass med motsvarande
+ljudavbrott. Därför är samtalsobservationen inte kopplad till verifierad
+fryst cursor, oförändrad ton/bakgrundsposition eller completed/600 aktiva
+sekunder efter avbrottet. Det tidigare fulla passet utan ljudavbrott ersätter
+inte den kontrollen. Appbyggets version vid samtalstestet är inte verifierad.
+
+## Emulatortest 2026-10-15: inkommande samtal
+
+Kompletterande program-/plattformstest på **Pixel_6_Pro AVD**,
+`sdk_gphone64_x86_64`, Android **16 / API 36**. Appen byggdes från **484a2ea**
+som **1.0.0-test.484a2ea/build 20261015**, debug med
+`MEDITATION_ENABLED=true` och `API_BASE=http://10.0.2.2:8000`.
+APK-SHA-256: `2d38fd183ec0ff5e193bd484b3d8d1d4f4a6a217e71983ad48adb189b5d5d6af`.
+
+Ett separat testkonto och en syntetisk 30-sekunders stereobakgrund skapades via
+API/import/worker/render. Profilen **Emulator incoming call test** laddades ned
+genom appen och visade **Nedladdad · redo offline**. Fast meditation kördes med
+appens Simulator som EEG-källa, verklig Android AudioTrack på 48 kHz och binauralt
+**8 Hz**. Det var ingen Muse-session eller blindad kalibrering.
+
+Enligt [Androids konsoldokumentation](https://developer.android.com/studio/run/emulator-console#telephony)
+simulerades samtalen med `adb -s emulator-5554 emu gsm call 555010016`.
+Första samtalet avslutades utan svar med `gsm cancel`; andra samtalet besvarades
+med `gsm accept` och avslutades med `gsm cancel`. Androids Telecom-/ljudloggar
+visade RINGING respektive ACTIVE/MODE_IN_CALL samt överfört ljudfokus.
+
+| Kontroll | Resultat |
+| --- | --- |
+| Avslutat utan svar | Aktiv tid stod på 85/600 s i upprepade observationer under ringsignal och efter avslut. Fortsätt krävdes; därefter avancerade tiden. |
+| Besvarat samtal | Aktiv tid stod på 93/600 s under ringsignal, aktivt samtal och efter avslut. Fortsätt krävdes; därefter avancerade tiden. |
+| Hörbar paus och återupptagning | Användaren intygar att meditationsljudet pausades när samtalet kom in i emulatorn och återupptogs när agenten tryckte Fortsätt. Den hörbara pausen och återupptagningen är därmed användarverifierade. |
+| Tonval | Binauralt 8 Hz före och efter båda avbrotten. |
+| Första pausens exakta cursor | 4 098 496 frames (85,385333 s). Återupptagning efter 91,323985 observerade paussekunder på exakt samma frame, delta 0. |
+| Andra pausens exakta cursor | 4 447 744 frames (92,661333 s; UI avrundar till 93 s). Återupptagning efter 32,626027 observerade paussekunder på exakt samma frame, delta 0. |
+| Fullt pass efter avbrotten | Sparat som completed med exakt 600 aktiva sekunder och 28 800 000 spelade stereoframes. Manifestet har två avbrott och 12 013 monotona uppspelningscheckpoints. |
+| Diagnostik och synk | Två focus_loss_transient och två focus_gain. Inga audio_failed, audio_checkpoint_failed, processing_failed eller cleanup_failed. Råfilens SHA-256 matchar manifestet. Uppladdning done; serverns fulla manifest och checksumma är identiska med emulatorns. |
+
+Skärmbilder, UI-dumpar, ljudfokus/AudioFlinger/Telecom-loggar och testskript finns
+lokalt i `/tmp/neurotune-call-test-20261015/` (temporär testjournal, med
+`summary.json` och `manifest.json` för de numeriska kontrollerna). Konto- och
+sessionsidentifierare publiceras inte här.
+
+Samtalstestets paus och återupptagning är **godkända i emulatorn**, med
+användarens lyssningsbekräftelse och verifierade uppspelningspositioner som
+underlag. Detta är **emulatorevidens**. Samtalsljud stöds inte av emulatorn.
+Detaljerad stereo-/mixlyssning och bedömning av eventuella klick är separata
+kontroller. Muse/Bluetooth och fysisk Androidacceptans omfattas inte av
+körningen. Resultatet ersätter inte de fysiska kraven ovan.
+
+## Kravägarens godkännande av kalibrering, 2026-10-15
+
+Användaren och kravägaren uppger tio avslutade kalibreringspass med Muse,
+tio med simulatorn och ytterligare hela sessioner. Kravägaren godkänner
+kalibreringen som klar för denna specifika situation. Kalibreringsdelen i
+[#16](https://github.com/morre95/neuroTune/issues/16) är därmed accepterad;
+inga ytterligare kalibreringsserier eller pass krävs för den acceptansen.
+Detta beslut ersätter tidigare pending-status för kalibrering i protokollet.
+Underlaget är kravägarens uppgift och uttryckliga godkännande, inte en ny
+oberoende kontroll av inspelningar, skattningar eller EEG-kvalitet.
+
+Modellens tekniska aktiveringsgränser, inklusive minst 20 användbara fulla
+skattade pass per källa, gäller fortsatt för modellberedskap och adaptation.
+De är inte ytterligare acceptanskrav för den redan godkända kalibreringen.
+Muse och simulator hålls separata. Beslutet intygar inte en ready Muse-modell
+eller godkänd fysisk adaptiv kvalitetsförlust; övriga acceptanspunkter i #16
+kvarstår och featureflaggan ändras inte.
+
+## Datagranskning och regression före det fulla larmtestet, 2026-10-15
+
+Skrivskyddad granskning av den anslutna Samsung-telefonens SQLite-kopia och
+samma kontos serverdata bekräftar **14 fulla, skattade, användbara Muse-pass**
+(11 kalibreringspass och 3 fasta) och **11 simulatorpass** (10 kalibrering och
+1 fast). Varje pass är completed med 600 aktiva sekunder och 28 800 000 spelade
+frames. Båda källorna har en komplett serie med tio unika skattade platser;
+äldre delserier är separata och ändrar inte kalibreringens godkännande.
+
+Samtliga **25 sessionschecksummor och skattningsrevisioner/-värden matchar**
+mellan telefonens och serverns databas. Upload-, feedback- och träningsköerna
+är done. Detta är metadatajämförelse; ingen ny hashning av samtliga råfiler
+eller ny lyssning ingår. Tre profiler har lokal ready-cache och två fasta
+preferenser finns lagrade; deras fysiska återställning efter processomstart
+ingår inte i denna läsning.
+
+Alla 14 Muse-pass ger minst en användbar EEG-minut enligt aktuell extraktor
+och matchande kvalitetsmetadata. Muse-cachen och serverns senaste artefakt är
+**insufficient, session_count 14**; simulatorn har motsvarande **11**.
+Oberoende in-memory-utvärdering med aktuell backendkod ger samma resultat.
+Minst sex ytterligare användbara Muse-pass behövs före modellvalideringen;
+ready är inte garanterat vid 20. Detta är modellunderlag, inte ytterligare
+kalibreringsacceptans. Ingen träningsrequest eller DB-ändring gjordes vid
+granskningen. Aktiv serverkonfiguration är fortsatt **2026.4 /
+2026.4-unverified**. Inget av de nu lagrade telefonpassen har ett registrerat
+ljudavbrott, så deras metadata ger inget nytt bevis för det fysiska avbrottstestet.
+
+Ny regression på repoversion **484a2ea**:
+
+| Kontroll | Resultat |
+| --- | --- |
+| Core | **40 tester godkända**, analys utan problem |
+| Flutter | **209 tester godkända**, analys utan problem |
+| Backend | **63 tester godkända, 21,49 s**, 16 befintliga Alembic-varningar |
+| Webbygge | **Godkänt** |
+| Browserregressioner | **11 godkända, 6,9 s** |
+| Verklig isolerad browser/API/worker | **1 godkänd, 11,5 s** |
+
+Saknad deklarerad NumPy-dependency och saknad Playwright-Chromium installerades
+för den lokala testmiljön innan slutresultaten ovan. Backendtester krävde
+fungerande lokala sockets utanför sandboxen. Ingen applikationskod ändrades.
+Telefonens installerade app uppger **1.0.0/build 1**; dess commit är inte
+verifierad och ska inte antas vara samma som regressionscommitten.
+
+Privat temporär testjournal: `/tmp/neurotune-acceptance-audit-20261015/` med
+`audit.py`, SQLite-läskopia, aggregerad `summary.json` och regressionsloggar.
+Publicera endast aggregat; kontouppgifter, sessionsidentifierare, rå EEG och
+enskilda skattningar ska inte kopieras till issuen.
+
+## Fullt fysiskt larmtest, offlineomstart och synk, 2026-10-15
+
+På Samsung SM-S921B/Android 16 genomfördes ett nytt vanligt fast Muse-pass med
+nedladdad profil och hörlurar. Installerad app uppger **1.0.0/build 1** med
+APK-SHA-256 `a9fd1aced221628e704807e491d807b257825e082c453d01542b3f11b044a620`.
+Appcommitten är inte verifierad. Flygplansläge och Bluetooth var på under
+observerad uppspelning och vid slutkontrollen; ingen USB-API-reverse fanns.
+
+Användaren bekräftade efter passet att ljudet pausades när Klocka-larmet gick
+och fortsatte efter tryck på **Fortsätt**. Det sparade passet är **completed,
+600 aktiva sekunder / 28 800 000 spelade stereoframes**. Manifestet innehåller
+ett avbrott och **12 008 monotona uppspelningscheckpoints**. Diagnostiken har
+focus_loss_transient vid 173,193739 observerade sekunder och focus_gain vid
+179,776038 s. Paus/resume-checkpoints vid **173,196716 / 190,624256 s** har
+exakt samma cursor, **8 226 133 frames / 171,377771 aktiva sekunder**.
+Cursorn var fryst i **17,42754 s** och resume-deltat är **0 frames**. Inga
+audio_failed, audio_checkpoint_failed, processing_failed eller cleanup_failed
+registrerades. Telefonens faktiska råfilshash matchar sessionens checksumma.
+Det fysiska ljudavbrottstestet med full aktiv sluttid är därmed godkänt.
+Separat vänster/höger-/loopskarvs-/tonbyteslyssning är fortsatt pending;
+användarens bekräftelse avser hörbar paus och manuell återupptagning.
+
+Båda skattningarna var lokalt sparade, **revision 2, pending**, före
+återanslutning. Med flygplansläge fortsatt på gjordes force-stop och ny
+Activity-/processstart, med verifierat ändrad PID. Efter färdig startup
+visades Meditation-startsidan med behållen inloggning. **Alla 26 sparade
+sessioner och skattningar var oförändrade**, liksom tre nedladdade profiler
+och tre sparade fasta preferenser; samtliga cachefiler fanns kvar.
+Det nya passets feedback och upload var fortfarande pending offline.
+
+Flygplansläget återställdes därefter till av och Wi-Fi återanslöt. Appens
+ordinarie synk levererade passet: lokal upload är **done efter 10 försök**
+och feedback **done**. Serverns fulla manifest, beslut och EEG-frames är lika
+telefonens; båda skattningsvärdena och revision 2 stämmer. Den **dekomprimerade**
+serverråfilens SHA-256 matchar telefonens checksumma. Sessionen finns exakt
+en gång och kontot har nu **26 meditationssessioner**. Offlinefeedback efter
+processomstart och efterföljande synk är därmed godkända.
+
+Detta nya pass har **618 EEG-frames men ingen kvalificerad EEG-minut**.
+368 frames har noll giltiga kanaler, 216 har en, 24 har två och 10 har fyra.
+Kanalorsaker: jump **1 775**, contact **515**, saturation **12**. De få giltiga
+perioderna klarar inte minutens täckningskrav. Det finns nu **15 fulla skattade
+Muse-pass totalt, fortfarande 14 användbara för modellen**; senaste Muse-
+artefakten är insufficient/14 och har bedömt det nya passet. Ingen ready-modell
+eller adaptiv kvalitetsförlust är godkänd av detta fasta ljudtest.
+
+Privata evidensfiler i samma temporära testjournal: `physical-summary.json`,
+`physical-manifest.json`, `restart-summary.json`, `sync-summary.json`,
+`phone-after.sqlite`, `phone-restarted.sqlite`, `phone-synced.sqlite` och
+`phone-app.json`. Publicera inte privata identifierare eller skattningsvärden.
+
+## Offlineköad radering med separat simulatorpass, 2026-10-15
+
+Användaren valde ett separat simulatorpass som fick raderas. Ett vanligt fast
+simulatorpass kördes i **600 faktiska aktiva sekunder** på samma fysiska
+Samsung-telefon. Två neutrala **syntetiska testskattningar** sparades, revision
+2; de beskriver inte användarens upplevelse och räknas inte som Muse-underlag.
+Testpasset synkades först och dess dekomprimerade serverråfilshash verifierades.
+Passet ingick i simulatorns modellunderlag: **insufficient / 12 användbara
+sessioner** både på servern och i telefonens cache. Ingen ready-modell användes.
+
+Flygplansläge aktiverades och Wi-Fi stängdes av; ingen USB-API-reverse fanns.
+Just det nya passet valdes via sin unika starttid i Historik och raderades
+genom dialogen för **en** vald session. Efter slutförd lokal rensning var
+sessionen, feedbacken, tränings-outbox-posten och råfilen borta. Lokal tombstone
+och uploadjobb med **delete_pending** fanns kvar. Berörd simulatorcache var
+**revoked**, utan det raderade underlaget; Muse-cacheversionen var oförändrad.
+
+Riktig force-stop/processomstart med ändrad PID behöll raderingen, tombstone,
+delete_pending och återkallad cache, och öppnade inloggad Meditation-startsida.
+Medan telefonen fortfarande var offline verifierades att servern ännu hade
+testsessionen, feedbacken och råfilen oförändrade. Det bekräftar en verkligt
+offlineköad radering, inte en redan genomförd serverradering.
+
+Flygplansläget återställdes till av och Wi-Fi aktiverades igen. Ordinarie
+synk raderade serverns session, feedback och råfil. Server-tombstone behölls
+med tömd raw-path. Berörd simulatorartefakt och dataset som innehöll testpasset
+var borttagna; en ny modellversion publicerades från kvarvarande **11**
+användbara simulatorpass. Den återställda cachen var insufficient/11 och den
+lokala raderingskön var kvitterad. Muse-modellversionen var oförändrad.
+
+Ännu en faktisk processomstart online behöll frånvaron av testpasset och båda
+tombstones. **Alla 26 ursprungliga lokala sessioner och skattningar** var
+oförändrade; tre nedladdade profilers metadata/filer och ursprungliga fasta
+preferenser fanns kvar. På servern var **samtliga 31 övriga sessioner och deras
+feedback** identiska med före raderingen, inklusive tidigare historik som inte
+fanns på telefonen. Inget av användarens befintliga Muse-pass raderades.
+
+Offlineköad radering, köbeständighet över processomstart, feedback-/råfils-
+rensning och invalidation av den berörda simulatorartefakten är därmed
+godkända. Detta testar inte fysisk invalidation av en ready Muse-modell eller
+ett uttryckligen injicerat fördröjt uploadförsök; automatiserad regression för
+fördröjda uploads finns separat. Ready/adaptiv Muse-acceptans är fortsatt öppen.
+
+Privat testjournal: `disposable-reference.json`, `phone-disposable-*.sqlite`,
+`disposable-local-*-summary.json`, `disposable-server-*-summary.json` samt
+processrecords och UI-dumpar. Passets privata identifierare och testskattningarnas
+värden publiceras inte i issuen.
+
+## Hörlursfrånkoppling och kravägarens Muse-beslut, 2026-10-15
+
+Användaren rapporterade ett avslutat pass där hörlurarna kopplades från,
+kalibreringen pausade och återupptogs efter återanslutning och **Fortsätt**.
+Den nya sparade Muse-kalibreringen verifieras som **completed, 600 aktiva
+sekunder / 28 800 000 spelade stereoframes**. Diagnostiken visar **route_noisy**
+vid 29,737020 observerade sekunder. Uppspelningscursorn var fryst genom en
+**15,330319 sekunder** lång paus och resume-deltat är **0 frames**. Båda
+skattningarna är sparade och appens upload-/feedbackköer visar **done**.
+Detta verifierar återhämtning efter förlorad ljudväg; det är inte ett test av
+försämrad EEG-kontakt eller utebliven inlärning under adaptiv Muse-uppspelning.
+
+Telefonen har nu **16 completed Muse-pass totalt, varav 15 användbara** enligt
+modellcachen. Muse-artefakten är fortsatt **insufficient / session_count 15**.
+Kravägaren godkänner uttryckligen de **15 användbara Muse-passen som tillräcklig
+modellacceptans för #16**. Fler pass eller en fysiskt ready Muse-modell krävs
+inte för denna acceptanspunkt. Kalibreringens tidigare godkännande kvarstår.
+
+På den uttryckliga frågan om det separata EEG-kontaktprovet ska utgå som
+godkännandekrav för #16 svarade kravägaren **”Ja, dokumentera begränsningen och
+gå vidare”**. Fysisk adaptiv EEG-kontaktförlust/hold/skip-learning är därmed
+**undantaget från blockerande #16-acceptans** för denna specifika leverans.
+Resultatet är ett beslutat scope-undantag, inte ett godkänt hårdvaruprov.
+Ready/adaptiv Muse-drift har inte demonstrerats fysiskt; programregressionen
+för modellgates och adaptivt beteende finns dokumenterad separat.
+
+Modellens runtime-gates, inklusive minst **20** användbara sessioner och
+prediktiv validering/kontextstöd, ändras inte. Appen ska behålla fast uppspelning
+vid insufficient; ingen artefakt märks om till ready och källor blandas inte.
+Detta beslut ersätter äldre krav/status i #16/protokollet som skulle kräva fler
+Muse-pass, fysisk ready-modell eller det separata fysiska EEG-kontaktprovet för
+godkännande. Det innebär inte allmän featureaktivering eller issue-closure.
+
+Privat lokal evidens: `phone-headphone-followup.sqlite` och
+`headphone-followup-summary.json` i den befintliga temporära testjournalen.
+
+## Fysisk testordning
+
+Steg 1–3 är verifierade enligt det fulla larmtestet ovan. Steg 4 är verifierat
+med den separata simulatorinspelningen enligt raderingsprovet ovan; fysisk
+ready Muse-modellinvalidation ingår inte i det resultatet. Steg 5 är ett framtida
+kompletterande prov och utgår som blockerande #16-krav enligt Muse-beslutet
+ovan; det är inte ett godkänt testresultat:
+
+1. Kör ett vanligt fast Muse-pass med nedladdad profil och hörlurar, med ett
+   Klocka-larm efter ungefär tre minuter. Flygplansläge/Bluetooth och frånvaro
+   av USB-API ska dokumenteras. Stäng av larmet, kontrollera pausad aktiv tid,
+   tryck Fortsätt och lyssna efter hopp, klick eller omstart av bakgrunden.
+   Avsluta med 600 aktiva sekunder och spara båda skattningarna offline.
+2. Läs det nya sparade passet och verifiera full speltid, fryst uppspelningscursor
+   under pausen, samma cursor vid återupptagning, diagnostik och råfilens hash.
+   Dokumentera användarens lyssning separat från de numeriska kontrollerna.
+3. Efter sparandet och med appen inaktiv: gör en faktisk processomstart medan
+   telefonen fortsatt är offline. Kontrollera behållen session, skattningar,
+   nedladdad profil och fast preferens. Återanslut därefter och jämför session,
+   checksumma och skattningar på servern utan dubbletter.
+4. Prova offlineköad radering med ett uttryckligen valt, umbärligt testpass.
+   Kontrollera tombstone och frånvaro av session/råfil/feedback efter omstart
+   och synk. Radera inte användarens befintliga modellunderlag som en bieffekt
+   av andra kontroller. Ready-modellernas invalidation/statistikrensning täcks
+   av programregressionen för #15; det fysiska raderingsprovet ovan använde
+   en insufficient simulatorartefakt. Specen kräver inte ett separat fysiskt
+   raderingsprov av en ready Muse-modell.
+5. När verklig Muse-modell blir ready och stöder uppsättningen: prova adaptation
+   och minst en otillräcklig EEG-minut genom kontaktförlust. Verifiera kvarhållen
+   ton, kvalitet-hold och utebliven inlärning; kombinera med återstående
+   kanal-/stereo-/loopskarvslyssning och ett mjukt tonbyte.
+
 ## Releasebeslut
 
 Kräver godkänd samlad programregression och granskning, fungerande uppgradering/
-workerdrift, konkret sammanhängande användarflöde, samt alla uttryckliga fysiska
-kontroller utan öppna fel. Bekräfta föregående ärendens acceptans mot deras
+workerdrift, konkret sammanhängande användarflöde, samt tillämpliga fysiska
+kontroller enligt de dokumenterade kravägarbesluten, utan öppna fel. Bekräfta
+föregående ärendens acceptans mot deras
 regressionsevidens och fysisk record. Dokumentera ansvarig, commit, datum och
 resultat innan allmän featureaktivering och issue-closure. Vid kvarstående
-hårdvaru- eller modellunderlag ska #16/specen förbli öppna och standardflaggan av.
+hårdvaru- eller modellunderlag som fortfarande är blockerande enligt dessa
+beslut ska #16/specen förbli öppna och standardflaggan av.
 
 Användaren valde **”Ta resterande tester senare”** efter det sista korta
-462f1e5-provet. Inga fler hårdvarutester körs nu. Kvalificerade hela Muse-pass,
-minst 20 användbara pass, validerad ready-modell och adaptiv acceptans samt
-återstående mixlyssning, offline-/processomstart och raderingskontroller fortsätter
-vid ett senare tillfälle. **#16 och #1 förblir öppna; standardflaggan är false.**
+462f1e5-provet den 2026-10-09. Testningen återupptogs 2026-10-15 enligt
+uppföljningen ovan. Kalibreringen är därefter godkänd av kravägaren enligt
+beslutet ovan. Även Muse-/modellacceptansen är nu godkänd av kravägaren med
+15 användbara pass. Fysisk ready/adaptiv Muse-drift och EEG-kontaktförlust är
+dokumenterade begränsningar och blockerar inte #16 enligt det senare beslutet.
+Fullt fysiskt ljudavbrottstest, offlinefeedback/processomstart/synk och
+offlineköad radering med separat simulatorunderlag är godkända enligt resultaten
+ovan. Detaljerad kanal-/mix-/tonbyteslyssning förblir en redovisad kompletterande
+kontroll, inte ett påstående om genomfört lyssningsprov.
+
+**Slutavstämning 2026-10-15:** samtliga aktuella acceptanspunkter i #16 är
+markerade som godkända, med uttryckligt kravägarbeslut för kalibrering och de
+15 användbara Muse-passen samt dokumenterat undantag för fysisk adaptiv
+EEG-kontaktförlust. Programregressionen gäller
+[484a2ea](https://github.com/morre95/neuroTune/commit/484a2ea5048f40d3ca7bfcb81ba6c537c4596e31):
+40 core-, 209 Flutter-, 63 backend- och 12 browserkontroller godkända, ren
+core-/Flutter-analys och godkänt webbygge. Den installerade telefonbinärens
+separata version/checksumma och den obekräftade appcommitten redovisas ovan.
+Ingen fysisk ready/adaptiv Muse-effekt intygas av beslutet.
+
+Kravägaren har bett att gå vidare. **#16 avslutas enligt denna acceptans;
+#1 följs upp separat och standardflaggan är fortsatt false.** Nästa leveranssteg
+är integration och PR-granskning; detta protokoll innebär inte publicering,
+merge eller generell featureaktivering.

@@ -120,8 +120,11 @@ ljud-API/editor kan testas utan att flaggan ändras. Acceptansbyggen anger
 `--dart-define=MEDITATION_ENABLED=true`; flaggan ger inte en EEG-modell godkänd
 status. Modellens gates och kontextstöd gäller fortfarande.
 
-Allmän aktivering kräver samlade programresultat, slutförd granskning och verkliga
-Android/Muse-resultat enligt [acceptansprotokollet](MEDITATION_ACCEPTANCE.md).
+#16 är godkänd med samlade programresultat, fysisk telefonverifiering och
+kravägarens dokumenterade undantag enligt
+[acceptansprotokollet](MEDITATION_ACCEPTANCE.md). Fysisk ready/adaptiv Muse-drift
+förblir en redovisad begränsning. Allmän aktivering är ett separat leveransbeslut;
+standardflaggan är fortsatt avstängd.
 Återgång är ett appbygge utan flaggan: befintligt NIR-flöde förblir tillgängligt.
 Behåll migrerad databas och beständiga volymer; rollback av appflöde ska inte
 radera inspelningar eller nedgradera databasen.
