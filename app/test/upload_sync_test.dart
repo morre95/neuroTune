@@ -19,7 +19,14 @@ class _Repository extends SessionRepository {
   Future<List<PendingUpload>> pendingUploads() async => [job];
 
   @override
-  Future<List<SavedSession>> listSessions() async => [session];
+  Future<SessionSummary?> summaryById(String id) async =>
+      id == session.id ? session : null;
+
+  @override
+  Future<SavedSession?> sessionById(String id, {String? ownerEmail}) async =>
+      id == session.id && (ownerEmail == null || ownerEmail == job.ownerEmail)
+      ? session
+      : null;
 
   @override
   Future<void> markUpload(

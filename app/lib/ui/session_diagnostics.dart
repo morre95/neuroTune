@@ -13,7 +13,7 @@ String qualityReasonLabel(String reason) => switch (reason) {
   _ => reason,
 };
 
-class SessionDiagnostics extends StatelessWidget {
+class SessionDiagnostics extends StatefulWidget {
   const SessionDiagnostics({
     super.key,
     required this.manifest,
@@ -23,7 +23,33 @@ class SessionDiagnostics extends StatelessWidget {
   final List<FeatureFrame> frames;
 
   @override
-  Widget build(BuildContext context) {
+  State<SessionDiagnostics> createState() => _SessionDiagnosticsState();
+}
+
+class _SessionDiagnosticsState extends State<SessionDiagnostics> {
+  Widget? _summary;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _summary = null;
+  }
+
+  @override
+  void didUpdateWidget(covariant SessionDiagnostics oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.manifest, widget.manifest) ||
+        !identical(oldWidget.frames, widget.frames)) {
+      _summary = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _summary ??= _buildSummary(context);
+
+  Widget _buildSummary(BuildContext context) {
+    final manifest = widget.manifest;
+    final frames = widget.frames;
     final events = manifest.diagnostics;
     final battery = events.where((event) => event.type == 'battery').toList();
     final artifacts = events

@@ -39,6 +39,7 @@ class ProfileLibrary extends ChangeNotifier {
     required this.ownerAccountId,
     this.audio,
     this.audioBusy,
+    this.verifyWave = CanonicalWave.verify,
   }) : _generation = api.authGeneration {
     if (!isAccountUuid(ownerAccountId) ||
         (api.accountId != null && api.accountId != ownerAccountId)) {
@@ -51,6 +52,9 @@ class ProfileLibrary extends ChangeNotifier {
   final String ownerAccountId;
   final PcmOutput? audio;
   final bool Function()? audioBusy;
+  final Future<CanonicalWave> Function(File, String, int) verifyWave;
+  final Map<String, Object> _verified = {};
+  final Map<Object, Future<void>> _verifications = {};
   final int _generation;
   var _closed = false;
   var _offline = false;
@@ -90,6 +94,54 @@ class ProfileLibrary extends ChangeNotifier {
   Future<List<CachedAudioProfile>> _rows() => (database.select(
     database.cachedAudioProfiles,
   )..where((t) => t.ownerAccountId.equals(ownerAccountId))).get();
+
+  Future<Object> _signature(AudioProfileVersion p) async {
+    final file = _file(p.id);
+    final stat = await file.stat();
+    if (stat.type != FileSystemEntityType.file) {
+      throw const FormatException('Audio file is missing');
+    }
+    return (
+      ownerAccountId,
+      p.id,
+      file.path,
+      p.checksumSha256,
+      p.durationSeconds,
+      stat.size,
+      stat.modified,
+      stat.changed,
+    );
+  }
+
+  Future<void> _verify(AudioProfileVersion p, {bool force = false}) async {
+    _check();
+    final signature = await _signature(p);
+    if (!force && _verified[p.id] == signature) return;
+    final existing = _verifications[signature];
+    if (existing != null) return existing;
+    final job = () async {
+      try {
+        await verifyWave(_file(p.id), p.checksumSha256, p.durationSeconds);
+        _check();
+        if (await _signature(p) != signature) {
+          throw const FormatException('Audio changed during verification');
+        }
+        _verified[p.id] = signature;
+      } catch (_) {
+        _verified.remove(p.id);
+        rethrow;
+      }
+    }();
+    _verifications[signature] = job;
+    try {
+      await job;
+    } finally {
+      if (identical(_verifications[signature], job)) {
+        _verifications.remove(signature);
+      }
+    }
+  }
+
   Future<void> _load() async {
     final rows = await _rows();
     final next = <LocalAudioProfile>[];
@@ -101,13 +153,10 @@ class ProfileLibrary extends ChangeNotifier {
       var ready = false;
       if (row.readyPath != null) {
         try {
-          await CanonicalWave.verify(
-            _file(p.id),
-            p.checksumSha256,
-            p.durationSeconds,
-          );
+          await _verify(p);
           ready = true;
         } catch (_) {
+          if (!_current) rethrow;
           await _clearReady(p.id);
           if (await _file(p.id).exists()) await _file(p.id).delete();
         }
@@ -207,14 +256,16 @@ class ProfileLibrary extends ChangeNotifier {
 
   AudioProfileVersion _profile(String id) =>
       _profiles.firstWhere((p) => p.profile.id == id).profile;
-  Future<void> _clearReady(String id) =>
-      (database.update(database.cachedAudioProfiles)..where(
-            (t) =>
-                t.ownerAccountId.equals(ownerAccountId) &
-                t.versionId.equals(id),
-          ))
-          .write(const CachedAudioProfilesCompanion(readyPath: Value(null)))
-          .then((_) {});
+  Future<void> _clearReady(String id) {
+    _verified.remove(id);
+    return (database.update(database.cachedAudioProfiles)..where(
+          (t) =>
+              t.ownerAccountId.equals(ownerAccountId) & t.versionId.equals(id),
+        ))
+        .write(const CachedAudioProfilesCompanion(readyPath: Value(null)))
+        .then((_) {});
+  }
+
   Future<File?> playableFile(String id) async {
     _check();
     final item = _profiles
@@ -222,14 +273,11 @@ class ProfileLibrary extends ChangeNotifier {
         .firstOrNull;
     if (item == null) return null;
     try {
-      await CanonicalWave.verify(
-        _file(id),
-        item.profile.checksumSha256,
-        item.profile.durationSeconds,
-      );
+      await _verify(item.profile, force: true);
       _check();
       return _file(id);
     } catch (_) {
+      if (!_current) rethrow;
       await _clearReady(id);
       if (_current) await _load();
       return null;
@@ -287,7 +335,7 @@ class ProfileLibrary extends ChangeNotifier {
       await output.close();
     }
     _check(transfer);
-    await CanonicalWave.verify(
+    await verifyWave(
       temp,
       preview ? p.previewChecksumSha256 : p.checksumSha256,
       seconds,
@@ -326,6 +374,7 @@ class ProfileLibrary extends ChangeNotifier {
       _check(transfer);
       await temp.rename(_file(id).path);
       _check(transfer);
+      _verified[id] = await _signature(p);
       await (database.update(database.cachedAudioProfiles)..where(
             (t) =>
                 t.ownerAccountId.equals(ownerAccountId) &
@@ -459,6 +508,7 @@ class ProfileLibrary extends ChangeNotifier {
   Future<void> close() async {
     if (_closed) return;
     _closed = true;
+    _verified.clear();
     for (final transfer in _transfers.values) {
       transfer.cancel();
     }

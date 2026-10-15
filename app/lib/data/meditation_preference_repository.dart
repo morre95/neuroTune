@@ -82,6 +82,7 @@ class MeditationPreferenceRepository {
   ) async {
     _owned(owner, setup);
     final observations = <CalibrationObservation>[];
+    final ratings = await calibration.feedbackBySession(owner);
     for (final progress in await calibration.allProgress(owner)) {
       // Recommendations and means expose action identities. Only a completed
       // series can contribute without revealing a blinded slot indirectly.
@@ -94,7 +95,7 @@ class MeditationPreferenceRepository {
         origin: plan.origin,
       );
       for (final entry in progress.results.entries) {
-        final feedback = await calibration.feedback(owner, entry.value.id);
+        final feedback = ratings[entry.value.id];
         if (feedback?.complete == true) {
           observations.add(
             CalibrationObservation(

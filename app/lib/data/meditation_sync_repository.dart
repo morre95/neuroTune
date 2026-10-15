@@ -93,7 +93,7 @@ class MeditationSyncRepository {
 
   Future<void> acknowledgeFeedback(
     MeditationFeedbackRow row,
-    SavedSession session, {
+    SessionSummary session, {
     required bool Function() isCurrent,
   }) => db.transaction(() async {
     void ensureCurrent() {
@@ -102,9 +102,7 @@ class MeditationSyncRepository {
 
     ensureCurrent();
     // A deletion or edit while the response was in flight cannot be acknowledged.
-    final saved = await (db.select(
-      db.storedSessions,
-    )..where((r) => r.id.equals(row.sessionId))).getSingleOrNull();
+    final saved = await SessionRepository(db).summaryById(row.sessionId);
     ensureCurrent();
     if (saved == null) return;
     final changed =

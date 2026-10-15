@@ -174,11 +174,17 @@ class UploadSync {
       }
     }
     final pending = await repository.pendingUploads();
-    final sessions = {for (final s in await repository.listSessions()) s.id: s};
+    final metadata = <String, SessionSummary>{};
+    Future<SessionSummary?> summary(String id) async {
+      final value = metadata[id] ?? await repository.summaryById(id);
+      if (value != null) metadata[id] = value;
+      return value;
+    }
+
     for (final job in pending) {
       if (!valid()) return;
       if (job.ownerEmail != email) continue;
-      final saved = sessions[job.sessionId];
+      final saved = await summary(job.sessionId);
       if (saved != null && isMeditation(saved.manifest)) {
         if (owner == null || meditationOwner(saved.manifest) != owner) continue;
         if (saved.manifest.meditation?['mode'] == 'calibration' &&
@@ -191,12 +197,20 @@ class UploadSync {
       }
       try {
         if (saved == null) throw StateError('Session ${job.sessionId} saknas');
+        final recording = await repository.sessionById(
+          job.sessionId,
+          ownerEmail: email,
+        );
+        if (!valid()) return;
+        if (recording == null) {
+          throw StateError('Session ${job.sessionId} saknas');
+        }
         final bytes = await File(job.payloadPath).readAsBytes();
         if (!valid()) return;
         final status = await api.uploadSession(
-          manifest: saved.manifest,
-          decisions: saved.decisions,
-          frames: saved.frames,
+          manifest: recording.manifest,
+          decisions: recording.decisions,
+          frames: recording.frames,
           raw: bytes,
           checksum: job.checksum,
         );
@@ -253,7 +267,7 @@ class UploadSync {
     // Ratings may arrive days after raw upload. Never gate these stages on a
     // nonempty raw queue; each stage has its own durable delivery state.
     for (final row in await meditation.feedback(owner)) {
-      final saved = sessions[row.sessionId];
+      final saved = await repository.summaryById(row.sessionId);
       if (saved == null ||
           meditationOwner(saved.manifest) != owner ||
           !await meditation.rawAccepted(row.sessionId, email)) {
@@ -288,9 +302,7 @@ class UploadSync {
     for (final request in await meditation.training(owner)) {
       if (!valid()) return;
       final current = await meditation.trainingCurrent(request);
-      final saved = (await repository.listSessions())
-          .where((s) => s.id == request.sessionId)
-          .firstOrNull;
+      final saved = await repository.summaryById(request.sessionId);
       if (!valid()) return;
       if (!current || saved == null) {
         if (!await persist(

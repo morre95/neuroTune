@@ -22,12 +22,12 @@ class CalibrationPage extends StatelessWidget {
     this.onPreference,
   });
   final List<CalibrationProgress> progress;
-  final List<SavedSession> pendingFeedback;
+  final List<SessionSummary> pendingFeedback;
   final AudioProfileVersion? profile;
   final EyeState eyeState;
   final ValueChanged<DataOrigin> onNewSeries;
   final ValueChanged<CalibrationPlan> onResume;
-  final ValueChanged<SavedSession> onFeedback;
+  final ValueChanged<SessionSummary> onFeedback;
   final VoidCallback onBack;
   final ValueChanged<CalibrationPlan>? onResults;
   final ValueChanged<DataOrigin>? onPreference;

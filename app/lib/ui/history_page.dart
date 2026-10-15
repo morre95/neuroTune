@@ -14,15 +14,25 @@ class HistoryPage extends StatefulWidget {
     this.onDelete,
     this.message,
     this.syncStatus,
+    this.loading = false,
+    this.hasMore = false,
+    this.onLoadMore,
+    this.onRetry,
+    this.onSelectAll,
+    this.validSelectionIds,
   });
 
-  final List<SavedSession> sessions;
-  final ValueChanged<SavedSession> onOpen;
+  final List<SessionSummary> sessions;
+  final ValueChanged<SessionSummary> onOpen;
   final VoidCallback onBack;
   final Set<String> revealedPlans;
   final Future<void> Function(List<String>)? onDelete;
   final Widget? syncStatus;
   final String? message;
+  final bool loading, hasMore;
+  final VoidCallback? onLoadMore, onRetry;
+  final Future<List<String>> Function()? onSelectAll;
+  final Set<String>? validSelectionIds;
 
   @override
   State<HistoryPage> createState() => _HistoryPageState();
@@ -31,11 +41,48 @@ class HistoryPage extends StatefulWidget {
 class _HistoryPageState extends State<HistoryPage> {
   final Set<String> _selected = {};
   bool _selecting = false;
+  bool _allSelected = false;
+  bool _selectingAll = false;
   bool _deleting = false;
   String? _error;
 
+  @override
+  void didUpdateWidget(covariant HistoryPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.validSelectionIds != null) {
+      _selected.retainAll(widget.validSelectionIds!);
+    }
+  }
+
+  Future<void> _selectAll() async {
+    if (_selectingAll) return;
+    setState(() => _selectingAll = true);
+    try {
+      final ids = widget.onSelectAll == null
+          ? widget.sessions.map((s) => s.id).toList()
+          : await widget.onSelectAll!();
+      if (!mounted) return;
+      setState(() {
+        if (_selected.length == ids.length && _selected.containsAll(ids)) {
+          _selected.clear();
+          _allSelected = false;
+        } else {
+          _selected
+            ..clear()
+            ..addAll(ids);
+          _allSelected = true;
+        }
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = 'Urvalet kunde inte läsas: $error');
+    } finally {
+      if (mounted) setState(() => _selectingAll = false);
+    }
+  }
+
   void _toggle(String id) {
     setState(() {
+      _allSelected = false;
       _selected.contains(id) ? _selected.remove(id) : _selected.add(id);
     });
   }
@@ -86,9 +133,49 @@ class _HistoryPageState extends State<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final sessions = widget.sessions;
+    final headers = <Widget>[
+      if (widget.loading) const LinearProgressIndicator(),
+      if (widget.onRetry != null)
+        TextButton(
+          onPressed: widget.loading ? null : widget.onRetry,
+          child: const Text('Försök igen'),
+        ),
+
+      if (widget.syncStatus != null) widget.syncStatus!,
+      if (widget.message != null)
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(widget.message!),
+        ),
+      if (_error != null)
+        Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
+      if (sessions.isEmpty && !widget.loading && widget.onRetry == null)
+        const Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('Inga sessioner ännu.'),
+        ),
+      if (_selecting)
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: FilledButton.icon(
+            onPressed: _selected.isEmpty || _deleting ? null : _deleteSelected,
+            icon: _deleting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.delete_outline),
+            label: Text(
+              _deleting ? 'Raderar…' : 'Radera valda (${_selected.length})',
+            ),
+          ),
+        ),
+    ];
     return Scaffold(
       appBar: AppBar(
         title: Text(_selecting ? '${_selected.length} valda' : 'Historik'),
+        leading: BackButton(onPressed: _deleting ? null : widget.onBack),
         actions: [
           if (widget.onDelete != null && sessions.isNotEmpty)
             if (!_selecting)
@@ -100,22 +187,8 @@ class _HistoryPageState extends State<HistoryPage> {
               )
             else ...[
               TextButton(
-                onPressed: _deleting
-                    ? null
-                    : () => setState(() {
-                        if (_selected.length == sessions.length) {
-                          _selected.clear();
-                        } else {
-                          _selected.addAll(
-                            sessions.map((session) => session.id),
-                          );
-                        }
-                      }),
-                child: Text(
-                  _selected.length == sessions.length
-                      ? 'Avmarkera'
-                      : 'Välj alla',
-                ),
+                onPressed: _deleting || _selectingAll ? null : _selectAll,
+                child: Text(_allSelected ? 'Avmarkera' : 'Välj alla'),
               ),
               IconButton(
                 tooltip: 'Avsluta val',
@@ -130,78 +203,59 @@ class _HistoryPageState extends State<HistoryPage> {
             ],
         ],
       ),
-      body: ListView(
-        children: [
-          if (widget.syncStatus != null) widget.syncStatus!,
-          if (widget.message != null)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(widget.message!),
-            ),
-          if (_error != null)
-            Padding(padding: const EdgeInsets.all(16), child: Text(_error!)),
-          if (sessions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('Inga sessioner ännu.'),
-            ),
-          if (_selecting)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton.icon(
-                onPressed: _selected.isEmpty || _deleting
-                    ? null
-                    : _deleteSelected,
-                icon: _deleting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.delete_outline),
-                label: Text(
-                  _deleting ? 'Raderar…' : 'Radera valda (${_selected.length})',
+      body: ListView.builder(
+        itemCount: headers.length + sessions.length + 1,
+        itemBuilder: (context, index) {
+          if (index < headers.length) return headers[index];
+          final sessionIndex = index - headers.length;
+          if (sessionIndex < sessions.length) {
+            return _sessionTile(sessions[sessionIndex]);
+          }
+          return Column(
+            children: [
+              if (widget.hasMore)
+                TextButton(
+                  onPressed: widget.loading ? null : widget.onLoadMore,
+                  child: const Text('Visa fler'),
                 ),
+              TextButton(
+                onPressed: _deleting ? null : widget.onBack,
+                child: const Text('Tillbaka'),
               ),
-            ),
-          for (final session in sessions)
-            ListTile(
-              key: ValueKey(session.id),
-              selected: _selected.contains(session.id),
-              leading: _selecting
-                  ? Checkbox(
-                      value: _selected.contains(session.id),
-                      onChanged: _deleting ? null : (_) => _toggle(session.id),
-                    )
-                  : null,
-              isThreeLine: true,
-              title: Text(session.manifest.startedAtIso),
-              subtitle: Text(
-                '${session.origin} · ${session.manifest.meditation == null ? session.mode : 'Meditation'} · '
-                '${session.manifest.meditation == null ? '${session.decisions.length} block' : meditationActionLabel(session.manifest, revealedPlans: widget.revealedPlans)} · '
-                '${_duration(session.manifest.durationSeconds)}\n'
-                '${_outcome(session)}',
-              ),
-              onTap: _deleting
-                  ? null
-                  : () => _selecting
-                        ? _toggle(session.id)
-                        : widget.onOpen(session),
-              onLongPress: widget.onDelete == null || _deleting
-                  ? null
-                  : () => setState(() {
-                      _selecting = true;
-                      _selected.add(session.id);
-                    }),
-            ),
-          TextButton(
-            onPressed: _deleting ? null : widget.onBack,
-            child: const Text('Tillbaka'),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
+
+  Widget _sessionTile(SessionSummary session) => ListTile(
+    key: ValueKey(session.id),
+    selected: _selected.contains(session.id),
+    leading: _selecting
+        ? Checkbox(
+            value: _selected.contains(session.id),
+            onChanged: _deleting ? null : (_) => _toggle(session.id),
+          )
+        : null,
+    isThreeLine: true,
+    title: Text(session.manifest.startedAtIso),
+    subtitle: Text(
+      '${session.origin} · ${session.manifest.meditation == null ? session.mode : 'Meditation'} · '
+      '${session.manifest.meditation == null ? '${session.decisionCount} block' : meditationActionLabel(session.manifest, revealedPlans: widget.revealedPlans)} · '
+      '${_duration(session.manifest.durationSeconds)}\n'
+      '${_outcome(session)}',
+    ),
+    onTap: _deleting
+        ? null
+        : () => _selecting ? _toggle(session.id) : widget.onOpen(session),
+    onLongPress: widget.onDelete == null || _deleting
+        ? null
+        : () => setState(() {
+            _selecting = true;
+            _selected.add(session.id);
+          }),
+  );
 }
 
 String _duration(double seconds) {
@@ -216,7 +270,7 @@ String _duration(double seconds) {
 /// A session with no blocks is only meaningful together with why it ended,
 /// whether the baseline ever accepted any optics channels, and whether it was
 /// still waiting for a stable signal when it was saved.
-String _outcome(SavedSession session) {
+String _outcome(SessionSummary session) {
   final manifest = session.manifest;
   if (manifest.meditation != null) {
     return session.status == 'completed'

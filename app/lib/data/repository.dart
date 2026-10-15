@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:drift/drift.dart';
 import 'package:neurotune_core/neurotune_core.dart' hide UploadJob;
@@ -25,14 +26,13 @@ class PendingUpload {
   final int attempts;
 }
 
-class SavedSession {
-  SavedSession({
+class SessionSummary {
+  SessionSummary({
     required this.id,
     required this.origin,
     required this.mode,
     required this.manifest,
-    required this.decisions,
-    required this.frames,
+    required this.decisionCount,
     required this.status,
     required this.checksum,
     required this.createdAt,
@@ -42,11 +42,39 @@ class SavedSession {
   final String origin;
   final String mode;
   final SessionManifest manifest;
-  final List<DecisionEvent> decisions;
-  final List<FeatureFrame> frames;
+  final int decisionCount;
   final String status;
   final String checksum;
   final DateTime createdAt;
+}
+
+class SavedSession extends SessionSummary {
+  SavedSession({
+    required super.id,
+    required super.origin,
+    required super.mode,
+    required super.manifest,
+    required this.decisions,
+    required this.frames,
+    required super.status,
+    required super.checksum,
+    required super.createdAt,
+  }) : super(decisionCount: decisions.length);
+
+  final List<DecisionEvent> decisions;
+  final List<FeatureFrame> frames;
+}
+
+class SessionCursor {
+  const SessionCursor(this.createdAt, this.id);
+  final DateTime createdAt;
+  final String id;
+}
+
+class SessionSummaryPage {
+  const SessionSummaryPage(this.sessions, this.next);
+  final List<SessionSummary> sessions;
+  final SessionCursor? next;
 }
 
 class SessionRepository {
@@ -82,6 +110,24 @@ class SessionRepository {
           .getSingleOrNull()) !=
       null;
 
+  Future<Set<String>> tombstonedIds(String owner, Iterable<String> ids) async {
+    final unique = ids.toSet().toList();
+    final result = <String>{};
+    for (var offset = 0; offset < unique.length; offset += 400) {
+      final chunk = unique.skip(offset).take(400).toList();
+      final query = db.selectOnly(db.sessionTombstones)
+        ..addColumns([db.sessionTombstones.sessionId])
+        ..where(
+          db.sessionTombstones.ownerAccountId.equals(owner) &
+              db.sessionTombstones.sessionId.isIn(chunk),
+        );
+      result.addAll(
+        (await query.get()).map((r) => r.read(db.sessionTombstones.sessionId)!),
+      );
+    }
+    return result;
+  }
+
   Future<void> _rejectDeleted(String sessionId) async {
     if (await (db.select(
           db.sessionTombstones,
@@ -113,8 +159,8 @@ class SessionRepository {
             await readEvidenceEpoch(owner) != expectedLocalEpoch) {
           return false;
         }
-        for (final id in includedSessionIds) {
-          if (await isTombstoned(owner, id)) return false;
+        if ((await tombstonedIds(owner, includedSessionIds)).isNotEmpty) {
+          return false;
         }
         if (!current()) return false;
         await db.putKv(key, value);
@@ -197,19 +243,156 @@ class SessionRepository {
     final rows = await (db.select(
       db.storedSessions,
     )..orderBy([(table) => OrderingTerm.desc(table.createdAt)])).get();
-    return rows.map(_saved).toList();
+    return rows.map(decodeSavedSession).toList();
+  }
+
+  static const _summaryColumns =
+      's.id, s.origin, s.mode, s.summary_json, s.decision_count, s.status, s.checksum, s.created_at';
+
+  SessionSummary _summary(QueryRow row) => SessionSummary(
+    id: row.read<String>('id'),
+    origin: row.read<String>('origin'),
+    mode: row.read<String>('mode'),
+    manifest: SessionManifest.fromJson(
+      jsonDecode(row.read<String>('summary_json')) as Map<String, dynamic>,
+    ),
+    decisionCount: row.read<int>('decision_count'),
+    status: row.read<String>('status'),
+    checksum: row.read<String>('checksum'),
+    createdAt: DateTime.fromMillisecondsSinceEpoch(
+      row.read<int>('created_at') * 1000,
+      isUtc: true,
+    ),
+  );
+
+  Future<List<SessionSummary>> _summaries(
+    String suffix,
+    List<Variable> variables,
+  ) async =>
+      (await db
+              .customSelect(
+                'SELECT $_summaryColumns FROM stored_sessions s $suffix',
+                variables: variables,
+                readsFrom: {db.storedSessions, db.uploadJobs},
+              )
+              .get())
+          .map(_summary)
+          .toList();
+
+  Future<List<SessionSummary>> summariesByIds(Iterable<String> ids) async {
+    final unique = ids.toSet().toList();
+    final result = <SessionSummary>[];
+    // Stay below SQLite's variable limit, including on older Android versions.
+    for (var offset = 0; offset < unique.length; offset += 400) {
+      final chunk = unique.skip(offset).take(400).toList();
+      result.addAll(
+        await _summaries(
+          'WHERE s.id IN (${List.filled(chunk.length, '?').join(',')})',
+          chunk.map(Variable.new).toList(),
+        ),
+      );
+    }
+    return result;
+  }
+
+  Future<SessionSummary?> summaryById(String id) async =>
+      (await summariesByIds([id])).firstOrNull;
+
+  Future<List<SessionSummary>> meditationSummaries(String owner) => _summaries(
+    "WHERE json_extract(s.summary_json, '\$.meditation.profile.owner_account_id') = ? "
+    'ORDER BY s.created_at DESC, s.id DESC',
+    [Variable(owner)],
+  );
+
+  Future<bool> sessionExists(String id) async =>
+      (await db
+              .customSelect(
+                'SELECT 1 FROM stored_sessions WHERE id = ?',
+                variables: [Variable(id)],
+                readsFrom: {db.storedSessions},
+              )
+              .get())
+          .isNotEmpty;
+
+  Future<List<String>> ownedSessionIds(String email) async =>
+      (await db
+              .customSelect(
+                'SELECT s.id FROM stored_sessions s JOIN upload_jobs u ON u.session_id = s.id '
+                'WHERE u.owner_email = ? ORDER BY s.created_at DESC, s.id DESC',
+                variables: [Variable(email.toLowerCase())],
+                readsFrom: {db.storedSessions, db.uploadJobs},
+              )
+              .get())
+          .map((r) => r.read<String>('id'))
+          .toList();
+
+  Future<SessionSummaryPage> ownedSummaryPage(
+    String email, {
+    SessionCursor? before,
+    int limit = 50,
+  }) async {
+    final rows = await _summaries(
+      'JOIN upload_jobs u ON u.session_id = s.id WHERE u.owner_email = ? '
+      '${before == null ? '' : 'AND (s.created_at < ? OR (s.created_at = ? AND s.id < ?)) '}'
+      'ORDER BY s.created_at DESC, s.id DESC LIMIT ?',
+      [
+        Variable(email.toLowerCase()),
+        if (before != null) ...[
+          Variable(before.createdAt.millisecondsSinceEpoch ~/ 1000),
+          Variable(before.createdAt.millisecondsSinceEpoch ~/ 1000),
+          Variable(before.id),
+        ],
+        Variable(limit + 1),
+      ],
+    );
+    final hasMore = rows.length > limit;
+    final page = rows.take(limit).toList();
+    return SessionSummaryPage(
+      page,
+      hasMore ? SessionCursor(page.last.createdAt, page.last.id) : null,
+    );
+  }
+
+  Future<SavedSession?> sessionById(String id, {String? ownerEmail}) async {
+    final row = await db
+        .customSelect(
+          'SELECT s.* FROM stored_sessions s '
+          '${ownerEmail == null ? '' : 'JOIN upload_jobs u ON u.session_id = s.id '}'
+          'WHERE s.id = ? ${ownerEmail == null ? '' : 'AND u.owner_email = ?'}',
+          variables: [
+            Variable(id),
+            if (ownerEmail != null) Variable(ownerEmail.toLowerCase()),
+          ],
+          readsFrom: {db.storedSessions, db.uploadJobs},
+        )
+        .getSingleOrNull();
+    if (row == null) return null;
+    final stored = db.storedSessions.map(row.data);
+    final decoded = await _decodeSession(stored);
+    return await sessionExists(id) ? decoded : null;
   }
 
   /// Only the account which owns the upload may request remote deletion.
+  /// List screens should use [ownedSummaryPage] instead of loading recordings.
   Future<List<SavedSession>> listOwnedSessions(String ownerEmail) async {
-    final jobs = await (db.select(
-      db.uploadJobs,
-    )..where((row) => row.ownerEmail.equals(ownerEmail.toLowerCase()))).get();
-    final ids = jobs.map((job) => job.sessionId).toSet();
-    return (await listSessions())
-        .where((session) => ids.contains(session.id))
-        .toList();
+    final rows = await db
+        .customSelect(
+          'SELECT s.* FROM stored_sessions s JOIN upload_jobs u ON u.session_id = s.id '
+          'WHERE u.owner_email = ? ORDER BY s.created_at DESC, s.id DESC',
+          variables: [Variable(ownerEmail.toLowerCase())],
+          readsFrom: {db.storedSessions, db.uploadJobs},
+        )
+        .get();
+    final stored = rows.map((r) => db.storedSessions.map(r.data)).toList();
+    return _decodeSessions(stored);
   }
+
+  // Static boundaries keep repository/database handles out of isolate closures.
+  static Future<SavedSession> _decodeSession(StoredSession row) =>
+      Isolate.run(() => decodeSavedSession(row));
+
+  static Future<List<SavedSession>> _decodeSessions(List<StoredSession> rows) =>
+      Isolate.run(() => rows.map(decodeSavedSession).toList());
 
   /// Queue remote deletion in the same transaction that hides local sessions.
   /// Retain the raw path until cleanup succeeds, including across app restarts.
@@ -238,12 +421,7 @@ class SessionRepository {
         )..where((r) => r.sessionId.isIn(ids))).get())
           row.sessionId: row,
       };
-      final saved = {
-        for (final row in await (db.select(
-          db.storedSessions,
-        )..where((r) => r.id.isIn(ids))).get())
-          row.id: row,
-      };
+      final saved = {for (final row in await summariesByIds(ids)) row.id: row};
       final changedOwners = <String>{};
       final retiredByOwner = <String, Set<String>>{};
       for (final id in ids) {
@@ -259,7 +437,7 @@ class SessionRepository {
             'Du kan bara radera sessioner som tillhör ditt konto.',
           );
         }
-        final manifest = saved[id] == null ? null : _saved(saved[id]!).manifest;
+        final manifest = saved[id]?.manifest;
         final uuid = manifest == null
             ? marker?.ownerAccountId ?? ownerAccountId
             : meditationOwner(manifest) ?? ownerAccountId;
@@ -364,10 +542,8 @@ class SessionRepository {
         db.sessionTombstones,
       )..where((r) => r.sessionId.equals(id))).getSingleOrNull();
       if (marker != null && marker.ownerAccountId != owner) continue;
-      final row = await (db.select(
-        db.storedSessions,
-      )..where((r) => r.id.equals(id))).getSingleOrNull();
-      if (row != null && meditationOwner(_saved(row).manifest) != owner) {
+      final row = await summaryById(id);
+      if (row != null && meditationOwner(row.manifest) != owner) {
         continue;
       }
       final job = await (db.select(
@@ -493,26 +669,40 @@ class SessionRepository {
     String origin,
     String experimentVersion,
   ) async {
-    final sessions = await listSessions();
+    final rows = await db
+        .customSelect(
+          "SELECT s.id, s.mode, s.decisions_json FROM stored_sessions s "
+          "WHERE s.origin = ? AND json_extract(s.summary_json, '\$.experiment_version') = ? "
+          "AND json_extract(s.summary_json, '\$.meditation') IS NULL "
+          "AND s.mode != 'meditation' AND ? != ?",
+          variables: [
+            Variable(origin),
+            Variable(experimentVersion),
+            Variable(experimentVersion),
+            Variable(MeditationProtocol.protocolVersion),
+          ],
+          readsFrom: {db.storedSessions},
+        )
+        .get();
     return [
-      for (final session in sessions)
-        if (!isMeditation(session.manifest) &&
-            session.origin == origin &&
-            session.manifest.experimentVersion == experimentVersion)
-          LocalSessionRewards(
-            sessionId: session.id,
-            origin: DataOrigin.values.byName(session.origin),
-            experimentVersion: experimentVersion,
-            personal: session.mode == SessionMode.personal.name,
-            rewards: [
-              for (final decision in session.decisions)
+      for (final row in rows)
+        LocalSessionRewards(
+          sessionId: row.read<String>('id'),
+          origin: DataOrigin.values.byName(origin),
+          experimentVersion: experimentVersion,
+          personal: row.read<String>('mode') == SessionMode.personal.name,
+          rewards: [
+            for (final item
+                in jsonDecode(row.read<String>('decisions_json')) as List)
+              if (DecisionEvent.fromJson(item as Map<String, dynamic>)
+                  case final decision)
                 if (decision.updatedBandit && decision.reward != null)
                   LocalReward(
                     StimulusAction.byId(decision.action),
                     decision.reward!,
                   ),
-            ],
-          ),
+          ],
+        ),
     ];
   }
 
@@ -560,18 +750,18 @@ class SessionRepository {
                 )
                 .get())
             .isNotEmpty;
-    final meditationIds = hasSessions
-        ? (await listSessions())
-              .where((s) => isMeditation(s.manifest))
-              .map((s) => s.id)
-              .toList()
-        : <String>[];
-    await (db.update(db.uploadJobs)..where(
-          (r) => r.ownerEmail.isNull() & r.sessionId.isNotIn(meditationIds),
-        ))
-        .write(
-          UploadJobsCompanion(ownerEmail: Value(ownerEmail.toLowerCase())),
-        );
+    final excludeMeditation = hasSessions
+        ? '''AND NOT EXISTS (
+      SELECT 1 FROM stored_sessions s WHERE s.id = upload_jobs.session_id AND
+      (json_extract(s.summary_json, '\$.meditation') IS NOT NULL
+      OR s.mode = 'meditation'
+      OR json_extract(s.summary_json, '\$.experiment_version') = 'meditation-1'))'''
+        : '';
+    await db.customUpdate(
+      'UPDATE upload_jobs SET owner_email = ? WHERE owner_email IS NULL $excludeMeditation',
+      variables: [Variable(ownerEmail.toLowerCase())],
+      updates: {db.uploadJobs},
+    );
   }
 
   Future<void> markUpload(
@@ -596,7 +786,7 @@ class SessionRepository {
         );
   }
 
-  SavedSession _saved(StoredSession row) {
+  static SavedSession decodeSavedSession(StoredSession row) {
     return SavedSession(
       id: row.id,
       origin: row.origin,

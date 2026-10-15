@@ -22,12 +22,19 @@ class PersonalEegRepository {
 
   Future<bool> _evidenceCurrent(String owner, PersonalEegModel model) async {
     final local = {
-      for (final s in await sessions.listSessions())
+      for (final s in await sessions.summariesByIds(
+        model.evidence.map((e) => e['session_id'] as String),
+      ))
         if (meditationOwner(s.manifest) == owner) s.id: s,
     };
+    final deleted = await sessions.tombstonedIds(
+      owner,
+      model.evidence.map((e) => e['session_id'] as String),
+    );
+    if (deleted.isNotEmpty) return false;
+    final ratings = await calibration.feedbackBySession(owner);
     for (final e in model.evidence) {
       final sid = e['session_id'] as String;
-      if (await sessions.isTombstoned(owner, sid)) return false;
       final record = local[sid];
       // An authenticated artifact may include evidence from another device.
       if (record == null) continue;
@@ -35,7 +42,7 @@ class PersonalEegRepository {
           record.checksum != e['checksum_sha256']) {
         return false;
       }
-      final rating = await calibration.feedback(owner, sid);
+      final rating = ratings[sid];
       if (rating != null && rating.revision != e['feedback_revision']) {
         return false;
       }
@@ -113,12 +120,14 @@ class PersonalEegRepository {
                 'missing': !invalid && model == null,
                 'invalid': invalid || !valid,
               };
+        final encoded = jsonEncode(value);
+        if (encoded == previousCache) return false;
         final published = await sessions.publishEvidenceCache(
           owner,
           expectedLocalEpoch: epoch,
           includedSessionIds: model?.includedSessionIds ?? [],
           key: _key(owner, origin),
-          value: jsonEncode(value),
+          value: encoded,
           isCurrent: current,
         );
         if (!published) return false;

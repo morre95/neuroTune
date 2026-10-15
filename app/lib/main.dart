@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:math' show Random;
 
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart' show TableUpdateQuery;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -187,10 +188,10 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   List<CalibrationSlotResult> _preferenceResults = [];
   bool _manualFixedAction = false;
   List<CalibrationProgress> _calibrationProgress = [];
-  List<SavedSession> _pendingMeditationFeedback = [];
+  List<SessionSummary> _pendingMeditationFeedback = [];
   Set<String> _revealedPlans = {};
   CalibrationPlan? _activePlan;
-  SavedSession? _feedbackSession;
+  SessionSummary? _feedbackSession;
   MeditationFeedback? _feedbackDraft;
   bool _calibrationBusy = false;
   Timer? _uploadRetryTimer;
@@ -238,10 +239,17 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
   /// Moves on when the user leaves the contact page, so a start still waiting
   /// on the network sees that it was cancelled.
   var _startAttempt = 0;
-  List<SavedSession> _history = [];
+  List<SessionSummary> _history = [];
+  SessionCursor? _historyCursor;
+  Set<String>? _historySelectionIds;
+  bool _historyLoading = false;
+  String? _historyError;
+  int _historyRequest = 0;
+  Future<SavedSession?>? _playbackTask;
+  StreamSubscription? _dataChanges;
+  int _dataRevision = 0;
   bool _deletingSessions = false;
   String? _historyMessage;
-  SavedSession? _playback;
 
   @override
   void initState() {
@@ -256,6 +264,18 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       );
       await widget.authStore.save(_auth!);
     };
+    _dataChanges = widget.database
+        .tableUpdates(
+          TableUpdateQuery.onAllTables([
+            widget.database.storedSessions,
+            widget.database.calibrationPlans,
+            widget.database.calibrationAttempts,
+            widget.database.meditationFeedbackRows,
+            widget.database.uploadJobs,
+            widget.database.kvStore,
+          ]),
+        )
+        .listen((_) => _dataRevision++);
     _bootstrap();
   }
 
@@ -291,40 +311,20 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         !_networkQuiet &&
         !_startingSession &&
         _session == null;
+    final beforeSync = _dataRevision;
     await _uploadSync.flush(
       email,
       reconcileLearning: reconcileLearning,
       canReconcileLearning: learningCurrent,
     );
+    if (!authenticated() || beforeSync == _dataRevision) return;
     if (reconcileLearning && learningCurrent()) {
       await _loadCalibration(stillCurrent: learningCurrent);
       if (learningCurrent()) setState(() {});
     }
-    if (!authenticated() || _screen != _Screen.history) return;
-    final navigation = _experimentNavigationGeneration;
-    bool current() =>
-        authenticated() &&
-        _screen == _Screen.history &&
-        _experimentNavigationGeneration == navigation;
-    // A server tombstone may have retired evidence while this page was open.
-    await _loadCalibration(stillCurrent: current);
-    if (!current()) return;
-    final history = await _repository.listOwnedSessions(email);
-    if (!current()) return;
-    final pending = await _repository.pendingDeletions(
-      email,
-      ownerAccountId: owner,
-    );
-    if (!current()) return;
-    setState(() {
-      _history = history;
-      if (pending.isNotEmpty) {
-        _historyMessage =
-            '${pending.length} raderingar väntar på synk med backenden.';
-      } else if (_historyMessage != null) {
-        _historyMessage = 'Raderingen är synkroniserad med backenden.';
-      }
-    });
+    if (authenticated() && _screen == _Screen.history) {
+      await _refreshHistory();
+    }
   }
 
   /// Unreadable saved state must not leave the app on the loading spinner.
@@ -638,7 +638,10 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     if (mounted) setState(() => _screen = _Screen.home);
   }
 
-  Future<void> _loadCalibration({bool Function()? stillCurrent}) async {
+  Future<void> _loadCalibration({
+    bool Function()? stillCurrent,
+    bool loadModels = true,
+  }) async {
     final owner = widget.api.accountId;
     if (owner == null) return;
     final generation = widget.api.authGeneration;
@@ -647,22 +650,21 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         widget.api.accountId == owner &&
         widget.api.authGeneration == generation &&
         (stillCurrent?.call() ?? true);
-    final progress = await _calibration.allProgress(owner);
+    final state = await _calibration.snapshot(owner);
     if (!current()) return;
-    final pending = await _calibration.pendingFeedback(owner);
-    if (!current()) return;
+    _calibrationProgress = state.progress;
+    _pendingMeditationFeedback = state.pendingFeedback;
+    _revealedPlans = state.revealedPlans;
+    if (loadModels) await _loadCachedModels(owner, current);
+  }
+
+  Future<void> _loadCachedModels(String owner, bool Function() current) async {
     final models = <DataOrigin, PersonalEegModel?>{};
     for (final origin in [DataOrigin.simulator, DataOrigin.muse]) {
       models[origin] = await _personalModels.load(owner, origin);
       if (!current()) return;
     }
     _cachedModels = models;
-    _calibrationProgress = progress;
-    _pendingMeditationFeedback = pending;
-    _revealedPlans = {
-      for (final p in progress)
-        if (p.complete) p.plan.id,
-    };
   }
 
   Future<void> _openCalibration() async {
@@ -680,7 +682,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         !_startingSession &&
         _session == null;
     try {
-      await _loadCalibration(stillCurrent: current);
+      await _loadCalibration(stillCurrent: current, loadModels: false);
       if (current()) {
         setState(() {
           _error = null;
@@ -864,7 +866,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     }
   }
 
-  Future<void> _openFeedback(SavedSession session) async {
+  Future<void> _openFeedback(SessionSummary session) async {
     final owner = widget.api.accountId;
     if (owner == null) return;
     final pending = await _calibration.pendingFeedback(owner);
@@ -1339,7 +1341,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
           );
         }
         await _loadCalibration();
-        final pending = await _calibration.pendingFeedback(feedbackOwner);
+        final pending = _pendingMeditationFeedback;
         final session = pending.where((s) => s.id == sessionId).firstOrNull;
         if (session != null) {
           _error = failure;
@@ -1365,13 +1367,113 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
 
   Future<void> _openHistory() async {
     _experimentNavigationGeneration++;
-    await _loadCalibration();
-    _history = await _repository.listOwnedSessions(_auth!.email);
-    final pending = await _repository.pendingDeletions(_auth!.email);
-    _historyMessage = pending.isEmpty
-        ? null
-        : '${pending.length} raderingar väntar på synk med backenden.';
+    setState(() {
+      _screen = _Screen.history;
+      _history = [];
+      _historyCursor = null;
+      _historySelectionIds = null;
+      _historyMessage = null;
+      _historyError = null;
+    });
+    await _refreshHistory();
+  }
+
+  Future<void> _refreshHistory({bool append = false}) async {
+    final email = _auth?.email, owner = widget.api.accountId;
+    if (email == null || _screen != _Screen.history) return;
+    final before = append ? _historyCursor : null;
+    if (append && (before == null || _historyLoading)) return;
+    final navigation = _experimentNavigationGeneration;
+    final authentication = widget.api.authGeneration;
+    final request = ++_historyRequest;
+    bool current() =>
+        mounted &&
+        _screen == _Screen.history &&
+        _experimentNavigationGeneration == navigation &&
+        _historyRequest == request &&
+        _auth?.email == email &&
+        widget.api.accountId == owner &&
+        widget.api.authGeneration == authentication;
+    setState(() {
+      _historyLoading = true;
+      _historyError = null;
+    });
+    try {
+      final page = await _repository.ownedSummaryPage(
+        email,
+        before: before,
+        limit: append || _history.length < 50 ? 50 : _history.length,
+      );
+      if (!current()) return;
+      final state = !append && owner != null
+          ? await _calibration.snapshot(owner)
+          : null;
+      if (!current()) return;
+      final pending = await _repository.pendingDeletions(
+        email,
+        ownerAccountId: owner,
+      );
+      if (!current()) return;
+      final validIds =
+          _historySelectionIds == null && (append || _history.isEmpty)
+          ? null
+          : (await _repository.ownedSessionIds(email)).toSet();
+      if (!current()) return;
+      setState(() {
+        _history = append ? [..._history, ...page.sessions] : page.sessions;
+        _historyCursor = page.next;
+        _historySelectionIds = validIds;
+        if (state != null) _revealedPlans = state.revealedPlans;
+        _historyMessage = pending.isEmpty
+            ? null
+            : '${pending.length} raderingar väntar på synk med backenden.';
+      });
+    } catch (error, stack) {
+      if (current()) {
+        log('History could not be read', error: error, stackTrace: stack);
+        setState(
+          () => _historyError = 'Historiken kunde inte läsas. Försök igen.',
+        );
+      }
+    } finally {
+      if (current()) setState(() => _historyLoading = false);
+    }
+  }
+
+  Future<List<String>> _selectAllHistory() async {
+    final email = _auth!.email;
+    final navigation = _experimentNavigationGeneration;
+    final ids = await _repository.ownedSessionIds(email);
+    if (!mounted ||
+        _auth?.email != email ||
+        _screen != _Screen.history ||
+        navigation != _experimentNavigationGeneration) {
+      return [];
+    }
+    setState(() => _historySelectionIds = ids.toSet());
+    return ids;
+  }
+
+  void _leaveHistory() {
+    _experimentNavigationGeneration++;
+    setState(() => _screen = _Screen.home);
+  }
+
+  void _openPlayback(SessionSummary session) {
+    _experimentNavigationGeneration++;
+    setState(() {
+      _playbackTask = _repository.sessionById(
+        session.id,
+        ownerEmail: _auth!.email,
+      );
+      _screen = _Screen.playback;
+    });
+  }
+
+  void _leavePlayback() {
+    _experimentNavigationGeneration++;
     setState(() => _screen = _Screen.history);
+    unawaited(_refreshHistory());
   }
 
   Future<void> _deleteSessions(List<String> ids) async {
@@ -1403,10 +1505,9 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
       _snapshot = null;
       await _loadCalibration(stillCurrent: current);
       if (!current()) return;
-      final history = await _repository.listOwnedSessions(email);
+      await _refreshHistory();
       if (!current()) return;
       setState(() {
-        _history = history;
         _preferenceChoice = null;
         _preferenceResults = [];
         _historyMessage =
@@ -1434,6 +1535,7 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
     _previewSub?.cancel();
     _preview?.stop();
     _session?.dispose();
+    _dataChanges?.cancel();
     super.dispose();
   }
 
@@ -1447,10 +1549,19 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         useMaterial3: true,
       ),
       home: PopScope(
-        canPop: _screen != _Screen.profiles && _screen != _Screen.finishing,
+        canPop: !{
+          _Screen.profiles,
+          _Screen.finishing,
+          _Screen.history,
+          _Screen.playback,
+        }.contains(_screen),
         onPopInvokedWithResult: (didPop, result) {
           if (!didPop && _screen == _Screen.profiles) {
             unawaited(_leaveProfiles());
+          } else if (!didPop && _screen == _Screen.history) {
+            _leaveHistory();
+          } else if (!didPop && _screen == _Screen.playback) {
+            _leavePlayback();
           }
         },
         child: !_ready
@@ -1588,13 +1699,18 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
         sessions: _history,
         revealedPlans: _revealedPlans,
         onDelete: _deleteSessions,
-        message: _historyMessage,
+        message: _historyError ?? _historyMessage,
+        loading: _historyLoading,
+        hasMore: _historyCursor != null,
+        onLoadMore: () => unawaited(_refreshHistory(append: true)),
+        onRetry: _historyError == null
+            ? null
+            : () => unawaited(_refreshHistory()),
+        onSelectAll: _selectAllHistory,
+        validSelectionIds: _historySelectionIds,
         syncStatus: _syncStatus,
-        onOpen: (session) => setState(() {
-          _playback = session;
-          _screen = _Screen.playback;
-        }),
-        onBack: () => setState(() => _screen = _Screen.home),
+        onOpen: _openPlayback,
+        onBack: _leaveHistory,
       ),
       _Screen.calibration => CalibrationPage(
         progress: _calibrationProgress,
@@ -1636,10 +1752,34 @@ class _NeuroTuneAppState extends State<NeuroTuneApp> {
             _stereoTestPlaying ||
             _stereoTestBusy,
       ),
-      _Screen.playback => PlaybackPage(
-        session: _playback!,
-        revealedPlans: _revealedPlans,
-        onBack: () => setState(() => _screen = _Screen.history),
+      _Screen.playback => FutureBuilder<SavedSession?>(
+        future: _playbackTask,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done &&
+              !snapshot.hasError &&
+              snapshot.data != null) {
+            return PlaybackPage(
+              session: snapshot.data!,
+              revealedPlans: _revealedPlans,
+              onBack: _leavePlayback,
+            );
+          }
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Uppspelning'),
+              leading: BackButton(onPressed: _leavePlayback),
+            ),
+            body: Center(
+              child: snapshot.connectionState != ConnectionState.done
+                  ? const CircularProgressIndicator()
+                  : Text(
+                      snapshot.hasError
+                          ? 'Sessionen kunde inte läsas.'
+                          : 'Sessionen finns inte längre.',
+                    ),
+            ),
+          );
+        },
       ),
     };
   }

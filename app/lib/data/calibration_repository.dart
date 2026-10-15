@@ -21,8 +21,8 @@ class CalibrationProgress {
   );
   final CalibrationPlan plan;
   final List<CalibrationAttemptView> attempts;
-  final Map<int, SavedSession> results;
-  final List<SavedSession> awaitingFeedback;
+  final Map<int, SessionSummary> results;
+  final List<SessionSummary> awaitingFeedback;
   int get completedSlots => results.length;
   bool get complete => completedSlots == 10;
   int? get nextSlot {
@@ -93,9 +93,72 @@ class CalibrationRepository {
     );
   }
 
-  Future<List<CalibrationProgress>> allProgress(String owner) async => [
-    for (final p in await plans(owner)) await progress(owner, p.id),
-  ];
+  Future<List<CalibrationProgress>> allProgress(String owner) async =>
+      (await snapshot(owner)).progress;
+
+  /// One consistent metadata snapshot, shared by progress and pending feedback.
+  Future<CalibrationState> snapshot(String owner, {String? planId}) =>
+      db.transaction(() async {
+        final ownedPlans = planId == null
+            ? await plans(owner)
+            : [await plan(owner, planId)];
+        final rows =
+            await (db.select(db.calibrationAttempts)
+                  ..where(
+                    (r) =>
+                        r.ownerAccountId.equals(owner) &
+                        (planId == null
+                            ? const Constant(true)
+                            : r.planId.equals(planId)),
+                  )
+                  ..orderBy([(r) => OrderingTerm.asc(r.createdAt)]))
+                .get();
+        final saved = {
+          for (final s
+              in planId == null
+                  ? await sessions.meditationSummaries(owner)
+                  : await sessions.summariesByIds(rows.map((r) => r.sessionId)))
+            s.id: s,
+        };
+        final ratings = await feedbackBySession(owner);
+        final byPlan = <String, List<CalibrationAttempt>>{};
+        for (final row in rows) {
+          byPlan.putIfAbsent(row.planId, () => []).add(row);
+        }
+        final progress = [
+          for (final p in ownedPlans)
+            _progress(p, byPlan[p.id] ?? [], saved, ratings),
+        ];
+        final pending = [for (final p in progress) ...p.awaitingFeedback];
+        if (planId == null) {
+          for (final s in saved.values) {
+            if (s.manifest.meditation?['mode'] != 'calibration' &&
+                _ownedCompleted(s, owner) &&
+                ratings[s.id]?.complete != true) {
+              pending.add(s);
+            }
+          }
+        }
+        return CalibrationState(progress, pending);
+      });
+
+  Future<Map<String, MeditationFeedback>> feedbackBySession(
+    String owner,
+  ) async {
+    final rows = await (db.select(
+      db.meditationFeedbackRows,
+    )..where((r) => r.ownerAccountId.equals(owner))).get();
+    return {
+      for (final r in rows)
+        r.sessionId: MeditationFeedback(
+          ownerAccountId: owner,
+          sessionId: r.sessionId,
+          mentalBusyness: r.mentalBusyness,
+          relaxation: r.relaxation,
+          revision: r.revision,
+        ),
+    };
+  }
 
   bool _matchesProfile(Object? snapshot, AudioProfileVersion expected) {
     if (snapshot is! Map) return false;
@@ -121,7 +184,7 @@ class CalibrationRepository {
     }
   }
 
-  bool _ownedCompleted(SavedSession session, String owner) {
+  bool _ownedCompleted(SessionSummary session, String owner) {
     final m = session.manifest;
     final meta = m.meditation;
     if (session.status != 'completed' ||
@@ -152,7 +215,7 @@ class CalibrationRepository {
     }
   }
 
-  bool _completed(SavedSession session, CalibrationPlan plan, int slot) {
+  bool _completed(SessionSummary session, CalibrationPlan plan, int slot) {
     final m = session.manifest;
     final meta = m.meditation;
     return _ownedCompleted(session, plan.ownerAccountId) &&
@@ -174,24 +237,22 @@ class CalibrationRepository {
         m.dataOrigin == plan.origin.name;
   }
 
-  Future<CalibrationProgress> progress(String owner, String id) async {
-    final p = await plan(owner, id);
-    final rows =
-        await (db.select(db.calibrationAttempts)
-              ..where(
-                (r) => r.ownerAccountId.equals(owner) & r.planId.equals(id),
-              )
-              ..orderBy([(r) => OrderingTerm.asc(r.createdAt)]))
-            .get();
-    final saved = {for (final s in await sessions.listSessions()) s.id: s};
-    final results = <int, SavedSession>{};
-    final awaiting = <SavedSession>[];
+  Future<CalibrationProgress> progress(String owner, String id) async =>
+      (await snapshot(owner, planId: id)).progress.single;
+
+  CalibrationProgress _progress(
+    CalibrationPlan p,
+    List<CalibrationAttempt> rows,
+    Map<String, SessionSummary> saved,
+    Map<String, MeditationFeedback> ratings,
+  ) {
+    final results = <int, SessionSummary>{};
+    final awaiting = <SessionSummary>[];
     final attempts = <CalibrationAttemptView>[];
     for (final row in rows) {
       final s = saved[row.sessionId];
       final full = s != null && _completed(s, p, row.slot);
-      final rated =
-          full && (await feedback(owner, row.sessionId))?.complete == true;
+      final rated = full && ratings[row.sessionId]?.complete == true;
       attempts.add(
         CalibrationAttemptView(
           row.sessionId,
@@ -217,7 +278,6 @@ class CalibrationRepository {
   /// Called at launch, before any new acquisition. Missing recordings from a
   /// terminated process leave their scheduled slot incomplete.
   Future<void> recoverInterruptedAttempts(String owner) async {
-    final ids = (await sessions.listSessions()).map((s) => s.id).toSet();
     final rows =
         await (db.select(db.calibrationAttempts)..where(
               (r) =>
@@ -225,7 +285,7 @@ class CalibrationRepository {
             ))
             .get();
     for (final row in rows) {
-      if (!ids.contains(row.sessionId)) {
+      if (!await sessions.sessionExists(row.sessionId)) {
         await (db.update(db.calibrationAttempts)..where(
               (r) =>
                   r.sessionId.equals(row.sessionId) &
@@ -239,7 +299,7 @@ class CalibrationRepository {
   }
 
   Future<void> interruptAttempt(String owner, String sessionId) async {
-    final saved = (await sessions.listSessions()).any((s) => s.id == sessionId);
+    final saved = await sessions.sessionExists(sessionId);
     if (saved) return;
     await (db.update(db.calibrationAttempts)..where(
           (r) => r.ownerAccountId.equals(owner) & r.sessionId.equals(sessionId),
@@ -264,7 +324,7 @@ class CalibrationRepository {
             throw StateError('Sessionen tillhör en annan serie.');
           }
           if (existing.state != 'reserved' ||
-              (await sessions.listSessions()).any((s) => s.id == sessionId)) {
+              await sessions.sessionExists(sessionId)) {
             throw StateError('Försöket är redan avslutat.');
           }
           return existing.slot;
@@ -315,19 +375,8 @@ class CalibrationRepository {
           );
   }
 
-  Future<List<SavedSession>> pendingFeedback(String owner) async {
-    final pending = [
-      for (final p in await allProgress(owner)) ...p.awaitingFeedback,
-    ];
-    for (final saved in await sessions.listSessions()) {
-      if (saved.manifest.meditation?['mode'] != 'calibration' &&
-          _ownedCompleted(saved, owner) &&
-          (await feedback(owner, saved.id))?.complete != true) {
-        pending.add(saved);
-      }
-    }
-    return pending;
-  }
+  Future<List<SessionSummary>> pendingFeedback(String owner) async =>
+      (await snapshot(owner)).pendingFeedback;
 
   Future<void> saveFeedback(
     String owner,
@@ -344,9 +393,7 @@ class CalibrationRepository {
     ].any((v) => v != null && (v < 0 || v > 10))) {
       throw ArgumentError('Ratings must be integers from 0 to 10');
     }
-    final saved = (await sessions.listSessions())
-        .where((s) => s.id == sessionId)
-        .firstOrNull;
+    final saved = await sessions.summaryById(sessionId);
     if (saved == null || !_ownedCompleted(saved, owner)) {
       throw StateError(
         'Återkoppling kräver en egen session med tio slutförda minuter.',
@@ -391,4 +438,14 @@ class CalibrationRepository {
       await sessions.bumpEvidenceEpoch(owner);
     }
   });
+}
+
+class CalibrationState {
+  const CalibrationState(this.progress, this.pendingFeedback);
+  final List<CalibrationProgress> progress;
+  final List<SessionSummary> pendingFeedback;
+  Set<String> get revealedPlans => {
+    for (final p in progress)
+      if (p.complete) p.plan.id,
+  };
 }

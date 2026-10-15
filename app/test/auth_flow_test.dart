@@ -455,7 +455,7 @@ void main() {
     expect(await database.getKv('auth'), isNull);
   });
 
-  testWidgets('broken local data at start is not blamed on the login', (
+  testWidgets('an unrelated broken recording does not block restored login', (
     tester,
   ) async {
     final database = AppDatabase(NativeDatabase.memory());
@@ -471,11 +471,12 @@ void main() {
     await tester.pumpWidget(app(database, _AuthApi()));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Lokala data'), findsOneWidget);
+    expect(find.text('Simulator'), findsOneWidget);
+    expect(find.textContaining('Lokala data'), findsNothing);
     expect(find.textContaining('Logga in igen'), findsNothing);
   });
 
-  testWidgets('broken local data at login is not blamed on the server', (
+  testWidgets('an unrelated broken recording does not block a new login', (
     tester,
   ) async {
     final database = AppDatabase(NativeDatabase.memory());
@@ -489,7 +490,8 @@ void main() {
     await tester.tap(find.text('Logga in'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Lokala data'), findsOneWidget);
+    expect(find.text('Simulator'), findsOneWidget);
+    expect(find.textContaining('Lokala data'), findsNothing);
     expect(find.textContaining('Servern nås inte'), findsNothing);
   });
 

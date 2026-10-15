@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:drift/drift.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 import 'database.dart';
 import 'repository.dart';
@@ -94,27 +93,30 @@ class MeditationActionRepository {
         return false;
       }
     }
+    final ids = model.evidence.map((e) => e['session_id'] as String).toList();
+    if ((await sessions.tombstonedIds(owner, ids)).isNotEmpty) return false;
+    final records = {
+      for (final s in await sessions.summariesByIds(ids)) s.id: s,
+    };
+    final ratings = {
+      for (final r in await (db.select(
+        db.meditationFeedbackRows,
+      )..where((r) => r.ownerAccountId.equals(owner))).get())
+        r.sessionId: r,
+    };
     for (final evidence in model.evidence) {
       final sid = evidence['session_id'] as String;
-      if (await sessions.isTombstoned(owner, sid)) return false;
-      final row = await (db.select(
-        db.storedSessions,
-      )..where((r) => r.id.equals(sid))).getSingleOrNull();
+
+      final row = records[sid];
       if (row != null) {
-        final manifest = SessionManifest.fromJson(
-          jsonDecode(row.manifestJson) as Map<String, dynamic>,
-        );
+        final manifest = row.manifest;
         if (meditationOwner(manifest) == owner &&
             (row.origin != model.origin ||
                 row.checksum != evidence['checksum_sha256'])) {
           return false;
         }
       }
-      final rating =
-          await (db.select(db.meditationFeedbackRows)..where(
-                (r) => r.ownerAccountId.equals(owner) & r.sessionId.equals(sid),
-              ))
-              .getSingleOrNull();
+      final rating = ratings[sid];
       if (rating != null && rating.revision != evidence['feedback_revision']) {
         return false;
       }
@@ -126,18 +128,15 @@ class MeditationActionRepository {
     MeditationActionStatistics stats,
     Map<String, dynamic> contribution,
   ) async {
-    final row =
-        await (db.select(db.storedSessions)
-              ..where((r) => r.id.equals(contribution['session_id'] as String)))
-            .getSingleOrNull();
+    final row = await sessions.summaryById(
+      contribution['session_id'] as String,
+    );
     if (row == null ||
         row.checksum != contribution['checksum_sha256'] ||
         !['completed', 'stopped'].contains(row.status)) {
       return false;
     }
-    final manifest = SessionManifest.fromJson(
-      jsonDecode(row.manifestJson) as Map<String, dynamic>,
-    );
+    final manifest = row.manifest;
     final meta = manifest.meditation;
     if (meditationOwner(manifest) != stats.owner ||
         manifest.dataOrigin != stats.setup.origin.name ||

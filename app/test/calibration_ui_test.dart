@@ -182,6 +182,16 @@ void main() {
       }
       expect(find.textContaining('Dold till seriens slut'), findsOneWidget);
       await tester.tap(find.byType(ListTile).first);
+      for (
+        var n = 0;
+        n < 25 && find.textContaining('Åtgärd:').evaluate().isEmpty;
+        n++
+      ) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
       await tester.pump();
       expect(find.text('Åtgärd: Dold till seriens slut'), findsOneWidget);
       expect(find.textContaining(' Hz'), findsNothing);

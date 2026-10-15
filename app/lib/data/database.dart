@@ -10,6 +10,8 @@ class StoredSessions extends Table {
   TextColumn get manifestJson => text()();
   TextColumn get decisionsJson => text()();
   TextColumn get framesJson => text()();
+  TextColumn get summaryJson => text().nullable()();
+  IntColumn get decisionCount => integer().nullable()();
   TextColumn get status => text()();
   TextColumn get checksum => text()();
   TextColumn get rawPath => text()();
@@ -129,11 +131,14 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'neurotune'));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (m) async => m.createAll(),
+    onCreate: (m) async {
+      await m.createAll();
+      await _installSessionSummaries();
+    },
     onUpgrade: (m, from, to) async {
       if (from < 2) await m.addColumn(uploadJobs, uploadJobs.ownerEmail);
       if (from < 3) await m.createTable(cachedAudioProfiles);
@@ -167,8 +172,59 @@ class AppDatabase extends _$AppDatabase {
           );
         }
       }
+      if (from < 7) {
+        // Some early installations only persisted the upload queue.
+        final exists = await customSelect(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='stored_sessions'",
+        ).get();
+        if (exists.isEmpty) {
+          await m.createTable(storedSessions);
+        } else {
+          final columns = (await customSelect(
+            'PRAGMA table_info(stored_sessions)',
+          ).get()).map((r) => r.read<String>('name')).toSet();
+          if (!columns.contains('summary_json')) {
+            await m.addColumn(storedSessions, storedSessions.summaryJson);
+          }
+          if (!columns.contains('decision_count')) {
+            await m.addColumn(storedSessions, storedSessions.decisionCount);
+          }
+        }
+        await customStatement('''UPDATE stored_sessions SET
+          summary_json = ${_summarySql('manifest_json')},
+          decision_count = ${_countSql('decisions_json')}''');
+        await _installSessionSummaries();
+      }
     },
   );
+
+  static String _summarySql(String column) =>
+      "CASE WHEN json_valid($column) THEN json_remove($column, '\$.diagnostics', '\$.meditation.playback_timeline') ELSE $column END";
+  static String _countSql(String column) =>
+      'CASE WHEN json_valid($column) THEN COALESCE(json_array_length($column), 0) ELSE 0 END';
+
+  Future<void> _installSessionSummaries() async {
+    // Keep the projection correct for all writers, including imported records.
+    for (final event in ['INSERT', 'UPDATE OF manifest_json, decisions_json']) {
+      final name = event == 'INSERT' ? 'insert' : 'update';
+      await customStatement(
+        '''CREATE TRIGGER IF NOT EXISTS session_summary_$name
+        AFTER $event ON stored_sessions BEGIN
+          UPDATE stored_sessions SET
+            summary_json = ${_summarySql('NEW.manifest_json')},
+            decision_count = ${_countSql('NEW.decisions_json')}
+          WHERE id = NEW.id;
+        END''',
+      );
+    }
+    for (final statement in [
+      'CREATE INDEX IF NOT EXISTS sessions_created_id ON stored_sessions (created_at DESC, id DESC)',
+      'CREATE INDEX IF NOT EXISTS uploads_owner_state ON upload_jobs (owner_email, state, session_id)',
+      'CREATE INDEX IF NOT EXISTS attempts_owner_plan ON calibration_attempts (owner_account_id, plan_id, created_at)',
+    ]) {
+      await customStatement(statement);
+    }
+  }
 
   Future<void> putKv(String key, String value) async {
     await into(

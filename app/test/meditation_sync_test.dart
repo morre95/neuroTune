@@ -401,7 +401,7 @@ void main() {
       expect(
         (await reopened.customSelect('PRAGMA user_version').get()).single
             .read<int>('user_version'),
-        6,
+        reopened.schemaVersion,
       );
     },
   );

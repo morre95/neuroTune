@@ -69,6 +69,28 @@ class $StoredSessionsTable extends StoredSessions
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _summaryJsonMeta = const VerificationMeta(
+    'summaryJson',
+  );
+  @override
+  late final GeneratedColumn<String> summaryJson = GeneratedColumn<String>(
+    'summary_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _decisionCountMeta = const VerificationMeta(
+    'decisionCount',
+  );
+  @override
+  late final GeneratedColumn<int> decisionCount = GeneratedColumn<int>(
+    'decision_count',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
   late final GeneratedColumn<String> status = GeneratedColumn<String>(
@@ -119,6 +141,8 @@ class $StoredSessionsTable extends StoredSessions
     manifestJson,
     decisionsJson,
     framesJson,
+    summaryJson,
+    decisionCount,
     status,
     checksum,
     rawPath,
@@ -187,6 +211,24 @@ class $StoredSessionsTable extends StoredSessions
     } else if (isInserting) {
       context.missing(_framesJsonMeta);
     }
+    if (data.containsKey('summary_json')) {
+      context.handle(
+        _summaryJsonMeta,
+        summaryJson.isAcceptableOrUnknown(
+          data['summary_json']!,
+          _summaryJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('decision_count')) {
+      context.handle(
+        _decisionCountMeta,
+        decisionCount.isAcceptableOrUnknown(
+          data['decision_count']!,
+          _decisionCountMeta,
+        ),
+      );
+    }
     if (data.containsKey('status')) {
       context.handle(
         _statusMeta,
@@ -252,6 +294,14 @@ class $StoredSessionsTable extends StoredSessions
         DriftSqlType.string,
         data['${effectivePrefix}frames_json'],
       )!,
+      summaryJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}summary_json'],
+      ),
+      decisionCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}decision_count'],
+      ),
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}status'],
@@ -284,6 +334,8 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
   final String manifestJson;
   final String decisionsJson;
   final String framesJson;
+  final String? summaryJson;
+  final int? decisionCount;
   final String status;
   final String checksum;
   final String rawPath;
@@ -295,6 +347,8 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
     required this.manifestJson,
     required this.decisionsJson,
     required this.framesJson,
+    this.summaryJson,
+    this.decisionCount,
     required this.status,
     required this.checksum,
     required this.rawPath,
@@ -309,6 +363,12 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
     map['manifest_json'] = Variable<String>(manifestJson);
     map['decisions_json'] = Variable<String>(decisionsJson);
     map['frames_json'] = Variable<String>(framesJson);
+    if (!nullToAbsent || summaryJson != null) {
+      map['summary_json'] = Variable<String>(summaryJson);
+    }
+    if (!nullToAbsent || decisionCount != null) {
+      map['decision_count'] = Variable<int>(decisionCount);
+    }
     map['status'] = Variable<String>(status);
     map['checksum'] = Variable<String>(checksum);
     map['raw_path'] = Variable<String>(rawPath);
@@ -324,6 +384,12 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
       manifestJson: Value(manifestJson),
       decisionsJson: Value(decisionsJson),
       framesJson: Value(framesJson),
+      summaryJson: summaryJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(summaryJson),
+      decisionCount: decisionCount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(decisionCount),
       status: Value(status),
       checksum: Value(checksum),
       rawPath: Value(rawPath),
@@ -343,6 +409,8 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
       manifestJson: serializer.fromJson<String>(json['manifestJson']),
       decisionsJson: serializer.fromJson<String>(json['decisionsJson']),
       framesJson: serializer.fromJson<String>(json['framesJson']),
+      summaryJson: serializer.fromJson<String?>(json['summaryJson']),
+      decisionCount: serializer.fromJson<int?>(json['decisionCount']),
       status: serializer.fromJson<String>(json['status']),
       checksum: serializer.fromJson<String>(json['checksum']),
       rawPath: serializer.fromJson<String>(json['rawPath']),
@@ -359,6 +427,8 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
       'manifestJson': serializer.toJson<String>(manifestJson),
       'decisionsJson': serializer.toJson<String>(decisionsJson),
       'framesJson': serializer.toJson<String>(framesJson),
+      'summaryJson': serializer.toJson<String?>(summaryJson),
+      'decisionCount': serializer.toJson<int?>(decisionCount),
       'status': serializer.toJson<String>(status),
       'checksum': serializer.toJson<String>(checksum),
       'rawPath': serializer.toJson<String>(rawPath),
@@ -373,6 +443,8 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
     String? manifestJson,
     String? decisionsJson,
     String? framesJson,
+    Value<String?> summaryJson = const Value.absent(),
+    Value<int?> decisionCount = const Value.absent(),
     String? status,
     String? checksum,
     String? rawPath,
@@ -384,6 +456,10 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
     manifestJson: manifestJson ?? this.manifestJson,
     decisionsJson: decisionsJson ?? this.decisionsJson,
     framesJson: framesJson ?? this.framesJson,
+    summaryJson: summaryJson.present ? summaryJson.value : this.summaryJson,
+    decisionCount: decisionCount.present
+        ? decisionCount.value
+        : this.decisionCount,
     status: status ?? this.status,
     checksum: checksum ?? this.checksum,
     rawPath: rawPath ?? this.rawPath,
@@ -403,6 +479,12 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
       framesJson: data.framesJson.present
           ? data.framesJson.value
           : this.framesJson,
+      summaryJson: data.summaryJson.present
+          ? data.summaryJson.value
+          : this.summaryJson,
+      decisionCount: data.decisionCount.present
+          ? data.decisionCount.value
+          : this.decisionCount,
       status: data.status.present ? data.status.value : this.status,
       checksum: data.checksum.present ? data.checksum.value : this.checksum,
       rawPath: data.rawPath.present ? data.rawPath.value : this.rawPath,
@@ -419,6 +501,8 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
           ..write('manifestJson: $manifestJson, ')
           ..write('decisionsJson: $decisionsJson, ')
           ..write('framesJson: $framesJson, ')
+          ..write('summaryJson: $summaryJson, ')
+          ..write('decisionCount: $decisionCount, ')
           ..write('status: $status, ')
           ..write('checksum: $checksum, ')
           ..write('rawPath: $rawPath, ')
@@ -435,6 +519,8 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
     manifestJson,
     decisionsJson,
     framesJson,
+    summaryJson,
+    decisionCount,
     status,
     checksum,
     rawPath,
@@ -450,6 +536,8 @@ class StoredSession extends DataClass implements Insertable<StoredSession> {
           other.manifestJson == this.manifestJson &&
           other.decisionsJson == this.decisionsJson &&
           other.framesJson == this.framesJson &&
+          other.summaryJson == this.summaryJson &&
+          other.decisionCount == this.decisionCount &&
           other.status == this.status &&
           other.checksum == this.checksum &&
           other.rawPath == this.rawPath &&
@@ -463,6 +551,8 @@ class StoredSessionsCompanion extends UpdateCompanion<StoredSession> {
   final Value<String> manifestJson;
   final Value<String> decisionsJson;
   final Value<String> framesJson;
+  final Value<String?> summaryJson;
+  final Value<int?> decisionCount;
   final Value<String> status;
   final Value<String> checksum;
   final Value<String> rawPath;
@@ -475,6 +565,8 @@ class StoredSessionsCompanion extends UpdateCompanion<StoredSession> {
     this.manifestJson = const Value.absent(),
     this.decisionsJson = const Value.absent(),
     this.framesJson = const Value.absent(),
+    this.summaryJson = const Value.absent(),
+    this.decisionCount = const Value.absent(),
     this.status = const Value.absent(),
     this.checksum = const Value.absent(),
     this.rawPath = const Value.absent(),
@@ -488,6 +580,8 @@ class StoredSessionsCompanion extends UpdateCompanion<StoredSession> {
     required String manifestJson,
     required String decisionsJson,
     required String framesJson,
+    this.summaryJson = const Value.absent(),
+    this.decisionCount = const Value.absent(),
     required String status,
     required String checksum,
     required String rawPath,
@@ -510,6 +604,8 @@ class StoredSessionsCompanion extends UpdateCompanion<StoredSession> {
     Expression<String>? manifestJson,
     Expression<String>? decisionsJson,
     Expression<String>? framesJson,
+    Expression<String>? summaryJson,
+    Expression<int>? decisionCount,
     Expression<String>? status,
     Expression<String>? checksum,
     Expression<String>? rawPath,
@@ -523,6 +619,8 @@ class StoredSessionsCompanion extends UpdateCompanion<StoredSession> {
       if (manifestJson != null) 'manifest_json': manifestJson,
       if (decisionsJson != null) 'decisions_json': decisionsJson,
       if (framesJson != null) 'frames_json': framesJson,
+      if (summaryJson != null) 'summary_json': summaryJson,
+      if (decisionCount != null) 'decision_count': decisionCount,
       if (status != null) 'status': status,
       if (checksum != null) 'checksum': checksum,
       if (rawPath != null) 'raw_path': rawPath,
@@ -538,6 +636,8 @@ class StoredSessionsCompanion extends UpdateCompanion<StoredSession> {
     Value<String>? manifestJson,
     Value<String>? decisionsJson,
     Value<String>? framesJson,
+    Value<String?>? summaryJson,
+    Value<int?>? decisionCount,
     Value<String>? status,
     Value<String>? checksum,
     Value<String>? rawPath,
@@ -551,6 +651,8 @@ class StoredSessionsCompanion extends UpdateCompanion<StoredSession> {
       manifestJson: manifestJson ?? this.manifestJson,
       decisionsJson: decisionsJson ?? this.decisionsJson,
       framesJson: framesJson ?? this.framesJson,
+      summaryJson: summaryJson ?? this.summaryJson,
+      decisionCount: decisionCount ?? this.decisionCount,
       status: status ?? this.status,
       checksum: checksum ?? this.checksum,
       rawPath: rawPath ?? this.rawPath,
@@ -580,6 +682,12 @@ class StoredSessionsCompanion extends UpdateCompanion<StoredSession> {
     if (framesJson.present) {
       map['frames_json'] = Variable<String>(framesJson.value);
     }
+    if (summaryJson.present) {
+      map['summary_json'] = Variable<String>(summaryJson.value);
+    }
+    if (decisionCount.present) {
+      map['decision_count'] = Variable<int>(decisionCount.value);
+    }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
     }
@@ -607,6 +715,8 @@ class StoredSessionsCompanion extends UpdateCompanion<StoredSession> {
           ..write('manifestJson: $manifestJson, ')
           ..write('decisionsJson: $decisionsJson, ')
           ..write('framesJson: $framesJson, ')
+          ..write('summaryJson: $summaryJson, ')
+          ..write('decisionCount: $decisionCount, ')
           ..write('status: $status, ')
           ..write('checksum: $checksum, ')
           ..write('rawPath: $rawPath, ')
@@ -3906,6 +4016,8 @@ typedef $$StoredSessionsTableCreateCompanionBuilder =
       required String manifestJson,
       required String decisionsJson,
       required String framesJson,
+      Value<String?> summaryJson,
+      Value<int?> decisionCount,
       required String status,
       required String checksum,
       required String rawPath,
@@ -3920,6 +4032,8 @@ typedef $$StoredSessionsTableUpdateCompanionBuilder =
       Value<String> manifestJson,
       Value<String> decisionsJson,
       Value<String> framesJson,
+      Value<String?> summaryJson,
+      Value<int?> decisionCount,
       Value<String> status,
       Value<String> checksum,
       Value<String> rawPath,
@@ -3963,6 +4077,16 @@ class $$StoredSessionsTableFilterComposer
 
   ColumnFilters<String> get framesJson => $composableBuilder(
     column: $table.framesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get summaryJson => $composableBuilder(
+    column: $table.summaryJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get decisionCount => $composableBuilder(
+    column: $table.decisionCount,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -4026,6 +4150,16 @@ class $$StoredSessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get summaryJson => $composableBuilder(
+    column: $table.summaryJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get decisionCount => $composableBuilder(
+    column: $table.decisionCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get status => $composableBuilder(
     column: $table.status,
     builder: (column) => ColumnOrderings(column),
@@ -4077,6 +4211,16 @@ class $$StoredSessionsTableAnnotationComposer
 
   GeneratedColumn<String> get framesJson => $composableBuilder(
     column: $table.framesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get summaryJson => $composableBuilder(
+    column: $table.summaryJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get decisionCount => $composableBuilder(
+    column: $table.decisionCount,
     builder: (column) => column,
   );
 
@@ -4132,6 +4276,8 @@ class $$StoredSessionsTableTableManager
                 Value<String> manifestJson = const Value.absent(),
                 Value<String> decisionsJson = const Value.absent(),
                 Value<String> framesJson = const Value.absent(),
+                Value<String?> summaryJson = const Value.absent(),
+                Value<int?> decisionCount = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String> checksum = const Value.absent(),
                 Value<String> rawPath = const Value.absent(),
@@ -4144,6 +4290,8 @@ class $$StoredSessionsTableTableManager
                 manifestJson: manifestJson,
                 decisionsJson: decisionsJson,
                 framesJson: framesJson,
+                summaryJson: summaryJson,
+                decisionCount: decisionCount,
                 status: status,
                 checksum: checksum,
                 rawPath: rawPath,
@@ -4158,6 +4306,8 @@ class $$StoredSessionsTableTableManager
                 required String manifestJson,
                 required String decisionsJson,
                 required String framesJson,
+                Value<String?> summaryJson = const Value.absent(),
+                Value<int?> decisionCount = const Value.absent(),
                 required String status,
                 required String checksum,
                 required String rawPath,
@@ -4170,6 +4320,8 @@ class $$StoredSessionsTableTableManager
                 manifestJson: manifestJson,
                 decisionsJson: decisionsJson,
                 framesJson: framesJson,
+                summaryJson: summaryJson,
+                decisionCount: decisionCount,
                 status: status,
                 checksum: checksum,
                 rawPath: rawPath,
