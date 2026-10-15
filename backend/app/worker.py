@@ -1,4 +1,5 @@
 import json
+from app.meditation import is_meditation_manifest
 import uuid
 from datetime import UTC, datetime
 
@@ -36,6 +37,8 @@ def build_policy(db: Session, user_id: str, origin: str, experiment_version: str
     stats = {action: {"n": 0, "mean": 0.0} for action in ACTIONS}
     included: list[str] = []
     for session in sessions:
+        if is_meditation_manifest(json.loads(session.manifest_json)):
+            continue
         decisions = json.loads(session.decisions_json)
         used = False
         for decision in decisions:
@@ -93,7 +96,12 @@ def run_once(db: Session) -> int:
             job.status = "failed"
             job.error = str(exc)
             db.commit()
-    return len(jobs)
+    from app.audio import run_audio_jobs
+    from app.profiles import run_render_jobs
+
+    from app.personal_eeg import run_jobs
+
+    return len(jobs) + run_audio_jobs(db) + run_render_jobs(db) + run_jobs(db)
 
 
 def main() -> None:

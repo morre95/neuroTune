@@ -19,7 +19,61 @@ abstract class PcmOutput {
   Future<void> stop();
 }
 
-class AndroidPcmOutput implements PcmOutput {
+/// Monotonic frames actually played since the most recent start; acceptance
+/// alone cannot prove the buffered final tail drained.
+abstract interface class PcmPlaybackProgress {
+  Future<int> playedFrames();
+}
+
+/// Frames the sink needs queued before starting (also after an underrun).
+/// Re-query after route changes; this is buffering, never played duration.
+abstract interface class PcmStartupThreshold {
+  Future<int> startupThresholdFrames();
+}
+
+/// OS output changes. Focus return permits a user resume; it never advances
+/// the cursor or automatically starts another output.
+class PcmInterruption {
+  const PcmInterruption(this.reason, {this.available = false});
+  final String reason;
+  final bool available;
+}
+
+abstract interface class PcmInterruptionSource {
+  Stream<PcmInterruption> get interruptions;
+
+  /// Atomically pause/flush and return the final played head, including frames
+  /// played from an unacknowledged packet. Idempotent after an OS-side pause.
+  Future<int> pauseAndCheckpoint();
+}
+
+class AndroidPcmOutput
+    implements
+        PcmOutput,
+        PcmPlaybackProgress,
+        PcmStartupThreshold,
+        PcmInterruptionSource {
+  static const _events = EventChannel('dev.neurotune/audio_events');
+  @override
+  Stream<PcmInterruption> get interruptions =>
+      _events.receiveBroadcastStream().map((event) {
+        final values = Map<String, dynamic>.from(event as Map);
+        return PcmInterruption(
+          values['reason'] as String,
+          available: values['available'] == true,
+        );
+      });
+  @override
+  Future<int> pauseAndCheckpoint() async =>
+      (await _audioMethods.invokeMethod<num>('pauseAndCheckpoint'))!.toInt();
+  @override
+  Future<int> playedFrames() async =>
+      (await _audioMethods.invokeMethod<num>('playedFrames'))!.toInt();
+  @override
+  Future<int> startupThresholdFrames() async =>
+      (await _audioMethods.invokeMethod<num>(
+        'startupThresholdFrames',
+      ))!.toInt();
   @override
   Future<double?> start(int sampleRate) async {
     await _audioMethods.invokeMethod<void>('start', {'sampleRate': sampleRate});

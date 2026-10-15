@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurotune.dev/contracts/meditation_feedback.schema.json",
+  "title": "Mutable account-owned post-session feedback separate from recording",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "owner_account_id",
+    "session_id",
+    "mental_busyness",
+    "relaxation",
+    "revision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "owner_account_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "session_id": {
+      "type": "string"
+    },
+    "mental_busyness": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 10,
+      "description": "None (0) to extreme (10); null means unfinished local draft."
+    },
+    "relaxation": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 10,
+      "description": "None (0) to complete (10); null means unfinished local draft."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}

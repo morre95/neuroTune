@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
+from sqlalchemy import Float, Integer, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -93,3 +93,112 @@ class BanditVersion(Base):
     experiment_version: Mapped[str] = mapped_column(String(64), index=True)
     body: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AudioAsset(Base):
+    """Owned original and canonical audio, with durable import lease."""
+
+    __tablename__ = "audio_assets"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    schema_version: Mapped[int] = mapped_column(Integer, default=1)
+    filename: Mapped[str] = mapped_column(String(255))
+    source_format: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    original_bytes: Mapped[int] = mapped_column(Integer)
+    original_sha256: Mapped[str] = mapped_column(String(64))
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source_channels: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lease_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AudioRender(Base):
+    __tablename__ = "audio_renders"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    recipe_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    progress: Mapped[float] = mapped_column(Float, default=0)
+    normalization_factor: Mapped[float | None] = mapped_column(Float, nullable=True)
+    checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    preview_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    lease_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AudioProfileVersion(Base):
+    __tablename__ = "audio_profile_versions"
+    __table_args__ = (UniqueConstraint("profile_id", "version", name="uq_audio_profile_version"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    profile_id: Mapped[str] = mapped_column(String(36), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    render_id: Mapped[str] = mapped_column(ForeignKey("audio_renders.id"))
+    body_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class CalibrationPlanRecord(Base):
+    __tablename__ = 'calibration_plans'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    body_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MeditationFeedbackRecord(Base):
+    __tablename__ = 'meditation_feedback'
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    session_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    revision: Mapped[int] = mapped_column(Integer)
+    body_json: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MeditationTrainingJob(Base):
+    __tablename__ = 'meditation_training_jobs'
+    __table_args__ = (UniqueConstraint('user_id', 'origin', 'protocol_version', 'dataset_fingerprint', name='uq_meditation_dataset'),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    origin: Mapped[str] = mapped_column(String(32))
+    protocol_version: Mapped[str] = mapped_column(String(64))
+    dataset_fingerprint: Mapped[str] = mapped_column(String(64))
+    dataset_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default='queued')
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MeditationTrainingRequest(Base):
+    __tablename__ = 'meditation_training_requests'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey('meditation_training_jobs.id'))
+    body_json: Mapped[str] = mapped_column(Text)
+
+
+class PersonalEegModel(Base):
+    __tablename__ = 'personal_eeg_models'
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), index=True)
+    job_id: Mapped[str | None] = mapped_column(ForeignKey('meditation_training_jobs.id', ondelete='SET NULL'), unique=True, nullable=True)
+    origin: Mapped[str] = mapped_column(String(32))
+    protocol_version: Mapped[str] = mapped_column(String(64))
+    model_version: Mapped[str] = mapped_column(String(64))
+    body_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class OwnerDeletionEpoch(Base):
+    """Publication invalidation state; not a model or statistics artifact."""
+    __tablename__ = 'owner_deletion_epochs'
+
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    epoch: Mapped[int] = mapped_column(Integer, default=0)

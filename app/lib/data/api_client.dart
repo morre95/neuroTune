@@ -46,8 +46,41 @@ class ApiClient {
   final String baseUrl;
   final http.Client _http;
   final Duration requestTimeout;
-  String? accessToken;
+  String? _accessToken;
   String? refreshToken;
+  int _authGeneration = 0;
+  int get authGeneration => _authGeneration;
+  String? get accessToken => _accessToken;
+  set accessToken(String? value) {
+    if (_accessToken != value) {
+      _authGeneration++;
+      _refreshing = null;
+    }
+    _accessToken = value;
+  }
+
+  String? get accountId {
+    try {
+      final payload =
+          jsonDecode(
+                utf8.decode(
+                  base64Url.decode(
+                    base64Url.normalize(accessToken!.split('.')[1]),
+                  ),
+                ),
+              )
+              as Map;
+      final sub = payload['sub'];
+      return sub is String && isAccountUuid(sub) ? sub : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _checkGeneration(int generation) {
+    if (_authGeneration != generation) throw StateError('Account changed');
+  }
+
   Future<void> Function(String access, String refresh)? onTokensRefreshed;
   Future<void>? _refreshing;
 
@@ -58,6 +91,8 @@ class ApiClient {
       _tokens('/v1/auth/login', email, password);
 
   Future<AuthTokens> _tokens(String path, String email, String password) async {
+    final generation = ++_authGeneration;
+    _refreshing = null;
     final response = await _http
         .post(
           Uri.parse('$baseUrl$path'),
@@ -67,7 +102,8 @@ class ApiClient {
         .timeout(requestTimeout);
     _expect(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
-    accessToken = json['access_token'] as String;
+    _checkGeneration(generation);
+    _accessToken = json['access_token'] as String;
     refreshToken = json['refresh_token'] as String;
     return AuthTokens(
       accessToken: accessToken!,
@@ -77,6 +113,7 @@ class ApiClient {
   }
 
   Future<void> refresh() async {
+    final generation = _authGeneration;
     final currentRefresh = refreshToken;
     if (currentRefresh == null) throw StateError('No refresh token');
     final response = await _http
@@ -88,9 +125,10 @@ class ApiClient {
         .timeout(requestTimeout);
     _expect(response);
     final json = jsonDecode(response.body) as Map<String, dynamic>;
+    _checkGeneration(generation);
     final nextAccess = json['access_token'] as String;
     final nextRefresh = json['refresh_token'] as String;
-    accessToken = nextAccess;
+    _accessToken = nextAccess;
     refreshToken = nextRefresh;
     await onTokensRefreshed?.call(nextAccess, nextRefresh);
   }
@@ -100,7 +138,9 @@ class ApiClient {
     if (active != null) return active;
     final next = refresh();
     _refreshing = next;
-    return next.whenComplete(() => _refreshing = null);
+    return next.whenComplete(() {
+      if (identical(_refreshing, next)) _refreshing = null;
+    });
   }
 
   Future<void> logout() async {
@@ -112,12 +152,62 @@ class ApiClient {
     refreshToken = null;
   }
 
+  Future<List<AudioProfileVersion>> audioProfiles() async {
+    final response = await _send('GET', '/v1/audio/profiles');
+    _expect(response);
+    return [
+      for (final json in jsonDecode(response.body) as List)
+        AudioProfileVersion.fromJson(Map<String, dynamic>.from(json as Map)),
+    ];
+  }
+
+  Future<http.StreamedResponse> audioProfileStream(
+    String versionId, {
+    bool preview = false,
+    required Future<void> abortTrigger,
+  }) async {
+    if (!isAccountUuid(versionId)) throw ArgumentError('Invalid version');
+    final generation = _authGeneration;
+    final usedAccess = accessToken;
+    Future<http.StreamedResponse> request() {
+      final req = http.AbortableRequest(
+        'GET',
+        Uri.parse(
+          '$baseUrl/v1/audio/profiles/versions/$versionId/${preview ? 'preview' : 'download'}',
+        ),
+        abortTrigger: abortTrigger,
+      );
+      if (accessToken != null) {
+        req.headers['authorization'] = 'Bearer $accessToken';
+      }
+      return _http.send(req).timeout(requestTimeout);
+    }
+
+    var response = await request();
+    _checkGeneration(generation);
+    if (response.statusCode == 401 &&
+        usedAccess != null &&
+        refreshToken != null) {
+      await response.stream.drain<void>();
+      if (accessToken == usedAccess) await _refreshOnce();
+      _checkGeneration(generation);
+      response = await request();
+      _checkGeneration(generation);
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final status = response.statusCode;
+      await response.stream.drain<void>();
+      throw ApiException(status, 'Audio unavailable');
+    }
+    return response;
+  }
+
   Future<ExperimentConfig> activeExperiment() async {
     final response = await _send('GET', '/v1/experiments/active');
     _expect(response);
     return ExperimentConfig.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
-    );
+    ).forCurrentProcessing();
   }
 
   Future<BanditSnapshot> latestBandit({
@@ -153,6 +243,54 @@ class ApiClient {
     return response.statusCode;
   }
 
+  Future<void> createCalibrationPlan(CalibrationPlan plan) async {
+    final response = await _send(
+      'POST',
+      '/v1/meditation/calibration-plans',
+      plan.toJson(),
+    );
+    _expect(response);
+    final accepted = CalibrationPlan.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+    final received = accepted.toJson(), expected = plan.toJson();
+    for (final body in [received, expected]) {
+      final profile = body['profile'] as Map<String, dynamic>;
+      final created = DateTime.parse(profile['created_at'] as String);
+      if (!created.isUtc) throw StateError('Invalid profile timestamp');
+      profile['created_at'] = created.toUtc().toIso8601String();
+    }
+    if (!_sameJson(received, expected)) {
+      throw StateError('Calibration acknowledgement does not match');
+    }
+  }
+
+  Future<void> saveMeditationFeedback(MeditationFeedback feedback) async {
+    final response = await _send(
+      'POST',
+      '/v1/meditation/sessions/${feedback.sessionId}/feedback',
+      feedback.toJson(),
+    );
+    _expect(response);
+    final accepted = jsonDecode(response.body) as Map<String, dynamic>;
+    final expected = feedback.toJson();
+    if (!_sameJson(accepted, expected)) {
+      throw StateError('Feedback acknowledgement does not match');
+    }
+  }
+
+  Future<String> createMeditationTrainingJob(
+    Map<String, dynamic> request,
+  ) async {
+    final response = await _send(
+      'POST',
+      '/v1/meditation/training/jobs',
+      request,
+    );
+    _expect(response);
+    return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
+  }
+
   Future<String> createTrainingJob({
     required String origin,
     required String experimentVersion,
@@ -163,6 +301,36 @@ class ApiClient {
     });
     _expect(response);
     return (jsonDecode(response.body) as Map<String, dynamic>)['id'] as String;
+  }
+
+  Future<PersonalEegModel?> latestMeditationModel(DataOrigin origin) async {
+    final response = await _send(
+      'GET',
+      '/v1/meditation/models/latest?origin=${origin.name}&protocol_version=meditation-1',
+    );
+    if (response.statusCode == 404) return null;
+    _expect(response);
+    return PersonalEegModel.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<String>> meditationDeletionIds() async {
+    final response = await _send('GET', '/v1/meditation/deletions');
+    _expect(response);
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final ids = body['deleted_session_ids'];
+    if (body['schema_version'] != 1 ||
+        body['deletion_epoch'] is! int ||
+        body['deletion_epoch'] < 0 ||
+        ids is! List ||
+        ids.any(
+          (id) =>
+              id is! String || !RegExp(r'^[A-Za-z0-9_-]{1,64}$').hasMatch(id),
+        )) {
+      throw const FormatException('Invalid owned deletion ledger');
+    }
+    return ids.cast<String>().toSet().toList();
   }
 
   Future<void> deleteSessions(List<String> sessionIds) async {
@@ -184,13 +352,17 @@ class ApiClient {
     String path, [
     Map<String, dynamic>? body,
   ]) async {
+    final generation = _authGeneration;
     final usedAccess = accessToken;
     var response = await _request(method, path, body);
+    _checkGeneration(generation);
     if (response.statusCode == 401 &&
         usedAccess != null &&
         refreshToken != null) {
       if (accessToken == usedAccess) await _refreshOnce();
+      _checkGeneration(generation);
       response = await _request(method, path, body);
+      _checkGeneration(generation);
     }
     return response;
   }
@@ -219,6 +391,23 @@ class ApiClient {
       throw ApiException(response.statusCode, response.body);
     }
   }
+}
+
+// JSON key order and the encoding of equivalent numbers do not change context.
+bool _sameJson(Object? left, Object? right) {
+  if (left is Map && right is Map) {
+    return left.length == right.length &&
+        left.keys.every(
+          (key) => right.containsKey(key) && _sameJson(left[key], right[key]),
+        );
+  }
+  if (left is List && right is List) {
+    return left.length == right.length &&
+        Iterable<int>.generate(
+          left.length,
+        ).every((index) => _sameJson(left[index], right[index]));
+  }
+  return left == right;
 }
 
 Uint8List encodePcm16(Float64List stereo) {

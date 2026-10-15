@@ -1,0 +1,151 @@
+import 'package:flutter/material.dart';
+import 'package:neurotune_core/neurotune_core.dart';
+import '../data/calibration_repository.dart';
+import '../data/repository.dart';
+import 'session_page.dart';
+
+class CalibrationPage extends StatelessWidget {
+  const CalibrationPage({
+    super.key,
+    required this.progress,
+    required this.profile,
+    required this.eyeState,
+    required this.onNewSeries,
+    required this.onResume,
+    required this.onFeedback,
+    required this.onBack,
+    this.busy = false,
+    this.pendingFeedback = const [],
+    this.message,
+    this.syncStatus,
+    this.onResults,
+    this.onPreference,
+  });
+  final List<CalibrationProgress> progress;
+  final List<SavedSession> pendingFeedback;
+  final AudioProfileVersion? profile;
+  final EyeState eyeState;
+  final ValueChanged<DataOrigin> onNewSeries;
+  final ValueChanged<CalibrationPlan> onResume;
+  final ValueChanged<SavedSession> onFeedback;
+  final VoidCallback onBack;
+  final ValueChanged<CalibrationPlan>? onResults;
+  final ValueChanged<DataOrigin>? onPreference;
+  final bool busy;
+  final Widget? syncStatus;
+  final String? message;
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop && !busy) onBack();
+    },
+    child: Scaffold(
+      appBar: AppBar(
+        title: const Text('Kalibrering'),
+        leading: IconButton(
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: busy ? null : onBack,
+          icon: const BackButtonIcon(),
+        ),
+        actions: [
+          if (progress.any((p) => !p.complete))
+            TextButton(
+              onPressed: busy ? null : onBack,
+              child: const Text('Pausa serien'),
+            ),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          const Text(
+            'Tio sessioner med dolda toninställningar. Varje session varar tio aktiva minuter. '
+            'Ljudprofil och ögonläge låses för hela serien. Båda skattningarna krävs efter varje session. '
+            'Du kan ta paus mellan sessionerna och fortsätta en annan dag. '
+            'Serien sparas automatiskt. Öppna Kalibrering och välj Fortsätt serie när du vill återuppta den.',
+          ),
+          if (message != null) Text(message!),
+          ?syncStatus,
+          const SizedBox(height: 16),
+          if (profile case final p?) ...[
+            Text(
+              'Ny serie: ${p.name} · v${p.version} · ${eyeState == EyeState.closed ? 'stängda' : 'öppna'} ögon',
+            ),
+            FilledButton(
+              onPressed: busy ? null : () => onNewSeries(DataOrigin.simulator),
+              child: const Text('Ny serie · Simulator'),
+            ),
+            OutlinedButton(
+              onPressed: busy ? null : () => onNewSeries(DataOrigin.muse),
+              child: const Text('Ny serie · Muse'),
+            ),
+          ] else
+            const Text(
+              'Välj en nedladdad ljudprofil på meditationssidan för att börja en ny serie.',
+            ),
+          if (profile != null && onPreference != null)
+            for (final origin in [DataOrigin.simulator, DataOrigin.muse])
+              if (progress.any((p) => p.complete && p.plan.origin == origin))
+                TextButton(
+                  onPressed: busy ? null : () => onPreference!(origin),
+                  child: Text('Fast ton för vald profil · ${origin.name}'),
+                ),
+          for (final session in pendingFeedback.where(
+            (s) => s.manifest.meditation?['mode'] != 'calibration',
+          )) ...[
+            const Divider(),
+            Text(
+              'Meditation ${session.manifest.startedAtIso} · återkoppling väntar',
+            ),
+            FilledButton(
+              onPressed: busy ? null : () => onFeedback(session),
+              child: const Text('Slutför återkoppling'),
+            ),
+          ],
+          for (var index = 0; index < progress.length; index++) ...[
+            const Divider(),
+            Text(
+              'Serie ${progress.length - index} · ${progress[index].completedSlots}/10 slutförda',
+            ),
+            Text(
+              '${progress[index].plan.profile.name} · v${progress[index].plan.profile.version} · '
+              '${progress[index].plan.origin.name} · ${progress[index].plan.eyeState == EyeState.closed ? 'stängda' : 'öppna'} ögon',
+            ),
+            if (!progress[index].complete)
+              const Text(
+                'Toninställningarna visas när hela serien är slutförd.',
+              ),
+            for (final session in progress[index].awaitingFeedback)
+              FilledButton(
+                onPressed: busy ? null : () => onFeedback(session),
+                child: const Text('Slutför återkoppling'),
+              ),
+            if (!progress[index].complete &&
+                progress[index].awaitingFeedback.isEmpty)
+              FilledButton(
+                onPressed: busy ? null : () => onResume(progress[index].plan),
+                child: Text(
+                  'Fortsätt serie · session ${(progress[index].nextSlot ?? 0) + 1}',
+                ),
+              ),
+            if (progress[index].complete && onResults != null)
+              FilledButton(
+                onPressed: busy ? null : () => onResults!(progress[index].plan),
+                child: const Text('Resultat och fast ton'),
+              ),
+            if (progress[index].complete)
+              for (var slot = 0; slot < 10; slot++)
+                Text(
+                  'Session ${slot + 1}: ${actionLabel(progress[index].plan.schedule[slot].id)}',
+                ),
+          ],
+          TextButton(
+            onPressed: busy ? null : onBack,
+            child: const Text('Tillbaka'),
+          ),
+        ],
+      ),
+    ),
+  );
+}

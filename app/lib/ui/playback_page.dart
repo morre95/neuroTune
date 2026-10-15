@@ -6,10 +6,16 @@ import 'session_page.dart';
 import 'session_diagnostics.dart';
 
 class PlaybackPage extends StatefulWidget {
-  const PlaybackPage({super.key, required this.session, required this.onBack});
+  const PlaybackPage({
+    super.key,
+    required this.session,
+    required this.onBack,
+    this.revealedPlans = const {},
+  });
 
   final SavedSession session;
   final VoidCallback onBack;
+  final Set<String> revealedPlans;
 
   @override
   State<PlaybackPage> createState() => _PlaybackPageState();
@@ -37,11 +43,14 @@ class _PlaybackPageState extends State<PlaybackPage> {
         padding: const EdgeInsets.all(24),
         children: [
           Text('Tid ${frame?.timeSeconds.toStringAsFixed(0) ?? '-'} s'),
-          Text('Åtgärd: ${actionLabel(decision?.action)}'),
+          Text(
+            'Åtgärd: ${widget.session.manifest.meditation == null ? actionLabel(decision?.action) : meditationActionLabel(widget.session.manifest, revealedPlans: widget.revealedPlans)}',
+          ),
           Text('Theta ${_mean(frame, (channel) => channel.relativeTheta)}'),
           Text('Alpha ${_mean(frame, (channel) => channel.relativeAlpha)}'),
           Text('Beta ${_mean(frame, (channel) => channel.relativeBeta)}'),
-          Text('Yttre NIR ${_outerNir(frame)} µA'),
+          if (widget.session.manifest.meditation == null)
+            Text('Yttre NIR ${_outerNir(frame)} µA'),
           Text('Signalkvalitet $valid/$total kanaler'),
           if (frame != null)
             for (final channel in frame.channels)

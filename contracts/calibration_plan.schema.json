@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurotune.dev/contracts/calibration_plan.schema.json",
+  "title": "Immutable account-owned calibration series",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "owner_account_id",
+    "protocol_version",
+    "profile_version_id",
+    "profile",
+    "eye_state",
+    "origin",
+    "duration_seconds",
+    "schedule",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "owner_account_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "protocol_version": {
+      "const": "meditation-1"
+    },
+    "profile_version_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "profile": {
+      "$ref": "audio_profile_version.schema.json"
+    },
+    "eye_state": {
+      "enum": [
+        "open",
+        "closed"
+      ]
+    },
+    "origin": {
+      "enum": [
+        "muse",
+        "simulator"
+      ]
+    },
+    "duration_seconds": {
+      "const": 600
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "schedule": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "enum": [
+          "control",
+          "binaural_6",
+          "binaural_8",
+          "binaural_10",
+          "binaural_12"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "control"
+          },
+          "minContains": 2,
+          "maxContains": 2
+        },
+        {
+          "contains": {
+            "const": "binaural_6"
+          },
+          "minContains": 2,
+          "maxContains": 2
+        },
+        {
+          "contains": {
+            "const": "binaural_8"
+          },
+          "minContains": 2,
+          "maxContains": 2
+        },
+        {
+          "contains": {
+            "const": "binaural_10"
+          },
+          "minContains": 2,
+          "maxContains": 2
+        },
+        {
+          "contains": {
+            "const": "binaural_12"
+          },
+          "minContains": 2,
+          "maxContains": 2
+        }
+      ]
+    }
+  }
+}

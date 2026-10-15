@@ -17,3 +17,9 @@ reference/.venv/
 vendor/muse-android/
 
 .claude/settings.json
+
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+backend/audio/

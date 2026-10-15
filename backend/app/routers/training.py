@@ -19,6 +19,8 @@ class JobIn(BaseModel):
 
 @router.post("/jobs")
 def create_job(body: JobIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> dict:
+    if body.experiment_version == 'meditation-1':
+        raise HTTPException(status_code=400, detail='Meditation uses its dedicated training route')
     if body.origin not in {"simulator", "muse"}:
         raise HTTPException(status_code=400, detail="origin must be simulator or muse")
     job = TrainingJob(

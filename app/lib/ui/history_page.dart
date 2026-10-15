@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:neurotune_core/neurotune_core.dart';
 
 import '../data/repository.dart';
+import 'session_page.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({
@@ -9,14 +10,18 @@ class HistoryPage extends StatefulWidget {
     required this.sessions,
     required this.onOpen,
     required this.onBack,
+    this.revealedPlans = const {},
     this.onDelete,
     this.message,
+    this.syncStatus,
   });
 
   final List<SavedSession> sessions;
   final ValueChanged<SavedSession> onOpen;
   final VoidCallback onBack;
+  final Set<String> revealedPlans;
   final Future<void> Function(List<String>)? onDelete;
+  final Widget? syncStatus;
   final String? message;
 
   @override
@@ -127,6 +132,7 @@ class _HistoryPageState extends State<HistoryPage> {
       ),
       body: ListView(
         children: [
+          if (widget.syncStatus != null) widget.syncStatus!,
           if (widget.message != null)
             Padding(
               padding: const EdgeInsets.all(16),
@@ -171,8 +177,8 @@ class _HistoryPageState extends State<HistoryPage> {
               isThreeLine: true,
               title: Text(session.manifest.startedAtIso),
               subtitle: Text(
-                '${session.origin} · ${session.mode} · '
-                '${session.decisions.length} block · '
+                '${session.origin} · ${session.manifest.meditation == null ? session.mode : 'Meditation'} · '
+                '${session.manifest.meditation == null ? '${session.decisions.length} block' : meditationActionLabel(session.manifest, revealedPlans: widget.revealedPlans)} · '
                 '${_duration(session.manifest.durationSeconds)}\n'
                 '${_outcome(session)}',
               ),
@@ -212,6 +218,11 @@ String _duration(double seconds) {
 /// still waiting for a stable signal when it was saved.
 String _outcome(SavedSession session) {
   final manifest = session.manifest;
+  if (manifest.meditation != null) {
+    return session.status == 'completed'
+        ? 'Slutförd${_losses(manifest)}'
+        : 'Stoppad${_losses(manifest)}';
+  }
   final reason = manifest.stopReason;
   if (reason != null) {
     return 'Avbröts: ${stopReasonLabel(reason)}${_losses(manifest)}';

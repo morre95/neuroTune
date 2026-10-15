@@ -15,6 +15,8 @@ from app.config import settings
 from app.db import get_db
 from app.models import BanditVersion, SessionDeletion, SessionRecord, User
 from app.worker import build_policy
+from app.meditation import is_meditation_manifest, validate_meditation
+from app.deletion import bump_deletion_epoch, read_deletion_epoch, remove_meditation_evidence, rebuild_meditation_evidence
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -72,6 +74,8 @@ def upload_session(
         if existing.checksum == digest:
             return _summary(existing)
         raise HTTPException(status_code=409, detail="checksum conflict")
+    if is_meditation_manifest(body.manifest):
+        validate_meditation(db, user.id, body.manifest)
     raw_dir = Path(settings.raw_data_dir)
     raw_dir.mkdir(parents=True, exist_ok=True)
     raw_path = raw_dir / f"{session_id}.zst"
@@ -113,20 +117,27 @@ def delete_sessions(
     if any(row.user_id != user.id for row in rows):
         raise HTTPException(status_code=404, detail="Session not found")
     by_id = {row.id: row for row in rows}
-    affected = {(row.origin, row.experiment_version) for row in rows}
+    affected = {(row.origin, row.experiment_version) for row in rows
+        if not is_meditation_manifest(json.loads(row.manifest_json))}
     deletions = []
+    changed = False
     for sid in ids:
         marker = db.get(SessionDeletion, (user.id, sid))
         if marker is None:
+            changed = True
             marker = SessionDeletion(
                 user_id=user.id, session_id=sid, deleted_at=datetime.now(UTC),
                 raw_path=by_id[sid].raw_path if sid in by_id else None,
             )
             db.add(marker)
         deletions.append(marker)
+    if changed:
+        bump_deletion_epoch(db, user.id)
+    rebuild_scopes = remove_meditation_evidence(db, user.id, ids)
     for row in rows:
         db.delete(row)
     db.flush()
+    rebuild_meditation_evidence(db, user.id, rebuild_scopes)
     for origin, version in affected:
         policy = build_policy(db, user.id, origin, version)
         db.flush()
@@ -144,7 +155,7 @@ def delete_sessions(
             Path(marker.raw_path).unlink(missing_ok=True)
             marker.raw_path = None
     db.commit()
-    return {"deleted_session_ids": ids}
+    return {"deleted_session_ids": ids, "deletion_epoch": read_deletion_epoch(db, user.id)}
 
 
 @router.get("/{session_id}")

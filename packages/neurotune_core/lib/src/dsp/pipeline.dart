@@ -190,13 +190,16 @@ class DspPipeline {
     for (var i = 0; i < raw.length; i++) {
       final sample = raw[i];
       sum += sample;
-      if (sample.abs() >= config.saturationUv) saturated = true;
       if (i > 0) peakJump = max(peakJump, (sample - raw[i - 1]).abs());
     }
     final mean = sum / raw.length;
     var variance = 0.0;
     for (final sample in raw) {
       final delta = sample - mean;
+      // This is an excursion bound, not a calibrated device ADC rail. A DC
+      // reference must not invalidate otherwise unchanged EEG. Keep the raw
+      // samples for the jump/contact gates and for recording/replay.
+      if (delta.abs() >= config.saturationUv) saturated = true;
       variance += delta * delta;
     }
     final std = sqrt(variance / raw.length);

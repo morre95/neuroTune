@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str = "sqlite:///./neurotune.db"
     jwt_secret: str = DEV_JWT_SECRET
+    audio_data_dir: str = "./audio"
+    editor_dist_dir: str = "../web/dist"
+    audio_process_timeout_seconds: int = 120
     raw_data_dir: str = "./raw"
     contracts_path: str = "../contracts/default_experiment.json"
     access_token_minutes: int = 15

@@ -13,6 +13,7 @@ dependencies = [
   "pyjwt>=2.10",
   "pydantic-settings>=2.10",
   "email-validator>=2.2",
+  "numpy>=2.3,<3",
 ]
 
 [project.optional-dependencies]
