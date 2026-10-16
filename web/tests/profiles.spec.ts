@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test';
+test.beforeEach(async({page})=>{await page.route('**/v1/audio/projects',route=>route.fulfill({json:{items:[],next_cursor:null}}));});
 
 test('combine, preview and revise four balanced tracks with visible progress and actionable failures', async ({page})=> {
   const assets=['music','rain','birds','wind'].map((name,index)=>({id:`a${index}`,filename:`${name}.wav`,status:'ready',duration_seconds:10}));

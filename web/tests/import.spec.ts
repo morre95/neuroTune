@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+test.beforeEach(async({page})=>{await page.route('**/v1/audio/projects',route=>route.fulfill({json:{items:[],next_cursor:null}}));});
 test.beforeEach(async({page})=>{await page.route('**/v1/audio/profiles',route=>route.fulfill({json:[]}));});
 
 // HTTP is the system boundary. API/worker tests separately exercise real decoding.
