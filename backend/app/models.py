@@ -271,3 +271,15 @@ class AudioProjectSourceReference(Base):
     asset_id: Mapped[str] = mapped_column(String(36))
     kind: Mapped[str] = mapped_column(String(24))
     profile_version_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+
+
+class AudioProjectRequest(Base):
+    """Atomic request/result receipt; retained even after future project deletion."""
+    __tablename__ = 'audio_project_requests'
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    operation: Mapped[str] = mapped_column(String(24), primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    project_id: Mapped[str] = mapped_column(String(36))
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    response_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
