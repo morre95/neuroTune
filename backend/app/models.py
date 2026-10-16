@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from sqlalchemy import Float, Integer, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
+from sqlalchemy import (BigInteger, CheckConstraint, Float, Integer, DateTime,
+                        ForeignKey, ForeignKeyConstraint, Index, String, Text,
+                        UniqueConstraint, text)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -99,6 +101,7 @@ class AudioAsset(Base):
     """Owned original and canonical audio, with durable import lease."""
 
     __tablename__ = "audio_assets"
+    __table_args__ = (Index('uq_audio_assets_id_user', 'id', 'user_id', unique=True),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
@@ -135,7 +138,10 @@ class AudioRender(Base):
 
 class AudioProfileVersion(Base):
     __tablename__ = "audio_profile_versions"
-    __table_args__ = (UniqueConstraint("profile_id", "version", name="uq_audio_profile_version"),)
+    __table_args__ = (
+        UniqueConstraint("profile_id", "version", name="uq_audio_profile_version"),
+        Index('uq_audio_profile_versions_id_user', 'id', 'user_id', unique=True),
+    )
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     profile_id: Mapped[str] = mapped_column(String(36), index=True)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
@@ -202,3 +208,66 @@ class OwnerDeletionEpoch(Base):
 
     user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
     epoch: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class AudioProject(Base):
+    """Owned project head; revision and its contents advance in one transaction."""
+    __tablename__ = 'audio_projects'
+    __table_args__ = (
+        UniqueConstraint('id', 'user_id', name='uq_audio_projects_id_user'),
+        CheckConstraint('schema_version = 1', name='ck_audio_projects_schema'),
+        CheckConstraint('revision BETWEEN 1 AND 9007199254740991', name='ck_audio_projects_revision'),
+        Index('ix_audio_projects_owner_updated', 'user_id', 'updated_at', 'id'),
+    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    schema_version: Mapped[int] = mapped_column(Integer, default=1)
+    revision: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AudioProjectRevision(Base):
+    """Saved recipe/settings independent of rendering, retained by revision."""
+    __tablename__ = 'audio_project_revisions'
+    __table_args__ = (
+        UniqueConstraint('project_id', 'revision', 'user_id', name='uq_audio_project_revisions_owner'),
+        ForeignKeyConstraint(['project_id', 'user_id'], ['audio_projects.id', 'audio_projects.user_id'],
+                             ondelete='CASCADE', name='fk_audio_project_revisions_owner'),
+        CheckConstraint('revision BETWEEN 1 AND 9007199254740991', name='ck_audio_project_revisions_number'),
+        CheckConstraint('length(trim(name)) > 0 AND length(name) <= 120', name='ck_audio_project_revisions_name'),
+    )
+    project_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    revision: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36))
+    name: Mapped[str] = mapped_column(String(120))
+    recipe_json: Mapped[str] = mapped_column(Text)
+    settings_json: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class AudioProjectSourceReference(Base):
+    """Owner-checked retention roots, including unplaced and older-revision sources."""
+    __tablename__ = 'audio_project_sources'
+    __table_args__ = (
+        ForeignKeyConstraint(['project_id', 'revision', 'user_id'],
+            ['audio_project_revisions.project_id', 'audio_project_revisions.revision',
+             'audio_project_revisions.user_id'], ondelete='CASCADE', name='fk_audio_project_sources_revision'),
+        ForeignKeyConstraint(['asset_id', 'user_id'], ['audio_assets.id', 'audio_assets.user_id'],
+                             ondelete='RESTRICT', name='fk_audio_project_sources_asset'),
+        ForeignKeyConstraint(['profile_version_id', 'user_id'],
+            ['audio_profile_versions.id', 'audio_profile_versions.user_id'],
+            ondelete='RESTRICT', name='fk_audio_project_sources_profile'),
+        CheckConstraint("(kind = 'asset' AND profile_version_id IS NULL) OR "
+                        "(kind = 'profile_background' AND profile_version_id IS NOT NULL)",
+                        name='ck_audio_project_sources_kind'),
+        Index('ix_audio_project_sources_asset_owner', 'asset_id', 'user_id'),
+        Index('ix_audio_project_sources_profile_owner', 'profile_version_id', 'user_id'),
+    )
+    project_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    revision: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    source_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36))
+    asset_id: Mapped[str] = mapped_column(String(36))
+    kind: Mapped[str] = mapped_column(String(24))
+    profile_version_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
