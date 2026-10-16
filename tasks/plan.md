@@ -1,6 +1,6 @@
 # Genomförandeplan: visuell ljudredigering
 
-Status: **godkänd av användaren**. Även [specifikation #20](https://github.com/morre95/neuroTune/issues/20) är godkänd. Planen är nedbruten till 30 GitHub-underärenden (#21–#50) för granskning inför implementation. Implementation har inte påbörjats inom detta arbete.
+Status: **godkänd av användaren**. Även [specifikation #20](https://github.com/morre95/neuroTune/issues/20) är godkänd. Planen är nedbruten till 30 GitHub-underärenden (#21–#50). Implementation är inledd med A1 / #21 efter användarens klartecken; aktuell leveransstatus finns i respektive GitHub-ärende.
 
 Målbild: [audio-editor.md](../docs/intent/audio-editor.md).
 
@@ -97,7 +97,7 @@ Den godkända kompatibilitetsinriktningen konkretiseras och verifieras i A2/A3 i
 
 ## Ordnat index över GitHub-underärenden
 
-Alla 30 uppgifter är öppna underärenden till #20 med native GitHub-blockeringar. Indexet är en vägvisare; status, acceptans och verifiering hålls i respektive ärende. Uppgifterna är ännu inte implementerade.
+Alla 30 uppgifter är underärenden till #20 med native GitHub-blockeringar. Indexet är en vägvisare; aktuell status, acceptans och verifiering hålls i respektive ärende.
 
 | Plan-ID | Ärende | Blockeras av | Specifikation |
 | --- | --- | --- | --- |
@@ -132,7 +132,7 @@ Alla 30 uppgifter är öppna underärenden till #20 med native GitHub-blockering
 | F2 | [#49: Godkänn entimmesprojekt mot dokumenterad resursbudget](https://github.com/morre95/neuroTune/issues/49) | [#48](https://github.com/morre95/neuroTune/issues/48), [#46](https://github.com/morre95/neuroTune/issues/46), [#47](https://github.com/morre95/neuroTune/issues/47) | AC-01–10 |
 | F3 | [#50: Verifiera mjukt avslut i fysisk Android-app och avsluta dokumentationen](https://github.com/morre95/neuroTune/issues/50) | [#49](https://github.com/morre95/neuroTune/issues/49) | AC-08–10 |
 
-Första frontier efter granskning av nedbrytningen: [A1 / #21](https://github.com/morre95/neuroTune/issues/21) och [A2 / #22](https://github.com/morre95/neuroTune/issues/22). Inga uppgifter har claimats eller markerats klara i planeringsarbetet.
+A1 / #21 är implementerat och verifierat enligt [ADR-0001](../docs/adr/0001-bounded-audio-windows.md). Nästa oblockerade riskprov är [A2 / #22](https://github.com/morre95/neuroTune/issues/22); A3 / #23 behöver även A2:s resultat.
 
 ## Kontrollpunkter för genomförandet
 
@@ -246,4 +246,4 @@ Planeringsarbetet i sig kör inte dessa runtime-/hårdvarutester och utgör inte
 
 Planen med 100 klipp, 1 GiB per fil, valbar appspeltid upp till 60 minuter och kompatibilitetsinriktningen för kalibrering är godkänd. Granska de konkreta underärendenas avgränsningar och beroenden inför implementation, utan en ny intervju om redan beslutade krav.
 
-Nästa genomförandesteg är de oblockerade riskproven A1/A2. Uppgiftsnedbrytningen granskas enligt projektets specdrivna fasövergång före kodarbetet.
+Nästa genomförandesteg är riskprovet A2 / #22. A1:s implementation, mätvärden och verifiering finns i ADR-0001 och #21. Kontrollpunkt K1 blir aktuell först när även A2/A3 är genomförda och verifierade.
