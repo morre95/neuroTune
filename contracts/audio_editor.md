@@ -1,6 +1,6 @@
 # Audio editor: versionerade kontrakt
 
-Status: implementerat kontraktsunderlag för A3 / [#23](https://github.com/morre95/neuroTune/issues/23), inom godkänd [specifikation #20](https://github.com/morre95/neuroTune/issues/20) och `tasks/plan.md`. Datum: 2026-10-16. Detta dokument definierar kommande beteende; det aktiverar inga API-rutter. K1 granskas med användaren efter A3 innan nästa etapp.
+Status: implementerat kontraktsunderlag för A3 / [#23](https://github.com/morre95/neuroTune/issues/23), inom godkänd [specifikation #20](https://github.com/morre95/neuroTune/issues/20) och `tasks/plan.md`. Datum: 2026-10-16. Detta dokument definierar kommande beteende; det aktiverar inga API-rutter. **K1 är granskad och godkänd av användaren 2026-10-16.** Nästa genomförandesteg är projektlagringen B1 / #24.
 
 ## Gemensamma typer och gränser
 

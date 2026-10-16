@@ -1,6 +1,6 @@
 # Genomförandeplan: visuell ljudredigering
 
-Status: **godkänd av användaren**. Även [specifikation #20](https://github.com/morre95/neuroTune/issues/20) är godkänd. Planen är nedbruten till 30 GitHub-underärenden (#21–#50). Riskproven A1 / #21 och A2 / #22 är implementerade och verifierade efter användarens klartecken; aktuell leveransstatus finns i respektive GitHub-ärende.
+Status: **godkänd av användaren**. Även [specifikation #20](https://github.com/morre95/neuroTune/issues/20) är godkänd. Planen är nedbruten till 30 GitHub-underärenden (#21–#50). A1–A3 / #21–#23 är genomförda och K1 är godkänd av användaren 2026-10-16; aktuell leveransstatus finns i respektive GitHub-ärende.
 
 Målbild: [audio-editor.md](../docs/intent/audio-editor.md).
 
@@ -132,13 +132,13 @@ Alla 30 uppgifter är underärenden till #20 med native GitHub-blockeringar. Ind
 | F2 | [#49: Godkänn entimmesprojekt mot dokumenterad resursbudget](https://github.com/morre95/neuroTune/issues/49) | [#48](https://github.com/morre95/neuroTune/issues/48), [#46](https://github.com/morre95/neuroTune/issues/46), [#47](https://github.com/morre95/neuroTune/issues/47) | AC-01–10 |
 | F3 | [#50: Verifiera mjukt avslut i fysisk Android-app och avsluta dokumentationen](https://github.com/morre95/neuroTune/issues/50) | [#49](https://github.com/morre95/neuroTune/issues/49) | AC-08–10 |
 
-A1 / #21 är implementerat och verifierat enligt [ADR-0001](../docs/adr/0001-bounded-audio-windows.md). A2 / #22 är implementerat och verifierat enligt [ADR-0002](../docs/adr/0002-audio-editor-duration.md). Nästa steg är [A3 / #23](https://github.com/morre95/neuroTune/issues/23), som sammanför resultaten till versionerade kontrakt.
+A1 / #21 är implementerat och verifierat enligt [ADR-0001](../docs/adr/0001-bounded-audio-windows.md). A2 / #22 är implementerat och verifierat enligt [ADR-0002](../docs/adr/0002-audio-editor-duration.md). A3 / #23 är inmergat med [editor- och publiceringskontrakten](../contracts/audio_editor.md). Efter användarens godkännande av K1 är nästa genomförandesteg [B1 / #24](https://github.com/morre95/neuroTune/issues/24).
 
 ## Kontrollpunkter för genomförandet
 
 Efter varje grupp om tre uppgifter: kör relevanta fokuserade kontroller, verifiera användarflödet och granska resultatet med användaren innan nästa berörda etapp. Detta är kontrollpunkter, inte en parallell lokal statuslista för implementationstickets.
 
-- [ ] K1, efter [A1 / #21](https://github.com/morre95/neuroTune/issues/21), [A2 / #22](https://github.com/morre95/neuroTune/issues/22), [A3 / #23](https://github.com/morre95/neuroTune/issues/23): Kontrakt, minnesbegränsad lyssningsväg, profil-/sessionskompatibilitet och mätbar referensmiljö är dokumenterade och granskade.
+- [x] K1, efter [A1 / #21](https://github.com/morre95/neuroTune/issues/21), [A2 / #22](https://github.com/morre95/neuroTune/issues/22), [A3 / #23](https://github.com/morre95/neuroTune/issues/23): Kontrakt, minnesbegränsad lyssningsväg, profil-/sessionskompatibilitet och mätbar referensmiljö är dokumenterade och granskade. **Godkänd av användaren 2026-10-16.**
 - [ ] K2, efter [B1 / #24](https://github.com/morre95/neuroTune/issues/24), [B2 / #25](https://github.com/morre95/neuroTune/issues/25), [B3 / #26](https://github.com/morre95/neuroTune/issues/26): Ett namngivet kontoägt projekt kan skapas och återöppnas utan rendering; migrationer och ägarskap verifieras.
 - [ ] K3, efter [B4 / #27](https://github.com/morre95/neuroTune/issues/27), [B5 / #28](https://github.com/morre95/neuroTune/issues/28), [C1 / #29](https://github.com/morre95/neuroTune/issues/29): Entimmesimport, robust autosparande och kompakta ljudvågsdata klarar relevanta tester och resursgränser.
 - [ ] K4, efter [C2 / #30](https://github.com/morre95/neuroTune/issues/30), [C3 / #31](https://github.com/morre95/neuroTune/issues/31), [C4 / #32](https://github.com/morre95/neuroTune/issues/32): Visuell trimning, flera klipp, ångra/gör om och profilbakgrund som källa fungerar genom spara/återöppna, även med tangentbord.
@@ -246,4 +246,4 @@ Planeringsarbetet i sig kör inte dessa runtime-/hårdvarutester och utgör inte
 
 Planen med 100 klipp, 1 GiB per fil, valbar appspeltid upp till 60 minuter och kompatibilitetsinriktningen för kalibrering är godkänd. Granska de konkreta underärendenas avgränsningar och beroenden inför implementation, utan en ny intervju om redan beslutade krav.
 
-Nästa genomförandesteg är kontraktsarbetet A3 / #23. A1:s implementation, mätvärden och verifiering finns i ADR-0001 och #21; A2:s framebudget, kompatibilitetsregler och resursprov finns i ADR-0002 och #22. Kontrollpunkt K1 blir aktuell när även A3 är genomfört och verifierat.
+K1 är godkänd av användaren 2026-10-16. Nästa genomförandesteg är projektlagringen B1 / #24 enligt de inmergade kontrakten i `contracts/audio_editor.md`. A1:s implementation, mätvärden och verifiering finns i ADR-0001 och #21; A2:s framebudget, kompatibilitetsregler och resursprov finns i ADR-0002 och #22. Nästa kontrollpunkt är K2 efter #24–#26.
