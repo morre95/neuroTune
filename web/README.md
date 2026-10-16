@@ -12,6 +12,24 @@ requires sign-in. Upload a mono/stereo WAV, MP3, M4A/AAC, or FLAC, up to 100 MiB
 and ten minutes. Uploads survive closing the page; pending imports resume after
 worker lease expiry. Preview requires clicking the ready recording's button.
 
+Choose **Create project from …** on a ready recording to save a named source
+interval without rendering. Set **Project name**, **Clip start (seconds)** and
+**Clip end (seconds)**. Changes save automatically after about one second;
+**Save project** saves immediately or retries a failed request. The status shows
+unsaved changes, saving, saved, or an actionable error. Controls pause during a
+save. A conflict preserves the local draft; close it and reopen the server
+project to load the newer revision. Closing an unsaved draft asks before
+discarding it.
+
+**Editing projects** lists your account's saved projects, with **Refresh projects**
+and **Load more projects** when needed. Sign in again after reloading, then use
+**Open …** to restore the exact interval without selecting the original file.
+Signing out clears project data and unsaved drafts from the browser. This first
+project flow supports one clip from an imported recording. Visual timeline
+editing, additional clips and background publication remain later work under
+[specification #20](https://github.com/morre95/neuroTune/issues/20); the existing
+profile mixer remains available separately.
+
 API: `POST /v1/audio/assets` streams the file body as `application/octet-stream`.
 Set `X-Audio-Filename` to its URL-encoded original filename. A 202 response
 contains an asset ID and `pending` status. `GET /v1/audio/assets` lists owned
@@ -86,3 +104,12 @@ npm run test:acceptance
 This verifies editor/API/worker integration. It does not test Android AudioTrack,
 physical headphones, Muse signal quality or a full device meditation. Continue
 with the separate [Android/Muse acceptance record](../docs/MEDITATION_ACCEPTANCE.md).
+
+Project browser/API checks: `npx playwright test tests/projects.spec.ts` from
+`web`, or `npm --prefix web test` from the repository root for all web regression
+tests. The project suite starts its own API and worker on a temporary loopback
+port, runs migrations on a temporary SQLite database, and imports a real WAV.
+It requires the same backend virtual environment, FFmpeg and Chromium as the
+acceptance suite. Set `NEUROTUNE_BACKEND_PYTHON` if the interpreter is elsewhere.
+No developer database or existing account is used; temporary data is removed
+when the fixture shuts down.

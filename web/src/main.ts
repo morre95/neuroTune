@@ -1,5 +1,6 @@
 import './style.css';
 import {mountProfiles} from './profiles';
+import {mountProjects} from './projects';
 
 type Tokens = {access_token:string;refresh_token:string};
 export type AudioAsset = {id:string;schema_version:number;filename:string;status:'pending'|'ready'|'failed';error:string|null;duration_seconds:number|null;checksum_sha256:string|null};
@@ -19,6 +20,7 @@ const library = document.querySelector<HTMLElement>('#library')!;
 const upload = document.querySelector<HTMLFormElement>('#upload')!;
 const message = document.querySelector<HTMLElement>('#message')!;
 const audio = document.querySelector<HTMLAudioElement>('audio')!;
+const projects=mountProjects({api,generation:()=>generation});
 const profiles=mountProfiles({api,generation:()=>generation,audition,message:text=>{message.textContent=text;}});
 
 async function audition(path:string) {
@@ -36,7 +38,7 @@ function clearPreview() {
 }
 function signedOut() {
   generation++; tokens=null; refreshing=null; clearTimeout(poll); clearPreview();
-  profiles.clear();
+  profiles.clear(); projects.clear();
   login.hidden=false; library.hidden=true; document.querySelector('#assets')!.replaceChildren();
 }
 export async function api(path:string, init:RequestInit = {}):Promise<Response> {
@@ -65,7 +67,9 @@ export async function api(path:string, init:RequestInit = {}):Promise<Response> 
   if(generation!==epoch) throw new Error('Account changed.');
   if(!response.ok) {
     const body=await response.json().catch(()=>({}));
-    throw new Error(typeof body.detail==='string'?body.detail:`Request failed (${response.status}). Please try again.`);
+    const detail=body.detail;
+    const text=typeof detail==='string'?detail:typeof detail?.message==='string'?detail.message:`Request failed (${response.status}). Please try again.`;
+    throw Object.assign(new Error(text), {status:response.status});
   }
   return response;
 }
@@ -75,6 +79,7 @@ async function refreshLibrary() {
     const epoch=generation;
     const assets:AudioAsset[]=await (await api('/audio/assets')).json();
     if(epoch!==generation) return;
+    projects.updateAssets(assets);
     const list=document.querySelector('#assets')!;
     list.replaceChildren();
     for(const asset of assets) {
@@ -96,7 +101,8 @@ async function refreshLibrary() {
         finally {button.disabled=false;}
       };
       const create=document.createElement('button');create.textContent=`Create profile from ${asset.filename}`;create.disabled=asset.status!=='ready';create.onclick=()=>profiles.choose(asset);
-      item.append(name,status,button,create); list.append(item);
+      const project=document.createElement('button');project.textContent=`Create project from ${asset.filename}`;project.disabled=asset.status!=='ready';project.onclick=()=>projects.choose(asset);
+      item.append(name,status,button,create,project); list.append(item);
     }
     await profiles.refresh(assets);
     if(assets.some(asset=>asset.status==='pending')) poll=window.setTimeout(refreshLibrary,1500);
@@ -109,7 +115,7 @@ login.onsubmit=async event=> {
     const response=await fetch('/v1/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:data.get('email'),password:data.get('password')})});
     if(!response.ok) throw new Error('Sign in failed. Check your email and password.');
     tokens=await response.json(); generation++; login.reset(); login.hidden=true; library.hidden=false; message.textContent='';
-    await refreshLibrary();
+    await Promise.all([refreshLibrary(),projects.refresh()]);
   } catch(error) {message.textContent=(error as Error).message;}
 };
 upload.onsubmit=async event=> {
