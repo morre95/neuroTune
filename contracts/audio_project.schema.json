@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurotune.dev/contracts/audio_project.schema.json",
+  "title": "Mutable owned project revision v1; server-generated identity and revision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "id",
+    "owner_account_id",
+    "revision",
+    "name",
+    "recipe",
+    "settings",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {"const": 1, "type": "integer"},
+    "kind": {"const": "audio_project"},
+    "id": {"type": "string", "format": "uuid"},
+    "owner_account_id": {"type": "string", "format": "uuid"},
+    "revision": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "name": {"type": "string", "minLength": 1, "maxLength": 120, "pattern": "\\S"},
+    "recipe": {"$ref": "audio_sequence_recipe.schema.json"},
+    "settings": {"$ref": "audio_sequence_recipe.schema.json#/$defs/PublicationSettings"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "RenderSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "kind",
+        "id",
+        "owner_account_id",
+        "project_id",
+        "project_revision",
+        "recipe",
+        "settings",
+        "created_at"
+      ],
+      "properties": {
+        "schema_version": {"const": 1, "type": "integer"},
+        "kind": {"const": "audio_render_snapshot"},
+        "id": {"type": "string", "format": "uuid"},
+        "owner_account_id": {"type": "string", "format": "uuid"},
+        "project_id": {"type": "string", "format": "uuid"},
+        "project_revision": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+        "recipe": {
+          "$ref": "audio_sequence_recipe.schema.json",
+          "properties": {"frame_count": {"minimum": 1}, "clips": {"minItems": 1}}
+        },
+        "settings": {"$ref": "audio_sequence_recipe.schema.json#/$defs/PublicationSettings"},
+        "created_at": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

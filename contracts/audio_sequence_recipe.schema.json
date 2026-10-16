@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://neurotune.dev/contracts/audio_sequence_recipe.schema.json",
+  "title": "Sequential audio recipe v1; semantic rules S1-S3 in audio_editor.md",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "sample_rate_hz",
+    "channels",
+    "sample_width_bytes",
+    "sources",
+    "clips",
+    "frame_count"
+  ],
+  "properties": {
+    "schema_version": {"const": 1, "type": "integer"},
+    "kind": {"const": "audio_sequence"},
+    "sample_rate_hz": {"const": 48000, "type": "integer"},
+    "channels": {"const": 2, "type": "integer"},
+    "sample_width_bytes": {"const": 2, "type": "integer"},
+    "sources": {"type": "array", "items": {"$ref": "#/$defs/Source"}},
+    "clips": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/Clip"}},
+    "frame_count": {"type": "integer", "minimum": 0, "maximum": 172800000}
+  },
+  "$defs": {
+    "Source": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "kind", "asset_id", "frame_count", "checksum_sha256"],
+          "properties": {
+            "id": {"type": "string", "format": "uuid"},
+            "kind": {"const": "asset"},
+            "asset_id": {"type": "string", "format": "uuid"},
+            "frame_count": {"type": "integer", "minimum": 1, "maximum": 172800000},
+            "checksum_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "kind", "asset_id", "frame_count", "checksum_sha256", "profile_version_id"],
+          "properties": {
+            "id": {"type": "string", "format": "uuid"},
+            "kind": {"const": "profile_background"},
+            "asset_id": {"type": "string", "format": "uuid"},
+            "frame_count": {"type": "integer", "minimum": 1, "maximum": 172800000},
+            "checksum_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "profile_version_id": {"type": "string", "format": "uuid"}
+          }
+        }
+      ]
+    },
+    "Clip": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source_id", "start_frame", "end_frame", "gain", "transition_after"],
+      "properties": {
+        "id": {"type": "string", "format": "uuid"},
+        "source_id": {"type": "string", "format": "uuid"},
+        "start_frame": {"type": "integer", "minimum": 0, "maximum": 172799999},
+        "end_frame": {"type": "integer", "minimum": 1, "maximum": 172800000},
+        "gain": {"type": "number", "minimum": 0, "maximum": 4},
+        "transition_after": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "frames"],
+              "properties": {"kind": {"const": "cut"}, "frames": {"const": 0, "type": "integer"}}
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "curve", "frames"],
+              "properties": {
+                "kind": {"const": "crossfade"},
+                "curve": {"const": "linear"},
+                "frames": {"type": "integer", "minimum": 1, "maximum": 480000}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "PlaybackPolicy": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {"mode": {"const": "fixed"}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "default", "minimum_minutes", "maximum_minutes", "step_minutes"],
+          "properties": {
+            "mode": {"const": "selectable"},
+            "default": {"const": "full_file"},
+            "minimum_minutes": {"const": 1, "type": "integer"},
+            "maximum_minutes": {"const": 60, "type": "integer"},
+            "step_minutes": {"const": 1, "type": "integer"}
+          }
+        }
+      ]
+    },
+    "PublicationSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["carrier_hz", "tone_gain", "background_gain", "playback_policy"],
+      "properties": {
+        "carrier_hz": {"type": "number", "minimum": 100, "maximum": 400},
+        "tone_gain": {"type": "number", "minimum": 0, "maximum": 0.95},
+        "background_gain": {"type": "number", "minimum": 0, "maximum": 0.95},
+        "playback_policy": {"$ref": "#/$defs/PlaybackPolicy"}
+      }
+    }
+  }
+}

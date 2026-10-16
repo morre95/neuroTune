@@ -1,0 +1,768 @@
+{
+  "fixture_version": 1,
+  "description": "Roots plus JSON-pointer replacements. repeat_clips clones the first clip with deterministic unique UUIDs after replacements. JSON Schema and semantic expectations are separate; runtime ownership is tested by later APIs.",
+  "roots": {
+    "sequence": {
+      "schema_version": 1,
+      "kind": "audio_sequence",
+      "sample_rate_hz": 48000,
+      "channels": 2,
+      "sample_width_bytes": 2,
+      "sources": [
+        {
+          "id": "00000001-1111-4111-8111-111111111111",
+          "kind": "asset",
+          "asset_id": "00000002-1111-4111-8111-111111111111",
+          "frame_count": 172800000,
+          "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "clips": [
+        {
+          "id": "00000003-1111-4111-8111-111111111111",
+          "source_id": "00000001-1111-4111-8111-111111111111",
+          "start_frame": 0,
+          "end_frame": 1440001,
+          "gain": 1,
+          "transition_after": {"kind": "cut", "frames": 0}
+        }
+      ],
+      "frame_count": 1440001
+    },
+    "project": {
+      "schema_version": 1,
+      "kind": "audio_project",
+      "id": "00000004-1111-4111-8111-111111111111",
+      "owner_account_id": "00000005-1111-4111-8111-111111111111",
+      "revision": 1,
+      "name": "Skog och regn",
+      "recipe": {
+        "schema_version": 1,
+        "kind": "audio_sequence",
+        "sample_rate_hz": 48000,
+        "channels": 2,
+        "sample_width_bytes": 2,
+        "sources": [
+          {
+            "id": "00000001-1111-4111-8111-111111111111",
+            "kind": "asset",
+            "asset_id": "00000002-1111-4111-8111-111111111111",
+            "frame_count": 172800000,
+            "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "clips": [
+          {
+            "id": "00000003-1111-4111-8111-111111111111",
+            "source_id": "00000001-1111-4111-8111-111111111111",
+            "start_frame": 0,
+            "end_frame": 1440001,
+            "gain": 1,
+            "transition_after": {"kind": "cut", "frames": 0}
+          }
+        ],
+        "frame_count": 1440001
+      },
+      "settings": {
+        "carrier_hz": 220,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "playback_policy": {
+          "mode": "selectable",
+          "default": "full_file",
+          "minimum_minutes": 1,
+          "maximum_minutes": 60,
+          "step_minutes": 1
+        }
+      },
+      "created_at": "2026-10-16T10:00:00Z",
+      "updated_at": "2026-10-16T10:00:00Z"
+    },
+    "snapshot": {
+      "schema_version": 1,
+      "kind": "audio_render_snapshot",
+      "id": "00000006-1111-4111-8111-111111111111",
+      "owner_account_id": "00000005-1111-4111-8111-111111111111",
+      "project_id": "00000004-1111-4111-8111-111111111111",
+      "project_revision": 1,
+      "recipe": {
+        "schema_version": 1,
+        "kind": "audio_sequence",
+        "sample_rate_hz": 48000,
+        "channels": 2,
+        "sample_width_bytes": 2,
+        "sources": [
+          {
+            "id": "00000001-1111-4111-8111-111111111111",
+            "kind": "asset",
+            "asset_id": "00000002-1111-4111-8111-111111111111",
+            "frame_count": 172800000,
+            "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ],
+        "clips": [
+          {
+            "id": "00000003-1111-4111-8111-111111111111",
+            "source_id": "00000001-1111-4111-8111-111111111111",
+            "start_frame": 0,
+            "end_frame": 1440001,
+            "gain": 1,
+            "transition_after": {"kind": "cut", "frames": 0}
+          }
+        ],
+        "frame_count": 1440001
+      },
+      "settings": {
+        "carrier_hz": 220,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "playback_policy": {
+          "mode": "selectable",
+          "default": "full_file",
+          "minimum_minutes": 1,
+          "maximum_minutes": 60,
+          "step_minutes": 1
+        }
+      },
+      "created_at": "2026-10-16T10:00:01Z"
+    },
+    "profile": {
+      "schema_version": 2,
+      "kind": "audio_profile",
+      "id": "00000007-1111-4111-8111-111111111111",
+      "owner_account_id": "00000005-1111-4111-8111-111111111111",
+      "profile_id": "00000008-1111-4111-8111-111111111111",
+      "version": 1,
+      "name": "Skog och regn",
+      "render_snapshot": {
+        "schema_version": 1,
+        "kind": "audio_render_snapshot",
+        "id": "00000006-1111-4111-8111-111111111111",
+        "owner_account_id": "00000005-1111-4111-8111-111111111111",
+        "project_id": "00000004-1111-4111-8111-111111111111",
+        "project_revision": 1,
+        "recipe": {
+          "schema_version": 1,
+          "kind": "audio_sequence",
+          "sample_rate_hz": 48000,
+          "channels": 2,
+          "sample_width_bytes": 2,
+          "sources": [
+            {
+              "id": "00000001-1111-4111-8111-111111111111",
+              "kind": "asset",
+              "asset_id": "00000002-1111-4111-8111-111111111111",
+              "frame_count": 172800000,
+              "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "clips": [
+            {
+              "id": "00000003-1111-4111-8111-111111111111",
+              "source_id": "00000001-1111-4111-8111-111111111111",
+              "start_frame": 0,
+              "end_frame": 1440001,
+              "gain": 1,
+              "transition_after": {"kind": "cut", "frames": 0}
+            }
+          ],
+          "frame_count": 1440001
+        },
+        "settings": {
+          "carrier_hz": 220,
+          "tone_gain": 0.2,
+          "background_gain": 0.6,
+          "playback_policy": {
+            "mode": "selectable",
+            "default": "full_file",
+            "minimum_minutes": 1,
+            "maximum_minutes": 60,
+            "step_minutes": 1
+          }
+        },
+        "created_at": "2026-10-16T10:00:01Z"
+      },
+      "background_asset_id": "00000009-1111-4111-8111-111111111111",
+      "frame_count": 1440001,
+      "sample_rate_hz": 48000,
+      "channels": 2,
+      "sample_width_bytes": 2,
+      "checksum_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "normalization_factor": 1,
+      "settings": {
+        "carrier_hz": 220,
+        "tone_gain": 0.2,
+        "background_gain": 0.6,
+        "playback_policy": {
+          "mode": "selectable",
+          "default": "full_file",
+          "minimum_minutes": 1,
+          "maximum_minutes": 60,
+          "step_minutes": 1
+        }
+      },
+      "created_at": "2026-10-16T10:00:02Z"
+    },
+    "session_length": {
+      "schema_version": 2,
+      "protocol_version": "meditation-2",
+      "profile_version_id": "00000007-1111-4111-8111-111111111111",
+      "playback_policy": {
+        "mode": "selectable",
+        "default": "full_file",
+        "minimum_minutes": 1,
+        "maximum_minutes": 60,
+        "step_minutes": 1
+      },
+      "selection": {"kind": "full_file"},
+      "source_frame_count": 1440001,
+      "target_frames": 1440001,
+      "played_frames": 0,
+      "end_fade_frames": 240000
+    }
+  },
+  "cases": [
+    {
+      "name": "fractional-second-sequence",
+      "root": "sequence",
+      "set": {},
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {"name": "saved-project", "root": "project", "set": {}, "schema_valid": true, "semantic_error": null},
+    {"name": "render-snapshot", "root": "snapshot", "set": {}, "schema_valid": true, "semantic_error": null},
+    {"name": "selectable-profile", "root": "profile", "set": {}, "schema_valid": true, "semantic_error": null},
+    {
+      "name": "fixed-profile",
+      "root": "profile",
+      "set": {
+        "/settings/playback_policy": {"mode": "fixed"},
+        "/render_snapshot/settings/playback_policy": {"mode": "fixed"}
+      },
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "one-frame",
+      "root": "sequence",
+      "set": {"/clips/0/end_frame": 1, "/frame_count": 1},
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "exact-hour",
+      "root": "sequence",
+      "set": {"/clips/0/end_frame": 172800000, "/frame_count": 172800000},
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "one-frame-over-hour",
+      "root": "sequence",
+      "set": {"/clips/0/end_frame": 172800001, "/frame_count": 172800001},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "source-over-hour",
+      "root": "sequence",
+      "set": {"/sources/0/frame_count": 172800001},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "fractional-frame",
+      "root": "sequence",
+      "set": {"/clips/0/end_frame": 1440000.5},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "boolean-frame",
+      "root": "sequence",
+      "set": {"/frame_count": true},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "hundred-clips",
+      "root": "sequence",
+      "set": {"/clips/0/end_frame": 48000, "/frame_count": 4800000},
+      "schema_valid": true,
+      "semantic_error": null,
+      "repeat_clips": 100
+    },
+    {
+      "name": "hundred-and-one-clips",
+      "root": "sequence",
+      "set": {"/clips/0/end_frame": 48000, "/frame_count": 4848000},
+      "schema_valid": false,
+      "semantic_error": null,
+      "repeat_clips": 101
+    },
+    {
+      "name": "empty-draft",
+      "root": "sequence",
+      "set": {"/sources": [], "/clips": [], "/frame_count": 0},
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "empty-render",
+      "root": "snapshot",
+      "set": {"/recipe/sources": [], "/recipe/clips": [], "/recipe/frame_count": 0},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "unknown-field",
+      "root": "sequence",
+      "set": {"/duration_seconds": 30},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "unknown-version",
+      "root": "sequence",
+      "set": {"/schema_version": 2},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "zero-revision",
+      "root": "project",
+      "set": {"/revision": 0},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "reversed-trim",
+      "root": "sequence",
+      "set": {"/clips/0/start_frame": 1440001},
+      "schema_valid": true,
+      "semantic_error": "S1"
+    },
+    {
+      "name": "trim-outside-source",
+      "root": "sequence",
+      "set": {"/sources/0/frame_count": 1440000},
+      "schema_valid": true,
+      "semantic_error": "S1"
+    },
+    {
+      "name": "wrong-total",
+      "root": "sequence",
+      "set": {"/frame_count": 1440000},
+      "schema_valid": true,
+      "semantic_error": "S2"
+    },
+    {
+      "name": "missing-source",
+      "root": "sequence",
+      "set": {"/clips/0/source_id": "000003e7-1111-4111-8111-111111111111"},
+      "schema_valid": true,
+      "semantic_error": "S1"
+    },
+    {
+      "name": "duplicate-clip",
+      "root": "sequence",
+      "set": {
+        "/clips": [
+          {
+            "id": "00000003-1111-4111-8111-111111111111",
+            "source_id": "00000001-1111-4111-8111-111111111111",
+            "start_frame": 0,
+            "end_frame": 1440001,
+            "gain": 1,
+            "transition_after": {"kind": "cut", "frames": 0}
+          },
+          {
+            "id": "00000003-1111-4111-8111-111111111111",
+            "source_id": "00000001-1111-4111-8111-111111111111",
+            "start_frame": 0,
+            "end_frame": 1440001,
+            "gain": 1,
+            "transition_after": {"kind": "cut", "frames": 0}
+          }
+        ],
+        "/frame_count": 2880002
+      },
+      "schema_valid": true,
+      "semantic_error": "S1"
+    },
+    {
+      "name": "last-transition",
+      "root": "sequence",
+      "set": {"/clips/0/transition_after": {"kind": "crossfade", "curve": "linear", "frames": 48000}},
+      "schema_valid": true,
+      "semantic_error": "S3"
+    },
+    {
+      "name": "transition-over-ten-seconds",
+      "root": "sequence",
+      "set": {"/clips/0/transition_after": {"kind": "crossfade", "curve": "linear", "frames": 480001}},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "linear-crossfade",
+      "root": "sequence",
+      "set": {
+        "/clips": [
+          {
+            "id": "00000003-1111-4111-8111-111111111111",
+            "source_id": "00000001-1111-4111-8111-111111111111",
+            "start_frame": 0,
+            "end_frame": 1440001,
+            "gain": 1,
+            "transition_after": {"kind": "crossfade", "curve": "linear", "frames": 48000}
+          },
+          {
+            "id": "0000000a-1111-4111-8111-111111111111",
+            "source_id": "00000001-1111-4111-8111-111111111111",
+            "start_frame": 0,
+            "end_frame": 1440001,
+            "gain": 1,
+            "transition_after": {"kind": "cut", "frames": 0}
+          }
+        ],
+        "/frame_count": 2832002
+      },
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "triple-overlap",
+      "root": "sequence",
+      "set": {
+        "/clips": [
+          {
+            "id": "00000003-1111-4111-8111-111111111111",
+            "source_id": "00000001-1111-4111-8111-111111111111",
+            "start_frame": 0,
+            "end_frame": 1440001,
+            "gain": 1,
+            "transition_after": {"kind": "crossfade", "curve": "linear", "frames": 48000}
+          },
+          {
+            "id": "0000000b-1111-4111-8111-111111111111",
+            "source_id": "00000001-1111-4111-8111-111111111111",
+            "start_frame": 0,
+            "end_frame": 72000,
+            "gain": 1,
+            "transition_after": {"kind": "crossfade", "curve": "linear", "frames": 48000}
+          },
+          {
+            "id": "0000000a-1111-4111-8111-111111111111",
+            "source_id": "00000001-1111-4111-8111-111111111111",
+            "start_frame": 0,
+            "end_frame": 1440001,
+            "gain": 1,
+            "transition_after": {"kind": "cut", "frames": 0}
+          }
+        ],
+        "/frame_count": 2856002
+      },
+      "schema_valid": true,
+      "semantic_error": "S3"
+    },
+    {
+      "name": "stereo-only",
+      "root": "profile",
+      "set": {"/channels": 1},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "wrong-profile-duration",
+      "root": "profile",
+      "set": {"/frame_count": 1440000},
+      "schema_valid": true,
+      "semantic_error": "S4"
+    },
+    {
+      "name": "profile-owner-mismatch",
+      "root": "profile",
+      "set": {"/owner_account_id": "00000063-1111-4111-8111-111111111111"},
+      "schema_valid": true,
+      "semantic_error": "S4"
+    },
+    {
+      "name": "fixed-policy-extras",
+      "root": "profile",
+      "set": {"/settings/playback_policy": {"mode": "fixed", "maximum_minutes": 60}},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "policy-upper-bound",
+      "root": "profile",
+      "set": {"/settings/playback_policy/maximum_minutes": 61},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "profile-settings-mismatch",
+      "root": "profile",
+      "set": {"/settings/carrier_hz": 221},
+      "schema_valid": true,
+      "semantic_error": "S4"
+    },
+    {
+      "name": "gain-sum",
+      "root": "project",
+      "set": {"/settings/tone_gain": 0.4},
+      "schema_valid": true,
+      "semantic_error": "S5"
+    },
+    {
+      "name": "invalid-uuid",
+      "root": "project",
+      "set": {"/id": "no-id"},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "invalid-time",
+      "root": "project",
+      "set": {"/created_at": "yesterday"},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "flattened-profile-source",
+      "root": "sequence",
+      "set": {
+        "/sources/0": {
+          "id": "00000001-1111-4111-8111-111111111111",
+          "kind": "profile_background",
+          "asset_id": "00000002-1111-4111-8111-111111111111",
+          "frame_count": 172800000,
+          "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "profile_version_id": "0000000c-1111-4111-8111-111111111111"
+        }
+      },
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "missing-profile-provenance",
+      "root": "sequence",
+      "set": {"/sources/0/kind": "profile_background"},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "exact-whole-file-session",
+      "root": "session_length",
+      "set": {},
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "twenty-to-forty-minutes",
+      "root": "session_length",
+      "set": {
+        "/source_frame_count": 57600000,
+        "/selection": {"kind": "minutes", "minutes": 40},
+        "/target_frames": 115200000
+      },
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "shorter-selected-time",
+      "root": "session_length",
+      "set": {
+        "/source_frame_count": 172800000,
+        "/selection": {"kind": "minutes", "minutes": 1},
+        "/target_frames": 2880000
+      },
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "one-frame-session",
+      "root": "session_length",
+      "set": {"/source_frame_count": 1, "/target_frames": 1, "/end_fade_frames": 1},
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "played-over-budget",
+      "root": "session_length",
+      "set": {"/played_frames": 1440002},
+      "schema_valid": true,
+      "semantic_error": "S6"
+    },
+    {
+      "name": "wrong-session-budget",
+      "root": "session_length",
+      "set": {"/target_frames": 1440000},
+      "schema_valid": true,
+      "semantic_error": "S6"
+    },
+    {
+      "name": "fixed-policy-selected-time",
+      "root": "session_length",
+      "set": {
+        "/playback_policy": {"mode": "fixed"},
+        "/selection": {"kind": "minutes", "minutes": 1},
+        "/target_frames": 2880000
+      },
+      "schema_valid": true,
+      "semantic_error": "S6"
+    },
+    {
+      "name": "wrong-fade-budget",
+      "root": "session_length",
+      "set": {"/end_fade_frames": 1},
+      "schema_valid": true,
+      "semantic_error": "S6"
+    },
+    {
+      "name": "legacy-protocol-in-new-duration",
+      "root": "session_length",
+      "set": {"/protocol_version": "meditation-1"},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "sixty-one-minute-session",
+      "root": "session_length",
+      "set": {"/selection": {"kind": "minutes", "minutes": 61}},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "new-session-one-frame-over-hour",
+      "root": "session_length",
+      "set": {"/target_frames": 172800001},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "exact-gain-boundary",
+      "root": "project",
+      "set": {"/settings/tone_gain": 0.55, "/settings/background_gain": 0.4},
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "gain-boundary-over",
+      "root": "project",
+      "set": {"/settings/tone_gain": 0.5500000000001, "/settings/background_gain": 0.4},
+      "schema_valid": true,
+      "semantic_error": "S5"
+    },
+    {
+      "name": "mathematical-integer-frame",
+      "root": "sequence",
+      "set": {"/frame_count": 1440001.0},
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "blank-project-name",
+      "root": "project",
+      "set": {"/name": "   "},
+      "schema_valid": false,
+      "semantic_error": null
+    },
+    {
+      "name": "duplicate-source-id",
+      "root": "sequence",
+      "set": {
+        "/sources": [
+          {
+            "id": "00000001-1111-4111-8111-111111111111",
+            "kind": "asset",
+            "asset_id": "00000002-1111-4111-8111-111111111111",
+            "frame_count": 172800000,
+            "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          {
+            "id": "00000001-1111-4111-8111-111111111111",
+            "kind": "asset",
+            "asset_id": "00000002-1111-4111-8111-111111111111",
+            "frame_count": 172800000,
+            "checksum_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          }
+        ]
+      },
+      "schema_valid": true,
+      "semantic_error": "S1"
+    },
+    {
+      "name": "exact-hour-profile",
+      "root": "profile",
+      "set": {
+        "/frame_count": 172800000,
+        "/render_snapshot/recipe/frame_count": 172800000,
+        "/render_snapshot/recipe/clips/0/end_frame": 172800000
+      },
+      "schema_valid": true,
+      "semantic_error": null
+    },
+    {
+      "name": "profile-one-frame-over-hour",
+      "root": "profile",
+      "set": {"/frame_count": 172800001},
+      "schema_valid": false,
+      "semantic_error": null
+    }
+  ],
+  "mp3_probe": {
+    "ffmpeg_version": "n9.0.1",
+    "sample_rate_hz": 48000,
+    "channels": 2,
+    "encoder": "libmp3lame",
+    "bit_rate": 320000,
+    "write_xing": true,
+    "maximum_decoded_error_frames": 1152,
+    "observations": [
+      {
+        "master_frames": 1,
+        "decoded_frames": 47,
+        "decoded_error_frames": 46,
+        "container_frames": 47,
+        "bit_rate": "320000",
+        "container_error_frames": 46
+      },
+      {
+        "master_frames": 1440001,
+        "decoded_frames": 1440047,
+        "decoded_error_frames": 46,
+        "container_frames": 1440047,
+        "bit_rate": "320000",
+        "container_error_frames": 46
+      },
+      {
+        "master_frames": 57600001,
+        "decoded_frames": 57600047,
+        "decoded_error_frames": 46,
+        "container_frames": 57600047,
+        "bit_rate": "320000",
+        "container_error_frames": 46
+      },
+      {
+        "master_frames": 172800000,
+        "decoded_frames": 172800000,
+        "decoded_error_frames": 0,
+        "container_frames": 172800000,
+        "bit_rate": "320000",
+        "container_error_frames": 0
+      }
+    ],
+    "tagged_roundtrip_observations": [
+      {"master_frames": 1, "decoded_frames": 47, "restored_frames": 1, "tag": "1"},
+      {"master_frames": 1440001, "decoded_frames": 1440047, "restored_frames": 1440001, "tag": "1440001"},
+      {
+        "master_frames": 172799999,
+        "decoded_frames": 172799999,
+        "restored_frames": 172799999,
+        "tag": "172799999"
+      }
+    ]
+  }
+}
